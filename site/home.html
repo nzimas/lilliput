@@ -1,0 +1,147 @@
+<div class="hero">
+  <h1>A firmware for the M-VAVE FM-1 for electroacoustic experimentation, live ambient music and sound exploration</h1>
+  <div class="cta">
+    <a class="btn primary" href="install.html">Install via browser</a>
+    <a class="btn" href="manual.html">Read the manual</a>
+  </div>
+</div>
+
+<a class="sibling" href="https://nzimas.github.io/tonitor-smk37/" style="display:flex;align-items:center;gap:18px;margin:30px 0 0;padding:16px 20px;text-decoration:none;color:var(--fg);background:var(--bg2);border:2px solid var(--line);border-left:6px solid #c4f25a;border-radius:10px">
+  <img src="https://nzimas.github.io/tonitor-smk37/assets/mark.svg" alt="" width="56" height="56" style="flex:none;border-radius:10px">
+  <span><span style="display:block;color:#c4f25a;font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase">Also for the M-VAVE SMK-37 Pro</span>
+    <span style="display:block;font-size:20px;font-weight:700;line-height:1.35">Tonitor for the SMK-37 Pro keyboard has its own site, installer and manual →</span></span>
+</a>
+
+<div class="demo" data-video="Ck0gDlUYx4M">
+  <img src="assets/demo-poster.jpg" alt="" width="1600" height="900">
+  <button class="demo-play" type="button" aria-label="Play the demo video (YouTube)">
+    <span class="demo-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span>
+    <span class="demo-label">Watch the demo</span>
+  </button>
+</div>
+
+<h2>Features</h2>
+<dl class="features">
+  <dt>Six tracks</dt>
+  <dd>Each with its own engine, sound, octave, level and pan.</dd>
+  <dt>Voices</dt>
+  <dd>Twelve voices shared by all tracks: each track takes as many as its notes need.</dd>
+  <dt>Eight engines</dt>
+  <dd>FM, ANIMA, CALIGULA, RUSSOLO, DRUID, BAYAREA, HIVE and OBRADOR, chosen per track (described <a href="#engines">below</a>).</dd>
+  <dt>Sound generation</dt>
+  <dd>HOME generates a new sound for the track from the engine's families of sounds.</dd>
+  <dt>Generative paths</dt>
+  <dd>Per track, new sounds can be biased towards ambient (darker, slower) or experimental (noisier, harder).</dd>
+  <dt>Macros</dt>
+  <dd>With EDIT on, the four knobs adjust four engine-specific parameters of the current sound.</dd>
+  <dt>Modulation</dt>
+  <dd>Per track, two LFOs and four slots routing an LFO, velocity, key or a random value to the sound's macros, filter,
+    grains, crush, drive, sends, level, pan or the LFOs' rates. New sounds of the slow, sustained families often come
+    with modulation of their own; SHIFT + SEQ randomises a track's modulation.</dd>
+  <dt>Envelope</dt>
+  <dd>Per track, the sound's amplitude envelope shown as attack, decay, sustain and release, and set with the four knobs.</dd>
+  <dt>Copy and paste</dt>
+  <dd>Holding a track's button copies its sound and loops; holding another's pastes them there.</dd>
+  <dt>Loopers</dt>
+  <dd>One per track, up to ten overdubs, each with its own length; each can be switched in and out. Per track: played forwards, in reverse, forwards and backwards alternately or in a random note order,
+    at half, normal or double speed; transposed by steps of the scale (per track and all together).</dd>
+  <dt>BALLSY</dt>
+  <dd>A physics sequencer per track: one to eight balls bounce in a box; each wall hit plays a note of the scale, one octave per wall,
+    with a random level and length. Knobs set the number of balls, their speed, the octaves and how unsteady
+    their motion is.</dd>
+  <dt>BRICKLAYER</dt>
+  <dd>A step sequencer per track, built a note at a time: the notes spread evenly over up to 32 steps, with rate,
+    harmony and variation controls, and the loops' direction and speed keys.</dd>
+  <dt>Sequencers and looper together</dt>
+  <dd>A track running BALLSY or BRICKLAYER keeps its looper: more material can be played on the keys and
+    recorded over the sequencer, and both play together.</dd>
+  <dt>Play along</dt>
+  <dd>Other tracks play along with the one being played: REACT improvises from its phrases, SHADOW follows it from
+    behind at its own pace, ARPEGGIO breaks its chords into arpeggios. On SEQ's fourth page.</dd>
+  <dt>Varied loops</dt>
+  <dd>Per track, the loops can play each note at a random level and for a random length, and now and then change
+    or add notes: echoes, harmonies, octave jumps, notes that were not recorded, grace notes, ratchets, strummed
+    chords, drops and slight lateness, all in the scale; and their pace can undulate, halt, burst and swoop.</dd>
+  <dt>Latching</dt>
+  <dd>Notes held when SHIFT is pressed keep sounding after the keys are released.</dd>
+  <dt>Filter, grains, crush</dt>
+  <dd>A resonant low/high-pass filter, a granulator and a bit-depth and sample-rate reducer on every track.</dd>
+  <dt>Distortion</dt>
+  <dd>On every track, before the delay and reverb: two gain stages with odd and even harmonics, the output level matched to the dry signal.</dd>
+  <dt>Delay</dt>
+  <dd>A master delay (up to 2 s) before the reverb, with a send from every track.</dd>
+  <dt>Reverb</dt>
+  <dd>A plate reverb (Dattorro) with a send from every track.</dd>
+  <dt>USB audio</dt>
+  <dd>A class-compliant audio input for a computer, phone or tablet, no driver: the stereo mix, or the six tracks
+    each on its own channel to record them apart (GLOBAL SETUP), at 44.1 or 48 kHz.</dd>
+  <dt>Scales</dt>
+  <dd>The white keys play a scale from any root; at start, a scale and root drawn at random, and again with SHIFT +
+    black key 1. The keys that play the root glow.</dd>
+  <dt>Presets</dt>
+  <dd>64 per engine; a stored sound can be loaded on any track.</dd>
+  <dt>Snapshots</dt>
+  <dd>16 per session, each the whole state of the machine at a moment: every track's sounds, settings, latched notes,
+    sequencer notes and loops (a loop and its overdub stored apart come back apart), the effects, the scale and PLAY
+    ALONG. Recalled at once or over a morph of up to 30 s: values glide, pitch changes at once, never glides.</dd>
+  <dt>Sessions</dt>
+  <dd>64 slots holding every track, sound, loop, latched note and setting, the reverb included, and the session's
+    16 snapshots.</dd>
+  <dt>Accessible</dt>
+  <dd>Few words, very large type, high contrast, a colour per track.</dd>
+</dl>
+
+<h2 id="engines">Engines</h2>
+
+<h3>FM</h3>
+<p>Six-operator FM. Patches are generated from twenty-five families: bells, gongs, drones, noise, impacts,
+  glissandi, plucks and stranger sounds.</p>
+<p>Macros: <b>BRIGHTNESS</b>, <b>DETUNE</b>, <b>SATURATION</b>, <b>MOTION</b>.</p>
+
+<h3>ANIMA</h3>
+<p>A lo-fi synthesizer: wavetables, FM, grains, noise, filters and a resonator, all moved by a simulated hand
+  while a key is held. Twenty-two kinds.</p>
+<p>Macros: <b>TONE</b>, a macro for the design's main element, <b>RESONATOR</b>, <b>MOTION</b>.</p>
+
+<h3>CALIGULA</h3>
+<p>Eight cross-modulating oscillators with feedback, delays and a simulated hand on the sensors. One voice per
+  track; ten kinds.</p>
+<p>Macros: <b>WAVEFORM</b>, <b>MOD DEPTH</b>, <b>FEEDBACK</b>, <b>TOUCHES</b>.</p>
+
+<h3>RUSSOLO</h3>
+<p>Noise, logic and broken buffers, crushed and sample-held. One voice per track; seventeen kinds.</p>
+<p>Macros: two per kind, <b>CRUSH</b>, <b>RANDOMNESS</b>.</p>
+
+<h3>DRUID</h3>
+<p>Strings and resonant bodies: a string, sympathetic strings and a modal resonator, plucked, struck, bowed or
+  rattled. Ten kinds.</p>
+<p>Macros: <b>STRUCTURE</b>, <b>BRIGHTNESS</b>, <b>DAMPING</b>, <b>POSITION</b>.</p>
+
+<h3>BAYAREA</h3>
+<p>A West Coast voice: a morphing oscillator, through-zero FM, a wavefolder and a low-pass gate. Six kinds.</p>
+<p>Macros: <b>SHAPE</b>, <b>FOLDS</b>, <b>FM</b>, <b>DECAY</b>.</p>
+
+<h3>HIVE</h3>
+<p>A swarm of seven oscillators per voice: detuned, stacked or on inharmonic partials, through a moving filter.
+  Twelve kinds, from leads and pads to non-melodic textures.</p>
+<p>Macros: <b>DETUNE</b>, <b>MOVEMENT</b>, <b>MIX</b>, <b>CUTOFF</b>.</p>
+
+<h3>OBRADOR</h3>
+<p>An analog polysynth after the Oberheim SEM: two oscillators a voice and a second, detuned voice card, the SEM's
+  filter morphing from low-pass through notch to high-pass, analog envelopes and drift. Ten kinds, from string pads
+  and brass to sync leads and bells.</p>
+<p>Macros: <b>CUTOFF</b>, <b>MORPH</b>, <b>RESONANCE</b>, <b>DETUNE</b>.</p>
+
+<h2>Install</h2>
+<p>The installer runs in a desktop Chrome, Edge or Opera and talks to the FM-1 over USB MIDI. Nothing to
+  download, nothing uploaded.</p>
+<ol class="steps">
+  <li>Connect the FM-1 with a USB <b>data</b> cable and switch it on.</li>
+  <li>Open the <a href="install.html">installer</a>, read the warning and allow MIDI access.</li>
+  <li>Press Install and leave the FM-1 connected until it restarts into Tonitor.</li>
+</ol>
+<div class="warn">
+  <p><b>Tonitor is unofficial.</b> It is not made, endorsed or supported by M-VAVE, and installing it
+    <b>may void any warranty that applies to your FM-1</b>. You install it at your own risk; see the
+    <a href="https://github.com/nzimas/tonitor#disclaimer">disclaimer</a>.</p>
+</div>
