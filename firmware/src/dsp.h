@@ -38,6 +38,28 @@ enum { PATH_OPEN, PATH_AMBIENT, PATH_EXP, PATH_N };
 #define MAC_MAX 64
 #define NMAC 4u
 
+/* fill and copy for the RAM code (FAST may not call libc's, in the flash): fzero any n bytes, fcopy n a multiple of 4 */
+AINL void fzero(void *d, uint32_t n)
+{
+    uint8_t *c = (uint8_t *)d;
+    while (n--)
+        *c++ = 0;
+}
+AINL void fcopy(void *d, const void *s, uint32_t n)
+{
+    uint32_t *w = (uint32_t *)d;
+    const uint32_t *r = (const uint32_t *)s;
+    for (n >>= 2; n; n--)
+        *w++ = *r++;
+}
+AINL int fsame(const void *a, const void *b, uint32_t n)   /* (memcmp's "equal", for the RAM code) */
+{
+    const uint8_t *x = (const uint8_t *)a, *y = (const uint8_t *)b;
+    while (n--)
+        if (*x++ != *y++)
+            return 0;
+    return 1;
+}
 AINL int32_t clampi(int32_t x, int32_t lo, int32_t hi) { return x < lo ? lo : x > hi ? hi : x; }
 AINL int32_t mulq15(int32_t a, int32_t b) { return (int32_t)(((int64_t)a * b) >> 15); }
 AINL int32_t mulq16(int32_t a, int32_t b) { return (int32_t)(((int64_t)a * b) >> 16); }

@@ -24,6 +24,12 @@
  *               sp_tick(on, ms)                         the screen's changes spoken (on: the setting)
  *   audio:      vo_block(v, n)                          n samples of voice at 44100 Hz (Q15), and the duck */
 #include <stdint.h>
+#ifndef FAST                     /* (built alone, as tests/host/voice_demo.c does: no dsp.h, no RAM code) */
+#define FAST
+#endif
+#ifndef AINL
+#define AINL static inline __attribute__((always_inline))
+#endif
 
 #define VO_FS 22050u
 #define VO_FRAME 64u                /* samples per parameter frame: 2.9 ms */
@@ -152,12 +158,12 @@ static const int16_t VO_COS[66] = {
     25329, 24811, 24279, 23731, 23170, 22594, 22005, 21403, 20787, 20159, 19519, 18868, 18204, 17530,
     16846, 16151, 15446, 14732, 14010, 13279, 12539, 11793, 11039, 10278, 9512, 8739, 7962, 7179, 6393,
     5602, 4808, 4011, 3212, 2410, 1608, 804, 0, -804};
-static int32_t vo_qcos(uint32_t a)  /* a: 0..16384 (a quarter turn) */
+AINL int32_t vo_qcos(uint32_t a)  /* a: 0..16384 (a quarter turn) */
 {
     uint32_t i = a >> 8, f = a & 0xFFu;
     return VO_COS[i] + (((VO_COS[i + 1] - VO_COS[i]) * (int32_t)f) >> 8);
 }
-static int32_t vo_cos(uint32_t hz)  /* cos(2 pi hz / VO_FS), Q15 */
+AINL int32_t vo_cos(uint32_t hz)  /* cos(2 pi hz / VO_FS), Q15 */
 {
     uint32_t a = (uint32_t)(((uint64_t)hz * 194783u) >> 16) & 0xFFFFu;   /* a turn = 65536 */
     uint32_t q = a >> 14, w = a & 0x3FFFu;
@@ -170,7 +176,7 @@ static int32_t vo_cos(uint32_t hz)  /* cos(2 pi hz / VO_FS), Q15 */
     return vo_qcos(16384u - w);
 }
 /* a pole pair's coefficients for a centre and a bandwidth, Q28 */
-static void vo_coef(uint32_t hz, uint32_t bw, int32_t *b, int32_t *c)
+static FAST void vo_coef(uint32_t hz, uint32_t bw, int32_t *b, int32_t *c)
 {
     int32_t x = (int32_t)(bw * 38246u);                                  /* pi bw / fs, Q28 */
     int32_t x2 = (int32_t)(((int64_t)x * x) >> 28), x3 = (int32_t)(((int64_t)x2 * x) >> 28);
@@ -178,12 +184,12 @@ static void vo_coef(uint32_t hz, uint32_t bw, int32_t *b, int32_t *c)
     *b = (int32_t)(((int64_t)r * vo_cos(hz)) >> 14);                      /* 2 r cos */
     *c = -(int32_t)(((int64_t)r * r) >> 28);
 }
-static void vo_res_set(vo_res_t *r, uint32_t hz, uint32_t bw)
+AINL void vo_res_set(vo_res_t *r, uint32_t hz, uint32_t bw)
 {
     vo_coef(hz, bw, &r->b, &r->c);
     r->a = (1 << 28) - r->b - r->c;                                       /* gain 1 at 0 Hz */
 }
-static inline int32_t vo_res(vo_res_t *r, int32_t x)
+AINL int32_t vo_res(vo_res_t *r, int32_t x)
 {
     int32_t y = (int32_t)(((int64_t)r->a * x + (int64_t)r->b * r->y1 + (int64_t)r->c * r->y2) >> 28);
     r->y2 = r->y1;
@@ -192,20 +198,20 @@ static inline int32_t vo_res(vo_res_t *r, int32_t x)
 }
 
 /* ----------------------------------------------- phonemes to segments --- */
-static int vo_kind(uint32_t ph) { return ph < P_N_ ? VO_PH[ph].kind : K_SIL; }
-static int vo_son(uint32_t ph)   /* the voiced sounds a transition can move through */
+AINL int vo_kind(uint32_t ph) { return ph < P_N_ ? VO_PH[ph].kind : K_SIL; }
+AINL int vo_son(uint32_t ph)   /* the voiced sounds a transition can move through */
 {
     int k = vo_kind(ph);
     return k == K_VOW || k == K_DIPH || k == K_LIQ || k == K_NAS;
 }
 /* the SPEECH RATE, 0 .. VO_NRATE - 1 (the sounds from here on) */
 static void vo_rate(uint32_t i) { vo_pct = VO_RATE[i < VO_NRATE ? i : 1u]; }
-static uint8_t vo_frames(uint32_t ms)
+AINL uint8_t vo_frames(uint32_t ms)
 {
     uint32_t f = (ms * vo_pct * 345u / 100u + 500u) / 1000u + 1u;
     return (uint8_t)(f > 255u ? 255u : f);
 }
-static vo_seg_t *vo_add(void)
+static FAST vo_seg_t *vo_add(void)
 {
     vo_seg_t *s = &vce.sg[(vce.sh + vce.sn) % VO_NSEG];
     const uint16_t *pf = vce.sn ? vce.sg[(vce.sh + vce.sn - 1u) % VO_NSEG].f : vce.pf;
@@ -225,18 +231,18 @@ static vo_seg_t *vo_add(void)
     vce.sn++;
     return s;
 }
-static void vo_targets(vo_seg_t *s, const vo_ph_t *p, int glide)
+static FAST void vo_targets(vo_seg_t *s, const vo_ph_t *p, int glide)
 {
     s->f[0] = glide ? p->g1 : p->f1;
     s->f[1] = glide ? p->g2 : p->f2;
     s->f[2] = glide ? p->g3 : p->f3;
 }
-static uint32_t vo_peek(uint32_t k)   /* the k-th byte not yet read (VO_NONE: none) */
+AINL uint32_t vo_peek(uint32_t k)   /* the k-th byte not yet read (VO_NONE: none) */
 {
     return vo_r + k < vo_w ? vo_q[(vo_r + k) % VO_Q] : VO_NONE;
 }
 /* the next phoneme from the ring, made into one to three segments (room for three: vce.sn <= VO_NSEG - 3) */
-static void vo_expand(void)
+static FAST void vo_expand(void)
 {
     uint32_t b = vo_peek(0), c = b & 0x3Fu, st = b >> 6, nb = vo_peek(1), next = nb & 0x3Fu, prev = vce.prevph;
     const vo_ph_t *p;
@@ -355,10 +361,10 @@ static void vo_expand(void)
 }
 
 /* ------------------------------------------------------- the frames --- */
-static int32_t vo_lerp(int32_t a, int32_t b, int32_t num, int32_t den) { return den <= 0 ? b : a + (b - a) * num / den; }
+AINL int32_t vo_lerp(int32_t a, int32_t b, int32_t num, int32_t den) { return den <= 0 ? b : a + (b - a) * num / den; }
 /* the targets for this frame: each formant moves from the last segment's to this one's over tin frames, centred
  * on the boundary, or after it for a release (fwd) */
-static void vo_frame(void)
+static FAST void vo_frame(void)
 {
     const vo_seg_t *s = &vce.sg[vce.sh], *nx = vce.sn > 1u ? &vce.sg[(vce.sh + 1u) % VO_NSEG] : s;
     int32_t k = (int32_t)vce.k, n = s->n, f[3], hin, hout, nz, pz, nnz;
@@ -414,13 +420,13 @@ static void vo_frame(void)
         vce.sn--;
     }
 }
-static inline int32_t vo_rand(void)   /* white noise, about +-16384 */
+AINL int32_t vo_rand(void)   /* white noise, about +-16384 */
 {
     vce.noise = vce.noise * 1664525u + 1013904223u;
     return (int32_t)vce.noise >> 17;
 }
 /* one sample at 22050 Hz, Q15 */
-static int32_t vo_sample(void)
+static FAST int32_t vo_sample(void)
 {
     int32_t g = 0, x, fr = 0, y;
     uint32_t i, ph;
@@ -484,7 +490,7 @@ static int32_t vo_sample(void)
 }
 
 /* (audio) n samples at 44100 Hz into v, Q15; the duck follows */
-static void vo_block(int32_t *v, uint32_t n)
+static FAST void vo_block(int32_t *v, uint32_t n)
 {
     uint32_t i;
     int32_t target;

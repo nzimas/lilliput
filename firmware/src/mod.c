@@ -35,16 +35,16 @@ static struct {
     int16_t off[MD_N];                           /* each destination's offset, its units */
 } mst[NCH];
 static uint32_t mod_rs = 0x9E3779B9u;
-static int32_t mod_rand(void)                    /* -Q15 .. Q15 */
+AINL int32_t mod_rand(void)                    /* -Q15 .. Q15 */
 {
     mod_rs = mod_rs * 1664525u + 1013904223u;
     return (int32_t)(mod_rs >> 16) - 32768;
 }
-static uint32_t mod_inc(int32_t rate)            /* 0.01 Hz x 2000^(rate / 100), a block's phase step */
+AINL uint32_t mod_inc(int32_t rate)            /* 0.01 Hz x 2000^(rate / 100), a block's phase step */
 {
     return (uint32_t)(((uint64_t)31166u * exp2_q16(clampi(rate, 0, 100) * 7189)) >> 16);
 }
-static int mod_on(const mod_t *m)                /* (any slot in use) */
+AINL int mod_on(const mod_t *m)                /* (any slot in use) */
 {
     uint32_t i;
     for (i = 0; i < NMSLOT; i++)
@@ -53,13 +53,13 @@ static int mod_on(const mod_t *m)                /* (any slot in use) */
     return 0;
 }
 /* the block: channel c's onset watched, its LFOs a step on, the offsets worked out */
-static void mod_block(uint32_t c)
+static FAST void mod_block(uint32_t c)
 {
     const mod_t *m = &par.ch[c].mod;
     uint32_t k, i;
     int32_t ro[2] = {mst[c].off[MD_RATE1], mst[c].off[MD_RATE2]};   /* (the LFOs' rates as the last block moved them) */
     int32_t lv = ch_meter[c];
-    memset(mst[c].off, 0, sizeof mst[c].off);
+    fzero(mst[c].off, sizeof mst[c].off);
     /* an onset: loud after 30 ms or more of quiet */
     if (lv > 1200 && !mst[c].loud) {
         mst[c].loud = 1;
@@ -144,7 +144,7 @@ static void mod_block(uint32_t c)
     }
 }
 /* channel c's parameters as the sound has them now: the panel's, moved by the modulation */
-static void mod_apply(uint32_t c, ch_par_t *e, slot_par_t *sl)
+static FAST void mod_apply(uint32_t c, ch_par_t *e, slot_par_t *sl)
 {
     const int16_t *o = mst[c].off;
 #define MV(f, d, lo, hi) do { if (o[d]) (f) = (int16_t)clampi((f) + o[d], lo, hi); } while (0)

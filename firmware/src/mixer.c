@@ -275,7 +275,7 @@ static const int16_t CHORD_CENTS[NCHORD][6] = {
     {0, 120, 270, 540, 670, 785},       {0, 1200, 1902, 2400, 2786, 3102}};
 /* a choice among the slot's parameters (its count), or 0: a value 0 .. PMAX. The choices are steps -- and out of the
  * modulation's reach */
-static int32_t fx_pcount(int32_t fx, int which)
+AINL int32_t fx_pcount(int32_t fx, int which)
 {
     switch (fx) {
     case FX_RESON: return which ? NCHORD : 48;   /* ROOT: C2 .. B5, a semitone a step; CHORD */
@@ -320,30 +320,30 @@ static const uint16_t VOWEL[5][2] = {{800, 1150}, {400, 1700}, {300, 2300}, {450
 /* ------------------------------------------------------- small helpers --- */
 AINL int32_t sat16(int32_t x) { return x > 32767 ? 32767 : x < -32768 ? -32768 : x; }
 /* dB in tenths -> a gain, Q15 (up to +48 dB: 8.2e6) */
-static int32_t db10_q15(int32_t db10)
+AINL int32_t db10_q15(int32_t db10)
 {
     if (db10 < -1200)
         return 0;
     return (int32_t)(exp2_q16(db10 * 1089) >> 1);   /* log2 = dB / 6.0206: (dB x 10) x 65536 / 60.206 = x 1088.5 */
 }
-static int32_t lvl_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(v - LVL_0DB); }               /* LEVEL */
-static int32_t snd_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(-600 + v * 660 / PMAX); }   /* SEND, RETURN */
+AINL int32_t lvl_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(v - LVL_0DB); }               /* LEVEL */
+AINL int32_t snd_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(-600 + v * 660 / PMAX); }   /* SEND, RETURN */
 static int32_t lvl_db10(int32_t v) { return v - LVL_0DB; }
 static int32_t snd_db10(int32_t v) { return -600 + v * 660 / PMAX; }
-static int32_t main_db10(int32_t v) { return -300 + v * 600 / PMAX; }        /* the main level: -30 .. +30 dB */
+AINL int32_t main_db10(int32_t v) { return -300 + v * 600 / PMAX; }        /* the main level: -30 .. +30 dB */
 /* a frequency on a log scale: lo * 2^(v / PMAX * oct) */
-static int32_t hz_log(int32_t v, int32_t lo, int32_t oct_q8)
+AINL int32_t hz_log(int32_t v, int32_t lo, int32_t oct_q8)
 {
     return (int32_t)(((uint64_t)(uint32_t)lo * exp2_q16(v * oct_q8 / PMAX * 256)) >> 16);
 }
-static int32_t mid_hz(int32_t v) { return hz_log(v, 30, 2319); }            /* 30 Hz .. 16 kHz (9.06 octaves) */
-static int32_t shelf_db10(int32_t v) { return (v - 500) * 150 / 500; }      /* -15 .. +15 dB */
-static int32_t hcut_hz(int32_t v) { return hz_log(v, 300, 1552); }          /* 300 Hz .. 20 kHz (6.06 octaves) */
-static int32_t lcut_hz(int32_t v) { return hz_log(PMAX - v, 20, 1925); }    /* 3 kHz .. 20 Hz (7.2 octaves) */
-static int32_t peak_db10(int32_t v) { return (v - 500) * 180 / 500; }       /* -18 .. +18 dB */
-static int32_t bw_q12(int32_t v) { return hz_log(v, 2048, 1280); }          /* Q 0.5 .. 16 (5 octaves), Q12 */
-static uint32_t lim_len(int32_t v) { return (uint32_t)hz_log(v, 4, 2202); } /* 4 .. ~1600 samples */
-static int32_t ovl_q15(int32_t v) { return hz_log(v, 16384, 1280); }        /* 0.5 .. 16 x full scale */
+AINL int32_t mid_hz(int32_t v) { return hz_log(v, 30, 2319); }            /* 30 Hz .. 16 kHz (9.06 octaves) */
+AINL int32_t shelf_db10(int32_t v) { return (v - 500) * 150 / 500; }      /* -15 .. +15 dB */
+AINL int32_t hcut_hz(int32_t v) { return hz_log(v, 300, 1552); }          /* 300 Hz .. 20 kHz (6.06 octaves) */
+AINL int32_t lcut_hz(int32_t v) { return hz_log(PMAX - v, 20, 1925); }    /* 3 kHz .. 20 Hz (7.2 octaves) */
+AINL int32_t peak_db10(int32_t v) { return (v - 500) * 180 / 500; }       /* -18 .. +18 dB */
+AINL int32_t bw_q12(int32_t v) { return hz_log(v, 2048, 1280); }          /* Q 0.5 .. 16 (5 octaves), Q12 */
+AINL uint32_t lim_len(int32_t v) { return (uint32_t)hz_log(v, 4, 2202); } /* 4 .. ~1600 samples */
+AINL int32_t ovl_q15(int32_t v) { return hz_log(v, 16384, 1280); }        /* 0.5 .. 16 x full scale */
 
 /* the zero-delay state-variable filter (dsp.h's), one step giving all three outputs: the high-pass returned,
  * the band-pass (v1) and low-pass (v2) through the pointers */
@@ -369,11 +369,11 @@ AINL int32_t line_rd(const int16_t *b, uint32_t w, int32_t d)
 /* ------------------------------------------ the parameters, made usable --- */
 static ch_par_t eff_ch[NCH];                     /* (each channel's parameters as the sound has them: modulated) */
 static slot_par_t eff_slot[NSLOT];
-static void ch_coef(uint32_t c)
+static FAST void ch_coef(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
     ch_par_t now = eff_ch[c];
-    if (!k->fresh && !memcmp(&now, &k->seen, sizeof now))
+    if (!k->fresh && fsame(&now, &k->seen, sizeof now))
         return;
     k->fresh = 0;
     k->src = (uint8_t)clampi(now.src, 0, SRC_N - 1);
@@ -439,12 +439,12 @@ static void ch_coef(uint32_t c)
     k->seen = now;
 }
 
-static void slot_coef(uint32_t s)
+static FAST void slot_coef(uint32_t s)
 {
     slot_rt_t *k = &slr[s];
     slot_par_t now = eff_slot[s];
     int32_t p1, p2;
-    if (!k->fresh && !memcmp(&now, &k->seen, sizeof now))
+    if (!k->fresh && fsame(&now, &k->seen, sizeof now))
         return;
     if (!k->fresh && k->fx != (uint8_t)clampi(now.fx, 0, FX_N - 1)) {   /* another effect: its line from silence */
         uint32_t i;
@@ -1142,11 +1142,11 @@ static int32_t ost_l[CTL], ost_r[CTL], ost_r1[CTL], ost_r2[CTL];   /* (the last 
 static int32_t oout_l[CTL], oout_r[CTL];                            /* (the stage's output) */
 static int32_t rv_in[CTL], rv_l[CTL], rv_r[CTL];
 
-static void out_coef(void)
+static FAST void out_coef(void)
 {
     out_rt_t *k = &outr;
     out_par_t now = par.out;
-    if (!k->fresh && !memcmp(&now, &k->seen, sizeof now))
+    if (!k->fresh && fsame(&now, &k->seen, sizeof now))
         return;
     k->ft = (uint8_t)clampi(now.ftype, 0, FT_N - 1);
     if (k->ft == FT_SHELF) {
@@ -1263,7 +1263,7 @@ static volatile uint8_t rhy_reset = 1;           /* (the main loop: from the top
 static volatile uint32_t rhy_beat;               /* the beats counted (the lights) */
 static uint32_t rhy_bph;
 static rnd_t rhy_r = {0x2468ACE1u};
-static void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t inc)
+static FAST void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t inc)
 {
     uint32_t sb = inc ? 0xFFFFFFFFu / inc : 1000u, g = L->gate * (uint32_t)(par.rhy.gscale ? par.rhy.gscale : 50) / 50u;
     lrt[c].env = lrt[c].lvl = accent ? Q15 : 21000;
@@ -1280,7 +1280,7 @@ static void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t inc)
     else if (L->mode == RM_ACCENT)
         rhy_acc[c] = accent ? Q15 : 20000;
 }
-static void rhythm_block(void)
+static FAST void rhythm_block(void)
 {
     uint32_t c, bpm = (uint32_t)clampi(par.rhy.bpm, 10, 500);
     if (!par.rhy.on) {
@@ -1372,7 +1372,7 @@ static void rhythm_block(void)
         rhy_acc[c] -= rhy_acc[c] >> 5;
 }
 
-static void ch_gains(uint32_t c)
+static FAST void ch_gains(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
     const ch_par_t *p = &k->seen;
@@ -1410,7 +1410,7 @@ static uint32_t host_cost_clock;
 #endif
 #define BLK_TICKS ((uint32_t)CTL * 1000000u / FS * 24u)   /* a block's time, in TIMER4's ticks (24 a microsecond) */
 /* above half scale, a soft knee into a ceiling at full scale */
-static inline int32_t ceiling(int32_t x)
+AINL int32_t ceiling(int32_t x)
 {
     int32_t a = absi(x);
     if (a <= Q15 / 2)
@@ -1419,7 +1419,7 @@ static inline int32_t ceiling(int32_t x)
     return x < 0 ? -a : a;
 }
 static int32_t vv[CTL];
-static void mix_block(int32_t *out)
+static FAST void mix_block(int32_t *out)
 {
     uint32_t i, c, t0 = COST_NOW_(), t1;
     int any1 = 0, voice;
@@ -1453,10 +1453,10 @@ static void mix_block(int32_t *out)
         for (i = 0; i < CTL; i++)
             oout_l[i] = oout_r[i] = 0;
     out_ticks = any1 ? 0u : COST_NOW_() - t1;
-    memcpy(ost_l, raw_l, sizeof ost_l);          /* (this block's raw mix: the stage's next) */
-    memcpy(ost_r, raw_r, sizeof ost_r);
-    memcpy(ost_r1, raw_r1, sizeof ost_r1);
-    memcpy(ost_r2, raw_r2, sizeof ost_r2);
+    fcopy(ost_l, raw_l, sizeof ost_l);          /* (this block's raw mix: the stage's next) */
+    fcopy(ost_r, raw_r, sizeof ost_r);
+    fcopy(ost_r1, raw_r1, sizeof ost_r1);
+    fcopy(ost_r2, raw_r2, sizeof ost_r2);
     for (c = 0; c < NCH; c++) {                  /* the meters */
         ch_rt_t *k = &chr[c];
         ch_meter[c] = k->pk > ch_meter[c] ? k->pk : ch_meter[c] - (ch_meter[c] >> 5);

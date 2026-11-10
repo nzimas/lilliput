@@ -38,7 +38,7 @@ CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-fu
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
 PRODUCT = "FM-1_800"                # package identity (the same for every build)
-VERSION = "6"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
+VERSION = "7"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
 
 
 def toolchain():
@@ -212,6 +212,41 @@ def check(img, syms, dis, rt):
         errors.append("RAM region overflow")
     if 0x54000 - pool < 8192:
         errors.append(f"pool headroom {0x54000 - pool} B < 8192 B")
+    # The audio's every-block path runs from RAM (FAST), never through the flash's cache. Build 5 had mix_block
+    # (the coefficients, the modulation, the rhythm: 11 KiB) in the flash: on the FM-1 the render took the whole
+    # half, CPU0 sat at ~100 %, and USB, served between renders, never came up. What the render calls each block,
+    # from fm1_alnk0_irq down, must be in RAM -- but for the few tiny flash functions below
+    ram_lo, ram_hi = 0x01C00000, 0x01C07F00
+    funcs, calls, cur = {}, {}, None
+    for mm in re.finditer(r"^([0-9a-f]{8}) \S+\s+F \S+\s+([0-9a-f]+) (\S+)$", syms, re.M):
+        funcs[mm.group(3)] = int(mm.group(1), 16)
+    for ln in dis.splitlines():
+        mm = re.match(r"^([A-Za-z_][\w.]*):\s*$", ln)
+        if mm:
+            cur = mm.group(1)
+            calls.setdefault(cur, set())
+            continue
+        mm = cur and re.search(r"\bcall\s+-?\d+\s+<([A-Za-z_][\w.]*)", ln)
+        if mm:
+            calls[cur].add(mm.group(1))
+    allowed = {"memcpy", "memset", "midi_main_drain", "fm1_core1_stop", "fm1_core1_bar_set"}
+    seen, todo = set(), ["mix_block"]
+    while todo:
+        f = todo.pop()
+        if f in seen or f in allowed:
+            continue
+        seen.add(f)
+        todo += calls.get(f, ())
+    if "mix_block" not in funcs:
+        errors.append("no mix_block in the symbols")
+    flash = sorted(f for f in seen if not ram_lo <= funcs.get(f, 0) < ram_hi)
+    if flash:
+        errors.append(f"the audio's every-block path calls into the flash: {', '.join(flash[:8])} (make them FAST, "
+                      f"or AINL if the main loop calls them too)")
+    ft_end = sym("_ft_end")
+    notes.append(f"audio code in RAM, {ft_end - ram_lo} B of {ram_hi - ram_lo}")
+    if ram_hi - ft_end < 1024:
+        errors.append(f"RAM code headroom {ram_hi - ft_end} B < 1024 B")
     return errors, notes
 
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## Build 7 (2026-11-10)
+
+- Fixes builds 5 and 6 coming up without USB (nothing reached the FM-1, not even the installer; UBOOT was the way
+  back). The every-block part of the mixer (the coefficients, the modulation, the rhythm, the screen reader's voice,
+  ~12 KiB) ran from the flash, through its small cache; as it grew, the render filled CPU0 (~100 %) and USB, served
+  between renders, never started. It runs from RAM now, as Tonitor's renders do. The sound is unchanged, bit for bit.
+- USB can no longer be shut out: if the renders leave it no gap for 2 ms, it is served inside one.
+- The build fails if anything the render calls each block is left in the flash, or the RAM for code runs low.
+- Includes build 6 (the RHYTHM), never installed.
+
 ## Build 6 (2026-11-10)
 
 - The RHYTHM, stage one: a lane a channel (up to 32 steps, eight step lengths, accents, gate, depth, chance, rolls,

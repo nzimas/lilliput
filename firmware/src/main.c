@@ -19,6 +19,7 @@ static struct {
     uint8_t over;                /* bit k: the half k halves ago was over 90 % */
 } dbg;
 static volatile uint32_t t5_nested_ticks;
+static uint32_t usb_polled, usb_nested_polls;      /* (TIMER5: the last usb_poll; those run inside a render) */
 
 
 void fm1_alnk0_irq(void)         /* via isr_alnk0 (hal/fm1_isr.S) */
@@ -109,11 +110,22 @@ void fm1_timer5_irq(void)
                                                   * clock and the host's drift (build 62) */
 #endif
     if (dbg.in_audio) {
+        /* (owed stays: usb_poll runs after the render, as before -- unless the renders leave it no gap for 2 ms:
+         * then here, nested. A render that takes the whole half and the next must never shut USB out: build 5,
+         * at ~100 %, came up without USB, so the FM-1 could not even be updated) */
+        if ((owed & 1u) && (uint32_t)(t0 - usb_polled) >= 2000u * FM1_TICKS_PER_US) {
+            usb_poll();
+            usb_polled = t0;
+            usb_nested_polls++;
+            owed = 0;
+        }
         t5_nested_ticks += fm1_ticks() - t0;
-        return;                                  /* (owed stays: usb_poll runs after the render, as before) */
+        return;
     }
-    if (owed & 1u)
+    if (owed & 1u) {
         usb_poll();
+        usb_polled = t0;
+    }
     owed = 0;
 }
 extern void isr_timer5(void);

@@ -19,6 +19,13 @@
 #ifndef AW_IDLE
 #define AW_IDLE() ((void)0)
 #endif
+/* CPU0's side runs in the audio's RAM code (FAST: dsp.h is not in yet) */
+#ifdef HOST
+#define AW_RAM
+#else
+#define AW_RAM __attribute__((section(".fast_text"), noinline))   /* (FAST: dsp.h is not in yet) */
+#endif
+
 #ifndef AW_HOLD
 #define AW_HOLD() ((void)0)          /* stop CPU1 for good: on return it touches nothing more */
 #endif
@@ -46,7 +53,7 @@ static struct {
 } audio_worker __attribute__((aligned(32)));
 static int audio_worker_online;
 
-static int audio_worker_submit(audio_worker_fn fn, void *context)
+static AW_RAM int audio_worker_submit(audio_worker_fn fn, void *context)
 {
     uint32_t request;
     if (!audio_worker_online || (request = AW_LOAD(&audio_worker.request)) != AW_LOAD(&audio_worker.complete))
@@ -69,28 +76,31 @@ static void audio_worker_retire(void)
     AW_STORE(&audio_worker.complete, AW_LOAD(&audio_worker.request));
 }
 
+/* (CPU0's RAM code reaches the flash only through a pointer: a far call) */
+static void (*volatile audio_worker_retire_far)(void) = audio_worker_retire;
+
 /* CPU0 between blocks (nothing outstanding): retire a worker that faulted or
  * misread past what the platform answers */
-static void audio_worker_check(void)
+static AW_RAM void audio_worker_check(void)
 {
     uint32_t misreads;
     if (!audio_worker_online)
         return;
     misreads = AW_LOAD(&audio_worker.rejected);
     if (AW_FAULTS() || (misreads && !AW_MISREAD(misreads)))
-        audio_worker_retire();
+        audio_worker_retire_far();
 }
 
 /* 1: the job's results are in. 0: CPU1 faulted or stalled for 10 ms; it is
  * retired and the job's results must be dropped (one block of one voice). */
-static int audio_worker_join(void)
+static AW_RAM int audio_worker_join(void)
 {
     uint32_t start = AW_TICKS();
     while (AW_LOAD(&audio_worker.complete) != AW_LOAD(&audio_worker.request)) {
         if (AW_FAULTS() || (uint32_t)(AW_TICKS() - start) >= AW_TIMEOUT_TICKS) {
             if (!AW_FAULTS())
                 audio_worker.timeouts++;
-            audio_worker_retire();
+            audio_worker_retire_far();
             return 0;
         }
     }

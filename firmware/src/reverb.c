@@ -88,7 +88,7 @@ AINL int32_t rv_allpass(rv_line *l, int32_t x, int32_t g, uint32_t d)
     return dl - rvm(g, w);
 }
 
-static void rv_param(int32_t size, int32_t decay, int32_t damp, int32_t mix)   /* each 0..100 (main loop) */
+AINL void rv_param(int32_t size, int32_t decay, int32_t damp, int32_t mix)   /* each 0..100 (main loop) */
 {
     int32_t m = clampi(mix, 0, 100), e;
     uint32_t loop_q16;
