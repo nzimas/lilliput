@@ -1,5 +1,25 @@
 # Changelog
 
+## Build 17 (2026-11-11)
+
+- A new RHYTHM for the mixer no longer restarts the drums (it did, audibly). One beat clock runs the two: whichever
+  starts, or gets a new pattern, comes in on the next beat; the other plays on untouched.
+- The drums' rhythms anew, after the genre (Bigorna's generator; Attack Magazine's industrial and dark Berlin techno
+  breakdowns; the genre's descriptions): POWER 4/4, PISTON, MARCH, OFFBEAT, RUMBLE, BROKEN, 3 AGAINST 4, TRIBAL,
+  SHUFFLE, DIST BREAK, HALF RITUAL, BURST FILL. Every lane in sixteenths, 16 or 32 steps: the pace is always the
+  tempo's (before, kicks on every sixteenth read as double time, and 7-, 9- and 10-step lanes or a hat at 1/8 lost
+  the pace). Swing only where the genre swings.
+- A fourth voice, **PERC**: struck metal (ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND), white key 4 on the
+  drums' pages.
+- A voice's white key held 0.7 s mutes it (its key blinks, dim; its page says MUTED); held again, back.
+- The drums' own LEVEL is gone from their third page: a voice's LEVEL is the only one.
+- **COMPRESSOR**, SEQ's first page: on the mixer's sound, before the drums; AMOUNT compresses, brings the mix forward
+  and, with SIDECHAIN on KICK, ducks it under each kick (up to 18 dB) -- more AMOUNT, more lift and more pump.
+  THRESH, RELEASE; with SHIFT, ATTACK and RATIO. Sessions keep it.
+- Sessions saved with build 16's drums load with PERC resting.
+- The sine table moved from the RAM for code to the RAM's pool (2 KiB of code room back); the sound is the same, bit
+  for bit.
+
 ## Build 16 (2026-11-10)
 
 - **DRUMS**: a drum section beside the mixer, after Ruismaker Noir (Bram Bos): KICK, SNARE and HATS, one engine

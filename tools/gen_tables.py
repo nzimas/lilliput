@@ -139,8 +139,12 @@ def main(path):
          '#define TABLE_RAM __attribute__((section(".data.tables")))  /* (in the RAM, copied at boot: not the flash cache) */',
          "#endif", ""]
     # (1025 points: SINE[i + 1] needs no wrap)
-    L += arr("SINE", "int16_t", [int(round(32767 * math.sin(2 * math.pi * i / 1024))) for i in range(1025)],
-             attr=" TABLE_FAST")   # (read by every engine every sample: in the RAM beside the hot code, app.ld)
+    # (read by every engine every sample: a copy in the RAM's POOL, made at boot from the flash's -- build 17: it was
+    # in the RAM for code, 2 KiB of it; sine_init)
+    L += arr("SINE_ROM", "int16_t", [int(round(32767 * math.sin(2 * math.pi * i / 1024))) for i in range(1025)])
+    L += ["#ifdef HOST", "static int16_t SINE[1025];", "#else",
+          'static int16_t SINE[1025] __attribute__((section(".pool")));', "#endif",
+          "static void sine_init(void) { int i; for (i = 0; i < 1025; i++) SINE[i] = SINE_ROM[i]; }", ""]
     # phase increment (2^32 = one cycle a sample) of pitch p in 1/16 semitone, MIDI 0..127: the top octave
     inc = []
     for p in range(128 * 16):

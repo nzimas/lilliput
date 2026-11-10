@@ -515,6 +515,7 @@ static void drm_quiet_mixer(void)
     patch_plain(&par);                           /* (every channel down: the drums alone) */
     par.out.spres = 0;
     drm_reset = 1;
+    clk_run = 0;                                 /* (nothing playing: the beat starts with what starts) */
     memset(dvs, 0, sizeof dvs);
 }
 static void drm_one_hit(uint32_t c)              /* (one hit of voice c, at the start; the others silent) */
@@ -528,6 +529,7 @@ static void drm_one_hit(uint32_t c)              /* (one hit of voice c, at the 
     par.rhy.bpm = 60;
 }
 static int16_t drm_buf[2 * 44100 * 3];
+static int16_t cmp_buf[2 * 44100 * 8];
 static int cmd_drums(void)
 {
     uint32_t k, i, c, bad = 0;
@@ -626,7 +628,7 @@ static int cmd_drums(void)
         par.rhy.on = 1;
         par.rhy.bpm = 120;
         rhy_reset = 1;
-        drm_draw_rhythm(1u, DS_FOUR);
+        drm_draw_rhythm(1u, DS_POWER);
         drm.on = 0;
         for (b = 0; b < 300u; b++)
             mix_block(out);
@@ -668,6 +670,116 @@ static int cmd_drums(void)
             printf("FAIL drums: no reverb tail from the send\n");
             bad++;
         }
+    }
+    /* a new RHYTHM for the mixer, drawn mid-beat while the drums play: the drums never restarted (build 17) */
+    {
+        uint32_t b, nk = 0, kb[16], i2, uneven = 0;
+        int32_t out[2 * CTL];
+        drm_quiet_mixer();
+        drm_init(9u);
+        drm_draw_rhythm(1u, DS_POWER);
+        dl_set(DV_KICK, "X...X...X...X...", 100);
+        drm.on = 1;
+        par.rhy.bpm = 120;
+        rhythm_draw(&par, 4242u, 0);
+        par.rhy.on = 1;
+        rhy_reset = 1;
+        for (b = 0; b < 4000u; b++) {
+            if (b == 1000u) {                    /* (mid-beat: as SHIFT + the RHYTHM's key does) */
+                rhythm_draw(&par, 77u, 3);
+                rhy_reset = 1;
+            }
+            mix_block(out);
+            if (dtrig[DV_KICK].fire && nk < 16u)
+                kb[nk++] = b;
+        }
+        for (i2 = 1; i2 < nk; i2++)
+            if (kb[i2] - kb[i2 - 1u] < 688u || kb[i2] - kb[i2 - 1u] > 690u)
+                uneven++;
+        printf("  a new RHYTHM mid-beat: %u kicks, %u intervals uneven\n", nk, uneven);
+        if (nk < 5u || uneven) {
+            printf("FAIL drums: a new RHYTHM disturbed the drums\n");
+            bad++;
+        }
+    }
+    /* the COMPRESSOR: AMOUNT brings the mix forward and ducks it under the kick, more with more */
+    {
+        static const uint8_t AM[3] = {0, 35, 90};
+        double rms[3], duck[3], fore[3];
+        uint32_t a2;
+        for (a2 = 0; a2 < 3u; a2++) {
+            uint32_t n = 44100u * 8u, kk;
+            double s2 = 0, da = 0, db2 = 0;
+            fresh_mixer();
+            patch_draw(&par, 0xC0FFEEu + 3u * 7919u, 0);
+            par.rhy.on = 0;
+            drm_init(11u);
+            for (kk = 0; kk < NDV; kk++)
+                dl_set(kk, "................", 100);
+            dl_set(DV_KICK, "X...X...X...X...", 100);
+            drm.v[DV_KICK].level = 0;            /* (the kick unheard: it only keys the ducking) */
+            drm.v[DV_KICK].verb = 0;
+            drm_coef_all();
+            drm.on = 1;
+            drm_reset = 1;
+            clk_run = 0;
+            par.rhy.bpm = 120;
+            cmp.amount = AM[a2];
+            cmp.sc = 1;
+            cmp.thresh = 625;
+            cmp.ratio = 2;
+            cmp.attack = 300;
+            cmp.release = 450;
+            cmp_coef();
+            cmpr.g = 1 << 16;
+            cmpr.env = 0;
+            cmpr.duck = 0;
+            render(8.0, cmp_buf, n);
+            for (i = 44100u * 4u; i < n; i++)
+                s2 += (double)cmp_buf[2 * i] * cmp_buf[2 * i];
+            for (kk = 8; kk < 16u; kk++) {       /* (a kick every 0.5 s from the start: just after it, against just
+                                                  * before the next) */
+                uint32_t t0 = kk * 22050u, j;
+                for (j = t0 + 220u; j < t0 + 2646u; j++)
+                    da += abs(cmp_buf[2 * j]);
+                for (j = t0 + 17640u; j < t0 + 20066u; j++)
+                    db2 += abs(cmp_buf[2 * j]);
+            }
+            rms[a2] = db(sqrt(s2 / (n - 44100u * 4u)) / 32768.0 + 1e-9);
+            duck[a2] = db((db2 + 1) / (da + 1));
+            fore[a2] = db(db2 / (8.0 * 2426.0) / 32768.0 + 1e-9);   /* (the mix between the kicks: brought forward) */
+            printf("  COMPRESSOR, AMOUNT %3u %%: the mix between kicks %6.1f dB (overall %6.1f), ducked under the kick %5.1f dB\n",
+                   AM[a2], fore[a2], rms[a2], duck[a2]);
+        }
+        cmp.amount = 0;
+        cmp_coef();
+        if (fabs(duck[0]) > 2.0 || duck[2] < 6.0 || duck[1] >= duck[2] || fore[1] < fore[0] + 3.0 || fore[2] < fore[1] - 0.5) {   /* (forward, then held at the output's headroom;
+                                                                       * the pumping deeper still) */
+            printf("FAIL drums: the COMPRESSOR does not bring the mix forward and pump as AMOUNT grows\n");
+            bad++;
+        }
+    }
+    /* a build 16 session's drums (three voices) read as ours */
+    {
+        static drm_par_t d;
+        drm16_t o;
+        memset(&o, 0, sizeof o);
+        o.v[1].tune = 412;
+        o.l[2].hits = 0x5555u;
+        o.l[2].len = 16;
+        o.kit[0] = 3;
+        o.on = 1;
+        o.swing = 22;
+        o.level = 707;
+        memset(&d, 0x5A, sizeof d);
+        memcpy(&d, &o, sizeof o);
+        drm_from16(&d);
+        if (d.v[1].tune != 412 || d.l[2].hits != 0x5555u || d.kit[0] != 3 || !d.on || d.swing != 22 || d.mute ||
+            d.l[DV_PERC].hits || d.l[DV_PERC].len != 16 || DKIT[d.kit[DV_PERC]].dv != DV_PERC) {
+            printf("FAIL drums: a build 16 session's drums not read right\n");
+            bad++;
+        } else
+            printf("  a build 16 session's drums: read, PERC resting\n");
     }
     printf("%sdrums: %u sounds, %u rhythms\n", bad ? "FAIL " : "", (unsigned)NDKIT, (unsigned)DS_N);
     return bad ? 1 : 0;
@@ -742,6 +854,9 @@ static int cmd_screens(const char *dir)
     key(KEY_SHIFT, 0);
     press_btn(B_SEQ);
     run_ms(60);
+    SHOT("07e_compressor");
+    press_btn(B_SEQ);
+    run_ms(60);
     SHOT("08_out");
     press_btn(B_SEQ);
     run_ms(60);
@@ -781,6 +896,17 @@ static int cmd_screens(const char *dir)
     key(KEY_SHIFT, 0);
     run_ms(1300);
     SHOT("10e_drums_rhythm");
+    goto_page(PG_DRUM);
+    tap_key(white_key(3));
+    key(white_key(3), 1);
+    run_ms(800);
+    key(white_key(3), 0);
+    run_ms(60);
+    SHOT("10f_drums_perc_muted");
+    key(white_key(3), 1);
+    run_ms(800);
+    key(white_key(3), 0);
+    goto_page(PG_DRUM3);
     key(KEY_DRM, 1);
     run_ms(900);
     key(KEY_DRM, 0);
@@ -983,7 +1109,9 @@ static int cmd_flows(void)
     }
     EXPECT(ui.page == PG_FX, "OCT+ stops at FX: the channel's pages");
     press_btn(B_SEQ);
-    EXPECT(ui.page == PG_OUT, "SEQ: OUT");
+    EXPECT(ui.page == PG_COMP, "SEQ: the COMPRESSOR first");
+    press_btn(B_SEQ);
+    EXPECT(ui.page == PG_OUT, "then OUT");
     press_btn(B_SEQ);
     press_btn(B_SEQ);
     EXPECT(ui.page == PG_OFX, "OUT EQ, OUT FX");
@@ -1318,6 +1446,21 @@ static int cmd_flows(void)
         EXPECT(drm.on && drm.style != st0, "SHIFT + the key: a new drum rhythm, another style, playing");
         run_ms(1000);
         EXPECT(drm_live, "the drums sound");
+        /* a voice's white key held: muted (its steps unheard, MUTED on its page, its key blinking), held again: back */
+        goto_page(PG_DRUM);
+        key(white_key(0), 1);
+        run_ms(800);
+        key(white_key(0), 0);
+        EXPECT(ui.dsel == DV_KICK && (drm.mute & 1u), "KICK's key held: muted");
+        run_ms(1500);
+        EXPECT(!dvs[DV_KICK].live && (drm.mute & 1u), "muted: unheard");
+        tap_key(white_key(1));
+        EXPECT(ui.dsel == DV_SNARE && (drm.mute & 1u), "another voice chosen: KICK stays muted");
+        key(white_key(0), 1);
+        run_ms(800);
+        key(white_key(0), 0);
+        EXPECT(!(drm.mute & 1u), "held again: back");
+        drm.mute = 2;                            /* (the SNARE muted, to be saved) */
         tap_key(KEY_DRM);
         EXPECT(ui.page == PG_MAIN, "the key again: back to the channel");
         tap_key(white_key(1));
@@ -1325,10 +1468,18 @@ static int cmd_flows(void)
         par.ch[0].src = (int16_t)src0;
         /* kept with a session */
         keep = drm;
+        cmp.amount = 60;
+        cmp.ratio = 4;
+        cmp_coef();
         EXPECT(ses_save(14) == SES_OK, "a session saved with the drums");
+        cmp.amount = 0;
         drm.v[DV_KICK].tune = (int16_t)(drm.v[DV_KICK].tune ^ 77);
         drm.style = (uint8_t)((drm.style + 1u) % DS_N);
         EXPECT(ses_load(14) == SES_OK && !memcmp(&keep, &drm, sizeof drm), "and loaded back: the drums as saved");
+        EXPECT(cmp.amount == 60 && cmp.ratio == 4 && cmpk.on && (drm.mute & 2u), "the COMPRESSOR and the mutes too");
+        cmp.amount = 0;
+        cmp_coef();
+        drm.mute = 0;
         drm.on = 0;
     }
     /* a channel not in the patch: its screens grey */
@@ -1535,7 +1686,7 @@ static int cmd_fits(void)
 #define FIT(cond, what, txt) do { if (!(cond)) { printf("  does not fit: %s '%s'\n", what, txt); bad++; } } while (0)
     fresh_mixer();
     ui_init();
-    for (pg = 0; pg <= PG_OFX; pg++)
+    for (pg = 0; pg <= PG_COMP; pg++)
         for (j = 0; j < 8u; j++) {
             uint32_t id = j < 4u ? PG_ROW[pg][j] : PG_SHROW[pg][j - 4u];
             int32_t v;
@@ -1622,6 +1773,7 @@ static int cmd_cores(int n)
 
 int main(int argc, char **argv)
 {
+    sine_init();                                 /* (as the firmware's boot: SINE from SINE_ROM) */
     if (argc >= 2 && str_eq(argv[1], "drums"))
         return cmd_drums();
     if (argc >= 2 && str_eq(argv[1], "free"))

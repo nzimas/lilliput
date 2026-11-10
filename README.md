@@ -70,7 +70,7 @@ going back to Tonitor erases Lilliput's sessions.)
 | **KNOB 1–4** | on the main view: **GAIN**, **FREQ** (the middle filter's), **LIMIT** (the loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (the middle filter's gain or width), **PROTECT** (the overload protection), **SEND 2**. A dial covers the screen while you turn. On a page: its four rows. |
 | **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way. |
 | **SHIFT** held on a page | its rows show the page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
-| **SEQ** | OUT, OUT EQ, OUT FX, then the chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to the channel's page. On LFO and MOD pages a channel's button shows the same page for that channel. |
+| **SEQ** | **COMPRESSOR**, OUT, OUT EQ, OUT FX, then the chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to the channel's page. On LFO and MOD pages a channel's button shows the same page for that channel. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
 | **HOME** | a **new patch** from **any recipe** (see [New patches](#new-patches)). |
@@ -206,9 +206,17 @@ stutters after BBCut and Livecut. GLITCH is unchanged.
 
 | Page | Rows | With SHIFT |
 | --- | --- | --- |
+| **COMPRESSOR** (SEQ's first) | **AMOUNT** (OFF .. 100 %), **THRESH**, **RELEASE**, **SIDECHAIN** (KICK or OFF) | **ATTACK**, **RATIO** (2:1 .. 20:1, AMOUNT's share of it) |
 | **OUT** | LEVEL (the main level), RET 1, RET 2, SPACE MIX | KNOB 4: the SPACE (ROOM, HALL, PLATE, CAVE, ABYSS, VOID) |
 | **OUT EQ** | HIGH, LOW, GAIN, FREQ | KNOB 1: SHELF or CUT; KNOB 3: WIDE or NARROW |
 | **OUT FX** | slot 7, as a channel's FX page | as there |
+
+**The COMPRESSOR** works on the mixer's sound, before the drums join it, to hold its own against them. **AMOUNT**
+does it all at once: it compresses (that share of RATIO) and makes up the gain, so the mix comes **forward**, and
+with **SIDECHAIN** on KICK it ducks the mix under each kick (up to 18 dB) and lets it back over RELEASE: low AMOUNT,
+a little lift and a gentle pump; high, the mix up front and a deep pump. Measured on the host with a drawn patch: 35 %
+brings the mix 5.6 dB forward and ducks it 4.7 dB under the kick; 90 %, as far forward (the output's headroom) and
+12 dB under the kick. OFF leaves the mix untouched. A session keeps it; HOME does not touch it.
 
 At the top, SPACE MIX leaves the reverb alone.
 
@@ -342,15 +350,15 @@ rhythm's changes — on, off, a new one, the tempo — are gestures like any oth
 ## Drums
 
 A drum section beside the mixer, in the spirit of Bram Bos's Ruismaker Noir: synthesized, punchy and dirty, for
-rhythmic noise. Three voices — **KICK**, **SNARE**, **HATS** — of one engine, each with its own lane of steps, on the
-RHYTHM's tempo. Started while the RHYTHM plays, they come in on its next beat; the RHYTHM started anew restarts them
-with it.
+rhythmic noise. Four voices — **KICK**, **SNARE**, **HATS**, **PERC** (struck metal) — of one engine, each with its
+own lane of steps, on the RHYTHM's tempo and beat. Started, or given a new rhythm, they come in on the next beat; the
+RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 
 **Black key 9** (3rd from the right), short, opens their pages (again: back); held 0.8 s, they start or stop;
 **SHIFT +** it draws a new drum rhythm and plays it. On their pages:
 
-- **white keys 1–3** choose KICK, SNARE, HATS (lit: the one chosen); **SHIFT +** one draws a **new sound** for it,
-  from its recipes;
+- **white keys 1–4** choose KICK, SNARE, HATS, PERC (lit: the one chosen); **SHIFT +** one draws a **new sound** for
+  it, from its recipes; **held 0.7 s**, it is **muted** (its key blinks, dim; its page says MUTED), held again, back;
 - **PRESETS** goes through the drum rhythms, a new one of each, playing;
 - **OCT− / OCT+** through the three pages.
 
@@ -358,7 +366,7 @@ with it.
 | --- | --- | --- |
 | a voice (its name and its sound's) | **TUNE** (Hz), **DECAY**, **DRIVE**, **LEVEL** | **SWEEP** (how far above the pitch it starts), **ATTACK** (HARD: the sharpest transient; up to 100 ms: a soft one), **NOISE** (tone or noise), **REVERB** (its send into SPACE) |
 | its second page | **BEND** (how fast the sweep falls), **COLOR** (the noise filter), **CLICK** (a burst on the hit), **PAN** | **METAL** (the tone made metallic: off or six ratios), **FILTER** (low-, band- or high-pass) |
-| the drums' (their rhythm's name) | **SWING**, **LEVEL** (the three together) | |
+| the drums' (their rhythm's name) | **SWING** | |
 
 **A voice**: a tone, swept down in pitch, and noise through a filter, mixed by NOISE; an envelope rising over ATTACK
 and falling over DECAY; a CLICK on top; then **DRIVE**, a tanh up to 32 times over: every voice has its own. The dry
@@ -368,11 +376,16 @@ mixer's main level never moves it.
 
 **Sounds** (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (a slow
 attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER,
-TICK, CYMBAL, DIRT.
+TICK, CYMBAL, DIRT; percussion ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND.
 
-**Rhythms**: FOUR FLOOR, BREAKBEAT, GABBER, HALFTIME, JUNGLE, MARCH, POWER, EUCLID, AKSAK, DUB, BLAST, TRIBAL. As in
-Noir, a step can be more than a hit: accented, with a pitch of its own (POWER's bass line and TRIBAL's toms come out
-of one kick), or **ALT**, its decay cut to a fifth (closed hats among open ones, ghost snares).
+**Rhythms**, after the genre — rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts and
+metal rather than in denser kicks — every lane in sixteenths, a bar or two, so the pace is always the tempo's:
+**POWER 4/4**, **PISTON** (eighth-note kicks, the beat accented), **MARCH**, **OFFBEAT** (the off-beat crushed hat, a
+low tom), **RUMBLE** (a clap on two, a stab, a push every other bar), **BROKEN** (jagged kicks over a backbeat),
+**3 AGAINST 4**, **TRIBAL** (toms out of the kick, an anvil on the beat), **SHUFFLE** (the only one that swings
+much), **DIST BREAK** (straight), **HALF RITUAL** (half time: the hats keep the tempo), **BURST FILL** (two bars, a
+noise burst ending the second). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
+**ALT**, its decay cut to a fifth (closed hats among open ones, ghost snares).
 
 The drums are not part of a patch: HOME, the snapshots and the gesture loops leave them alone. A session keeps them.
 

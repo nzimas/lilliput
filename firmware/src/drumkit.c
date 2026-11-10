@@ -7,12 +7,11 @@
  * all noise, with a body, metallic, a rim, crushed, long; hats closed, open, metallic, a shaker, a tick, a cymbal,
  * dirty. Every voice has its DRIVE: this is rhythmic noise.
  *
- * A RHYTHM recipe draws the three lanes at once (SHIFT + the DRUMS key; PRESETS on their pages): FOUR FLOOR,
- * BREAKBEAT, GABBER, HALFTIME, JUNGLE, MARCH, POWER, EUCLID, AKSAK, DUB, BLAST, TRIBAL. As in Noir, steps carry
- * accents, ALT (the decay a fifth: closed hats among open ones, ghost snares) and pitches (toms and bass lines from
- * one kick). */
+ * A RHYTHM recipe draws the four lanes at once (SHIFT + the DRUMS key; PRESETS on their pages): POWER 4/4, PISTON,
+ * MARCH, OFFBEAT, RUMBLE, BROKEN, 3 AGAINST 4, TRIBAL, SHUFFLE, DIST BREAK, HALF RITUAL, BURST FILL. As in Noir, steps
+ * carry accents, ALT (the decay a fifth: closed hats among open ones, ghost snares) and pitches (toms from one kick). */
 
-static const char *const DV_NAME[NDV] = {"KICK", "SNARE", "HATS"};
+static const char *const DV_NAME[NDV] = {"KICK", "SNARE", "HATS", "PERC"};
 static const char *const DN_NAME[DN_N] = {"LOW", "BAND", "HIGH"};
 static const char *const DM_NAME[DM_N] = {"OFF", "1.41", "1.50", "2.76", "3.50", "5.40", "7.13"};
 static const uint32_t DM_RAT[DM_N] = {0, 92682, 98304, 180879, 229376, 353894, 467272};   /* (Q16) */
@@ -68,6 +67,21 @@ static const dkit_t DKIT[] = {
      {{700, 800}, {0, 50}, {300, 400}, {0, 50}, {650, 780}, {500, 700}, {850, 950}, {100, 300}, {100, 300}, {550, 650}, {200, 400}}},
     {"DIRT", DV_HAT, DN_HP, 0, 0,
      {{760, 860}, {0, 100}, {300, 400}, {0, 0}, {250, 400}, {800, 1000}, {850, 950}, {200, 500}, {700, 950}, {520, 620}, {0, 150}}},
+    /* PERC (build 17): struck metal for rhythmic noise -- anvils, pipes, sheets, clanks, chains, springs, grinders */
+    {"ANVIL", DV_PERC, DN_HP, 5, 6,
+     {{620, 700}, {0, 80}, {300, 400}, {0, 0}, {300, 420}, {100, 250}, {800, 900}, {600, 900}, {500, 750}, {620, 720}, {50, 200}}},
+    {"PIPE", DV_PERC, DN_BP, 1, 3,
+     {{480, 560}, {0, 100}, {300, 400}, {0, 0}, {400, 520}, {0, 100}, {600, 750}, {200, 400}, {200, 400}, {650, 750}, {150, 300}}},
+    {"SHEET", DV_PERC, DN_BP, 4, 6,
+     {{560, 660}, {0, 100}, {300, 400}, {0, 50}, {550, 700}, {400, 600}, {750, 850}, {200, 500}, {300, 600}, {580, 680}, {200, 400}}},
+    {"CLANK", DV_PERC, DN_BP, 3, 5,
+     {{300, 380}, {100, 250}, {350, 450}, {0, 0}, {280, 380}, {100, 200}, {600, 750}, {500, 800}, {600, 850}, {620, 720}, {50, 200}}},
+    {"CHAIN", DV_PERC, DN_HP, 5, 6,
+     {{750, 850}, {0, 50}, {300, 400}, {0, 0}, {200, 300}, {500, 700}, {850, 930}, {300, 600}, {400, 700}, {580, 680}, {50, 150}}},
+    {"SPRING", DV_PERC, DN_BP, 2, 4,
+     {{420, 520}, {400, 600}, {600, 750}, {0, 0}, {400, 550}, {50, 200}, {600, 750}, {100, 300}, {300, 500}, {620, 720}, {100, 300}}},
+    {"GRIND", DV_PERC, DN_BP, 0, 2,
+     {{350, 450}, {0, 150}, {300, 450}, {0, 50}, {300, 450}, {800, 1000}, {600, 750}, {400, 700}, {850, 1000}, {560, 660}, {0, 150}}},
 };
 #define NDKIT NELEM(DKIT)
 
@@ -97,12 +111,16 @@ static uint32_t drm_draw_voice(uint32_t c, uint32_t seed, int kit)
 }
 
 /* ----------------------------------------------------------- the rhythms --- */
-enum { DS_FOUR, DS_BREAK, DS_GABBER, DS_HALF, DS_JUNGLE, DS_MARCH, DS_POWER, DS_EUCLID, DS_AKSAK, DS_DUB, DS_BLAST,
-       DS_TRIBAL, DS_N };
-static const char *const DS_NAME[DS_N] = {"FOUR FLOOR", "BREAKBEAT", "GABBER", "HALFTIME", "JUNGLE", "MARCH", "POWER",
-                                          "EUCLID", "AKSAK", "DUB", "BLAST", "TRIBAL"};
-/* a lane written out: x a hit, X accented, o a hit with ALT (short), O both, . a rest */
-static void dl_set(uint32_t c, const char *s, uint8_t div, uint8_t prob)
+/* (build 17: anew, after the genre -- rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts
+ * and metal rather than in denser kicks; every lane in sixteenths, 16 steps or a two-bar 32, so the pace is always
+ * the tempo's. Sources: Bigorna's phrase.c, Attack Magazine's industrial and dark Berlin techno, the genre's own
+ * descriptions -- see the CHANGELOG) */
+enum { DS_POWER, DS_PISTON, DS_MARCH, DS_OFFBEAT, DS_RUMBLE, DS_BROKEN, DS_3V4, DS_TRIBAL, DS_SHUFFLE, DS_DBREAK,
+       DS_RITUAL, DS_BURST, DS_N };
+static const char *const DS_NAME[DS_N] = {"POWER 4/4", "PISTON", "MARCH", "OFFBEAT", "RUMBLE", "BROKEN", "3 AGAINST 4",
+                                          "TRIBAL", "SHUFFLE", "DIST BREAK", "HALF RITUAL", "BURST FILL"};
+/* a lane written out: x a hit, X accented, o a hit with ALT (short), O both, . a rest; a sixteenth a step */
+static void dl_set(uint32_t c, const char *s, uint8_t prob)
 {
     dlane_t *L = &drm.l[c];
     uint32_t i;
@@ -117,22 +135,11 @@ static void dl_set(uint32_t c, const char *s, uint8_t div, uint8_t prob)
             L->alt |= 1u << i;
     }
     L->len = (uint8_t)(i ? i : 1u);
-    L->div = div;
-    L->prob = prob;
-}
-static void dl_bits(uint32_t c, uint32_t hits, uint32_t acc, uint32_t alt, uint32_t len, uint8_t div, uint8_t prob)
-{
-    dlane_t *L = &drm.l[c];
-    memset(L, 0, sizeof *L);
-    L->hits = hits;
-    L->acc = acc & hits;
-    L->alt = alt & hits;
-    L->len = (uint8_t)clampi((int32_t)len, 1, (int32_t)DSTEPS);
-    L->div = div;
+    L->div = DV_16;
     L->prob = prob;
 }
 #define PICK(...) ((const char *const[]){__VA_ARGS__})[rnd_below(&r, (int32_t)(sizeof((const char *const[]){__VA_ARGS__}) / sizeof(const char *)))]
-/* new lanes for the three voices, of style st (-1: any), from seed */
+/* new lanes for the four voices, of style st (-1: any), from seed */
 static uint32_t drm_draw_rhythm(uint32_t seed, int st)
 {
     rnd_t r;
@@ -142,86 +149,89 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         st = rnd_below(&r, DS_N);
     drm.swing = 0;
     switch (st) {
-    case DS_FOUR:
-        dl_set(DV_KICK, "X...X...X...X...", DV_16, 100);
-        dl_set(DV_SNARE, PICK("....X.......X...", "....X.......X..o", "....X.....o.X..."), DV_16, 100);
-        dl_set(DV_HAT, PICK("o.X.o.X.o.X.o.X.", "ooXoooXoooXoooXo", "..x...x...x...x."), DV_16, 100);
+    case DS_POWER:                               /* the distorted kick in militaristic 4/4 */
+        dl_set(DV_KICK, PICK("X...X...X...X...", "X...X...X...X.x.", "X...X...X..xX..."), 100);
+        dl_set(DV_SNARE, PICK("....X.......X...", "....X.......X..o", "....X...o...X.o."), 100);
+        dl_set(DV_HAT, PICK("..X...X...X...X.", "o.X.o.X.o.X.o.X.", "ooXoooXoooXoooXo"), 100);
+        dl_set(DV_PERC, PICK("......x.......x.", "...x......x.....", "..........O.O..."), 90);
         break;
-    case DS_BREAK:
-        drm.swing = (uint8_t)pr_in(&r, 15, 40);
-        dl_set(DV_KICK, PICK("X.....x...x.....", "X.x.......x..x..", "X......x..x....."), DV_16, 100);
-        dl_set(DV_SNARE, PICK("....X..o.o..X..o", "....X......oX...", "....X.o....oX.o."), DV_16, 100);
-        dl_set(DV_HAT, PICK("x.x.x.x.x.x.x.x.", "x.xox.x.x.xox.x."), DV_16, 90);
+    case DS_PISTON:                              /* eighth-note kicks, the beat accented: rapid-fire machines */
+        dl_set(DV_KICK, PICK("X.x.X.x.X.x.X.x.", "X.o.X.o.X.o.X.oo", "X.x.X.x.X.xxX.x."), 100);
+        dl_set(DV_SNARE, PICK("................", "....O.......O...", "............X..."), 100);
+        dl_set(DV_HAT, PICK("..O...O...O...O.", "..X..oX...X..oX."), 100);
+        dl_set(DV_PERC, PICK("...o...o...o...o", "x..............."), 100);
         break;
-    case DS_GABBER:
-        dl_set(DV_KICK, "X...X...X...X...", DV_16, 100);
-        dl_set(DV_SNARE, PICK("................", "............X...", "........X......."), DV_16, 100);
-        dl_set(DV_HAT, PICK("..x...x...x...x.", "..X...X...X...X.", "..xo..xo..xo..xo"), DV_16, 100);
+    case DS_MARCH:                               /* the martial trot */
+        dl_set(DV_KICK, PICK("X.......X.......", "X...x...X...x...", "X.......X...x.x."), 100);
+        dl_set(DV_SNARE, PICK("....X..o....X.oo", "o.ooX.o.o.ooX.o.", "....X.......X.ox"), 80);
+        dl_set(DV_HAT, PICK("x...x...x...x...", "x...x...x...x..."), 100);
+        dl_set(DV_PERC, PICK("....O.......O...", "....O.....o.O..."), 100);
         break;
-    case DS_HALF:
-        dl_set(DV_KICK, PICK("X.........x.....", "X......x..x.....", "X.........x..x.."), DV_16, 100);
-        dl_set(DV_SNARE, PICK("........X.......", "........X......o"), DV_16, 100);
-        dl_set(DV_HAT, PICK("x.x.x.x.x.x.x.xo", "o.o.X.o.o.o.X.o.", "xxx.xxx.xxx.xxx."), DV_16, 95);
+    case DS_OFFBEAT:                             /* 4/4, the off-beat crushed hat, a low-mid tom, a noise snare */
+        drm.swing = (uint8_t)pr_in(&r, 0, 12);
+        dl_set(DV_KICK, PICK("X...X...X...X...", "X...X...X...X..o"), 100);
+        dl_set(DV_SNARE, PICK("....X.......X...", "....X..o....X..."), 100);
+        dl_set(DV_HAT, PICK("..X...X...X...X.", "ooXoooXoooXoooXo", "o.X.o.XoooX.o.Xo"), 100);
+        dl_set(DV_PERC, PICK("...x..x....x..x.", "......x..x....x.", "...x......x..x.."), 85);
         break;
-    case DS_JUNGLE:
-        drm.swing = (uint8_t)pr_in(&r, 5, 25);
-        dl_set(DV_KICK, PICK("X.........X.....", "X.....x...x.....", "X.x.......x....."), DV_16, 100);
-        dl_set(DV_SNARE, PICK("....X..o.o..X...", "....X......oX..o", "....X.o..o..X.o."), DV_16, 100);
-        dl_set(DV_HAT, "xoxoxoxoxoxoxoxo", DV_16, 85);
+    case DS_RUMBLE:                              /* the dark Berlin layout: a clap on two, a stab, a push every other bar */
+        drm.swing = (uint8_t)pr_in(&r, 6, 18);
+        dl_set(DV_KICK, PICK("X...X...X...X...", "X...X...X..oX..."), 100);
+        dl_set(DV_SNARE, PICK("....X...........................", "....X...............X.........o."), 100);
+        dl_set(DV_HAT, PICK("..X...X...X...X.", "..X...X...X...Xo"), 100);
+        dl_set(DV_PERC, PICK("........X...............X..x....", "......x.......x."), 100);
         break;
-    case DS_MARCH:
-        dl_set(DV_KICK, PICK("X...x...X...x...", "X.......X.......", "X...x...X..xx..."), DV_16, 100);
-        dl_set(DV_SNARE, PICK("x.ooX.oox.ooX.oo", "X.o.x.ooX.o.x.oo", "xoooXoooxoooXooo"), DV_16, 100);
-        dl_set(DV_HAT, PICK("x.......x.......", "................"), DV_16, 100);
+    case DS_BROKEN:                              /* jagged, syncopated kicks over a backbeat; the hats on the beat */
+        dl_set(DV_KICK, PICK("X..x..x...X..x..", "X..x...x..X.....", "X.x...x..x..x..."), 100);
+        dl_set(DV_SNARE, PICK("....X.......X...", "....X.....o.X..."), 100);
+        dl_set(DV_HAT, PICK("X.o.X.o.X.o.X.o.", "X...X...X...X..."), 100);
+        dl_set(DV_PERC, PICK("..o....o..o....o", ".o.....o.o....o."), 100);
+        drm.l[DV_KICK].prob = 100;
         break;
-    case DS_POWER:
-        dl_set(DV_KICK, PICK("X.x.X.x.X.xxX.x.", "X.xxX.x.X.xxX.xx", "XxxxXxxxXxxxXxxx"), DV_16, 100);
-        for (i = 0; i < 16u; i++) {              /* (a bass line out of the kick: its steps' pitches) */
-            static const int8_t BL[6] = {0, 3, 5, 7, 12, -5};
-            if ((i & 3u) && rnd_chance(&r, 45))
-                drm.l[DV_KICK].pitch[i] = BL[rnd_below(&r, 6)];
-        }
-        dl_set(DV_SNARE, PICK("....X.......X..X", "....X.......X...", "....X..x....X..x"), DV_16, 100);
-        dl_set(DV_HAT, "oOooOoooOoooOooo", DV_16, 100);
+    case DS_3V4:                                 /* threes against the 4/4 bar, which stays 16 steps */
+        dl_set(DV_KICK, "X...X...X...X...", 100);
+        dl_set(DV_SNARE, PICK("....X.......X...", "........X......."), 100);
+        dl_set(DV_HAT, PICK("XooXooXooXooXooX", "o..O..o..O..o..O"), 100);
+        dl_set(DV_PERC, PICK("x....x....x....x", "..x..x..x..x..x."), 100);
         break;
-    case DS_EUCLID: {                            /* (each its own length: they drift against each other) */
-        uint32_t n1 = (uint32_t)pr_in(&r, 12, 16), n2 = (uint32_t)pr_in(&r, 10, 14), n3 = (uint32_t)pr_in(&r, 7, 13);
-        dl_bits(DV_KICK, euclid((uint32_t)pr_in(&r, 3, 5), n1, 0), 1u, 0, n1, DV_16, 100);
-        dl_bits(DV_SNARE, euclid((uint32_t)pr_in(&r, 2, 4), n2, (uint32_t)pr_in(&r, 2, 5)), 0, 0, n2, DV_16, 100);
-        dl_bits(DV_HAT, euclid((uint32_t)pr_in(&r, 4, 8), n3, 1), euclid(2, n3, 1), euclid(3, n3, 0), n3, DV_16, 95);
-        break;
-    }
-    case DS_AKSAK:
-        if (rnd_chance(&r, 50)) {                /* (7: 2 + 2 + 3) */
-            dl_set(DV_KICK, PICK("X.x.X..", "X...X.."), DV_16, 100);
-            dl_set(DV_SNARE, PICK("..X..X.", "....X.."), DV_16, 100);
-            dl_set(DV_HAT, PICK("x.x.x.x", "xoxoxxo"), DV_16, 100);
-        } else {                                 /* (9: 2 + 2 + 2 + 3) */
-            dl_set(DV_KICK, PICK("X.x.x.X..", "X.....X.."), DV_16, 100);
-            dl_set(DV_SNARE, PICK("......X..", "..X...X.."), DV_16, 100);
-            dl_set(DV_HAT, PICK("x.x.x.xxx", "xoxoxoxoo"), DV_16, 100);
-        }
-        break;
-    case DS_DUB:
-        dl_set(DV_KICK, PICK("X.......x.......", "X.........x....."), DV_16, 100);
-        drm.l[DV_KICK].pitch[rnd_below(&r, 16)] = (int8_t)pr_in(&r, -5, 7);
-        dl_set(DV_SNARE, PICK("........X.......", "........X......o"), DV_16, 100);
-        dl_set(DV_HAT, PICK("..x...x...x...x.", "..x...x...x...xo"), DV_16, 70);
-        break;
-    case DS_BLAST:
-        dl_set(DV_KICK, PICK("xxxxxxxxxxxxxxxx", "XxXxXxXxXxXxXxXx"), DV_16, 100);
-        dl_set(DV_SNARE, PICK(".x.x.x.x.x.x.x.x", "x.x.x.x.x.x.x.x."), DV_16, 100);
-        dl_set(DV_HAT, "X...X...X...X...", DV_16, 100);
-        break;
-    default: {                                   /* TRIBAL: toms from the kick, on a scale; Noir's melodic drums */
-        static const int8_t SC[6] = {0, 3, 5, 7, 10, 12};
-        dl_bits(DV_KICK, euclid((uint32_t)pr_in(&r, 5, 7), 16, (uint32_t)pr_in(&r, 0, 3)), 1u | 1u << 8, 0, 16, DV_16, 100);
+    case DS_TRIBAL: {                            /* ritual toms out of the kick, an anvil on the beat */
+        static const int8_t P1[16] = {0, 0, 0, 3, 0, 0, 7, 0, 0, 0, 0, 5, 0, 0, 3, 0};
+        static const int8_t P2[16] = {0, 0, 0, 3, 0, 0, 5, 0, 0, 0, 7, 0, 3, 0, 0, 0};
+        int two = rnd_chance(&r, 50);
+        drm.swing = (uint8_t)pr_in(&r, 0, 10);
+        dl_set(DV_KICK, two ? "X..x..x...x.x..." : "X..x..x.X..x..x.", 100);
         for (i = 0; i < 16u; i++)
-            drm.l[DV_KICK].pitch[i] = i ? SC[rnd_below(&r, 6)] : 0;
-        dl_set(DV_SNARE, PICK("x..x..x...x..x..", "o..o..x...o..o.."), DV_16, 100);
-        dl_bits(DV_HAT, euclid(3, 8, (uint32_t)pr_in(&r, 0, 2)), 0, 0, 8, DV_8, 90);
+            drm.l[DV_KICK].pitch[i] = two ? P2[i] : P1[i];
+        dl_set(DV_SNARE, PICK("....x.......x...", "............x..."), 100);
+        dl_set(DV_HAT, PICK("O.o.o.o.O.o.o.o.", "o.oxo.oxo.oxo.ox"), 90);
+        dl_set(DV_PERC, PICK("X...x...X...x...", "X.......X..x...."), 100);
         break;
     }
+    case DS_SHUFFLE:                             /* the lower-tempo shuffle: the only one that swings much */
+        drm.swing = (uint8_t)pr_in(&r, 20, 35);
+        dl_set(DV_KICK, PICK("X...X...X...X...", "X...X...X..xX..."), 100);
+        dl_set(DV_SNARE, PICK("....X.......X...", "....X..o....X..o"), 100);
+        dl_set(DV_HAT, PICK("ooXoooXoooXoooXo", "x.xxx.xxx.xxx.xx"), 90);
+        dl_set(DV_PERC, PICK("..........x..x..", "...x.......x...."), 100);
+        break;
+    case DS_DBREAK:                              /* a distorted break, straight, never swung */
+        dl_set(DV_KICK, PICK("X.x.......xx....", "X.x.......X.....", "X.......x.x....."), 100);
+        dl_set(DV_SNARE, PICK("....X..o.o..X..o", "....X......oX...", "....X.o..o..X.oo"), 75);
+        dl_set(DV_HAT, PICK("x.x.x.x.x.x.x.x.", "x.xox.x.x.xox.x."), 100);
+        dl_set(DV_PERC, PICK("..............OO", "......o.......o."), 100);
+        break;
+    case DS_RITUAL:                              /* half time: the hats keep the tempo */
+        dl_set(DV_KICK, PICK("X.........x.....", "X......x..x....."), 100);
+        dl_set(DV_SNARE, PICK("........X.......", "........X.....o."), 100);
+        dl_set(DV_HAT, PICK("..x...x...x...x.", "o.o.o.o.o.o.o.o."), 100);
+        dl_set(DV_PERC, PICK("......x......x..", "..............x."), 100);
+        break;
+    default:                                     /* BURST FILL: two bars of 4/4, a noise burst ending the second */
+        dl_set(DV_KICK, PICK("X...X...X...X...X...X...X...X.x.", "X...X...X...X...X...X...X......."), 100);
+        dl_set(DV_SNARE, PICK("....X.......X.......X.......xxXX", "....X.......X.......X.......X..."), 100);
+        dl_set(DV_HAT, PICK("..X...X...X...X...X...X...X.....", "..X...X...X...X...X...X...X...X."), 100);
+        dl_set(DV_PERC, PICK("......x.......x.......x...oooOOX", "......x.......x.......x.......x."), 100);
+        break;
     }
     drm.style = (uint8_t)st;
     return (uint32_t)st;
@@ -290,4 +300,26 @@ static void drm_init(uint32_t seed)
         drm_draw_voice(c, seed * 2654435761u + c * 40503u, -1);
     drm_draw_rhythm(seed ^ 0x5A5A5A5Au, -1);
     drm_coef_all();
+}
+
+/* the COMPRESSOR's values, worked out for the output stage (mixer.c) */
+static const char *const CMP_RNAME[6] = {"2:1", "3:1", "4:1", "6:1", "10:1", "20:1"};
+static const int32_t CMP_SLOPE[6] = {16384, 21845, 24576, 27307, 29491, 31130};   /* (1 - 1 / ratio, Q15) */
+static int32_t cmp_thr_db10(int32_t v) { return -480 + clampi(v, 0, PMAX) * 480 / PMAX; }
+static int32_t cmp_att_x10(int32_t v) { return (int32_t)((2u * exp2_q16(clampi(v, 0, PMAX) * 524)) >> 16); }    /* (0.2 .. 51 ms) */
+static int32_t cmp_rel_x10(int32_t v) { return (int32_t)((200u * exp2_q16(clampi(v, 0, PMAX) * 370)) >> 16); }  /* (20 ms .. 1 s) */
+static void cmp_coef(void)
+{
+    cmp_coef_t k;
+    int32_t a = cmp.amount > 100u ? 100 : cmp.amount;
+    memset(&k, 0, sizeof k);
+    k.thr = cmp_thr_db10(cmp.thresh) * 1089;     /* (dB x 10 to octaves, Q16) */
+    k.slope = CMP_SLOPE[cmp.ratio < 6u ? cmp.ratio : 2] * a / 100;   /* (AMOUNT: how much of RATIO; 100 %: all) */
+    k.makeup = mulq15(-k.thr, k.slope);          /* (a full-scale peak back at full scale: the rest brought forward) */
+    k.depth = a * (3 << 16) / 100;               /* (100 %: 18 dB under the kick) */
+    k.ka = clampi(237773 / maxi(cmp_att_x10(cmp.attack), 1), 1, Q15);   /* (a block, 0.73 ms, of the time) */
+    k.kr = clampi(237773 / maxi(cmp_rel_x10(cmp.release), 1), 1, Q15);
+    k.sc = cmp.sc;
+    k.on = a > 0;
+    cmpk = k;
 }

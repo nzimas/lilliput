@@ -371,6 +371,7 @@ static void ses_emit(void)
     memset(&g, 0, sizeof g);
     g.sel = ui.sel;
     g.rsv[0] = ui.fam;                           /* (the family: SHIFT + HOME draws again from it) */
+    g.rsv[1] = (uint8_t)sizeof cmp;              /* (the COMPRESSOR's record's size, at the very end: build 17) */
     str_cpy(g.patch, ui.patch, sizeof g.patch);
     ses_out(&g, sizeof g);
     ses_out(&par, sizeof par);
@@ -403,6 +404,7 @@ static void ses_emit(void)
                 ses_out(&gev[gl[i].off], gl[i].n * (uint32_t)sizeof gev[0]);
             }
         ses_out(&drm, sizeof drm);               /* the DRUMS (pf.dsz) */
+        ses_out(&cmp, sizeof cmp);               /* the COMPRESSOR (g.rsv[1]) */
     }
 }
 static int ses_save(uint32_t num)
@@ -450,6 +452,7 @@ static void par_tail(lil_par_t *q, uint32_t psz)
 /* the loops read (gfmt 1): each channel's changes in turn from gev[0]; a change not the channel's: its loop dropped */
 static ses_gl_t ses_sgl[NCH];   /* (the loops' heads, as read) */
 static drm_par_t ses_drm;        /* (the DRUMS, as read) */
+static cmp_par_t ses_cmp;        /* (the COMPRESSOR, as read) */
 static void ses_gl_take(void)
 {
     const ses_gl_t *t = ses_sgl;
@@ -506,6 +509,29 @@ static void ses_gl_split(uint32_t n, uint32_t len)
             g_s0[c][li] = ((const uint16_t *)&g_prev)[g_word(c, li)];
         gl_touch(c);
     }
+}
+/* a build 16 drums record (three voices, read into d's start) as ours: the fourth voice, PERC, the one playing now's
+ * sound, its lane empty */
+static void drm_from16(drm_par_t *d)
+{
+    static drm16_t o;
+    uint32_t c;
+    memcpy(&o, d, sizeof o);
+    memset(d, 0, sizeof *d);
+    for (c = 0; c < 3u; c++) {
+        d->v[c] = o.v[c];
+        d->l[c] = o.l[c];
+        d->kit[c] = o.kit[c];
+    }
+    d->on = o.on;
+    d->style = (uint8_t)(o.style % DS_N);
+    d->swing = o.swing;
+    d->level = o.level;
+    d->v[DV_PERC] = drm.v[DV_PERC];
+    d->kit[DV_PERC] = drm.kit[DV_PERC];
+    d->l[DV_PERC].len = 16;
+    d->l[DV_PERC].div = DV_16;
+    d->l[DV_PERC].prob = 100;
 }
 static int ses_load(uint32_t num)
 {
@@ -566,6 +592,11 @@ static int ses_load(uint32_t num)
                 return SES_FAIL;
             ses_in(pass ? &ses_drm : 0, pf.dsz);
         }
+        if (g.rsv[1]) {                          /* the COMPRESSOR (build 17 on) */
+            if (g.rsv[1] > sizeof ses_cmp)
+                return SES_FAIL;
+            ses_in(pass ? &ses_cmp : 0, g.rsv[1]);
+        }
         if (ss.pos != h.len || ss.crc != h.body_crc)
             return SES_FAIL;
     }
@@ -590,11 +621,19 @@ static int ses_load(uint32_t num)
     else
         ses_gl_take();
     patch_set(&q, g.patch);
+    if (pf.dsz == sizeof(drm16_t)) {             /* (build 16's three voices: the fourth, PERC, drawn and resting) */
+        drm_from16(&ses_drm);
+        pf.dsz = (uint16_t)sizeof ses_drm;
+    }
     if (pf.dsz) {                                /* the DRUMS as saved (a session before them: left as they are) */
         memset((uint8_t *)&ses_drm + pf.dsz, 0, sizeof ses_drm - pf.dsz);
         drm = ses_drm;
         drm_coef_all();
         drm_reset = 1;
+    }
+    if (g.rsv[1]) {                              /* the COMPRESSOR as saved (a session before it: left as it is) */
+        cmp = ses_cmp;
+        cmp_coef();
     }
     (void)ns;
     ses.current = (uint16_t)num;

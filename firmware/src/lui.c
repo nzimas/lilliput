@@ -12,7 +12,7 @@
  *                             the whole screen while turning. On a page: its four rows (SHIFT +: the page's switches)
  *   OCT- / OCT+               the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's: through them;
  *                             on the RHYTHM's: TEMPO SWING CHAOS LENGTH (the gates'), then MIX)
- *   SEQ                       OUT, OUT EQ, OUT FX, then the chosen channel's LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8,
+ *   SEQ                       COMPRESSOR, OUT, OUT EQ, OUT FX, then the chosen channel's LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8,
  *                             then back to the channel's page
  *   ARP                       the OVERVIEW: the six channels, their inputs and levels, at once
  *   PRESETS (knob)            the recipe: its name replaces the patch's in the main view (nothing else changes)
@@ -68,13 +68,13 @@ static uint16_t ch_col(uint32_t c) { return ch_out(c) ? C_MONO : LAYER_COL[c]; }
 
 /* the pages */
 enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2,   /* a channel's (OCT- / OCT+) */
-       PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
+       PG_OUT, PG_OEQ, PG_OFX, PG_COMP,                      /* the output's (SEQ: COMP first) */
        PG_TEMPO, PG_RHY2,                                    /* the RHYTHM's (its key held; OCT- / OCT+ between) */
        PG_DRUM, PG_DRUM2, PG_DRUM3,                          /* the DRUMS' (their key; OCT- / OCT+ between) */
        PG_VIEW, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
 #define PG_CH_LAST PG_MTX2       /* (the chosen channel's pages; OCT reaches them up to FX, SEQ the rest) */
 /* SEQ's pages in turn: the output's, then the chosen channel's motion */
-static const uint8_t SEQ_PG[] = {PG_OUT, PG_OEQ, PG_OFX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2};
+static const uint8_t SEQ_PG[] = {PG_COMP, PG_OUT, PG_OEQ, PG_OFX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2};
 static int seq_ix(uint32_t pg)           /* (its place in SEQ's turn; -1: not one of them) */
 {
     uint32_t i;
@@ -84,7 +84,7 @@ static int seq_ix(uint32_t pg)           /* (its place in SEQ's turn; -1: not on
     return -1;
 }
 static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
-                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "RHYTHM", "DRUMS", "DRUMS", "DRUMS",
+                                           "OUT", "OUT EQ", "OUT FX", "COMPRESSOR", "RHYTHM", "RHYTHM", "DRUMS", "DRUMS", "DRUMS",
                                            "", "", "", "",
                                            ""};
 
@@ -99,7 +99,8 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_RMIX,                                   /* (the RHYTHM's second page) */
        P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL, P_DSWEEP, P_DATTACK, P_DNOISE, P_DVERB,   /* (the DRUMS' voice chosen) */
        P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN, P_DMETAL, P_DFILT,
-       P_DSWING, P_DMASTER,                      /* (the DRUMS' own) */
+       P_DSWING,                                 /* (the DRUMS' own) */
+       P_CAMT, P_CTHR, P_CREL, P_CSC, P_CATT, P_CRAT,   /* (the COMPRESSOR's) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
@@ -108,14 +109,16 @@ static const uint8_t PG_ROW[PG_N][4] = {
     {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES},
+    {P_CAMT, P_CTHR, P_CREL, P_CSC},
     {P_BPM, P_SWING, P_CHAOS, P_GSCALE}, {P_RMIX, P_NONE, P_NONE, P_NONE},
-    {P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL}, {P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN}, {P_DSWING, P_DMASTER, P_NONE, P_NONE}};
+    {P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL}, {P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN}, {P_DSWING, P_NONE, P_NONE, P_NONE}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
+    {P_CATT, P_CRAT, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_DSWEEP, P_DATTACK, P_DNOISE, P_DVERB}, {P_DMETAL, P_DFILT, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}};
 
@@ -141,6 +144,9 @@ static struct {
     uint8_t dsel;                /* the DRUMS' voice chosen: KICK, SNARE, HATS */
     uint8_t drm_down, drm_sh, drm_done;
     uint32_t drm_t0;
+    int8_t dkey;                 /* a voice's white key down on the DRUMS' pages (-1 none): held 0.7 s, muted or back */
+    uint8_t dkey_done;
+    uint32_t dkey_t0;
     uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the channel's gesture loop emptied) */
     uint32_t rec_t0;
     int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
@@ -266,7 +272,12 @@ static int32_t p_get(uint32_t id)
     case P_DMETAL: return drm.v[ui.dsel].metal;
     case P_DFILT: return drm.v[ui.dsel].filt;
     case P_DSWING: return drm.swing;
-    case P_DMASTER: return drm.level;
+    case P_CAMT: return cmp.amount;
+    case P_CTHR: return cmp.thresh;
+    case P_CREL: return cmp.release;
+    case P_CSC: return cmp.sc;
+    case P_CATT: return cmp.attack;
+    case P_CRAT: return cmp.ratio;
     default: return 0;
     }
 }
@@ -292,6 +303,8 @@ static int32_t p_count(uint32_t id)
     case P_LMODE: return MM_N;
     case P_PAN: case P_DPAN: return -1;          /* (-PAN_MAX .. PAN_MAX) */
     case P_DMETAL: return DM_N;
+    case P_CSC: return 2;
+    case P_CRAT: return 6;
     case P_DFILT: return DN_N;
     default: return 0;
     }
@@ -305,7 +318,7 @@ static void p_set(uint32_t id, int32_t v)
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
         : id == P_BPM ? clampi(v, 10, 500)
         : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
-                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING ? 100 : PMAX);
+                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING || id == P_CAMT ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -372,15 +385,22 @@ static void p_set(uint32_t id, int32_t v)
     case P_DMETAL: drm.v[ui.dsel].metal = (uint8_t)v; break;
     case P_DFILT: drm.v[ui.dsel].filt = (uint8_t)v; break;
     case P_DSWING: drm.swing = (uint8_t)v; break;
-    case P_DMASTER: drm.level = (int16_t)v; break;
+    case P_CAMT: cmp.amount = (uint8_t)v; break;
+    case P_CTHR: cmp.thresh = (int16_t)v; break;
+    case P_CREL: cmp.release = (int16_t)v; break;
+    case P_CSC: cmp.sc = (uint8_t)v; break;
+    case P_CATT: cmp.attack = (int16_t)v; break;
+    case P_CRAT: cmp.ratio = (uint8_t)v; break;
     default: break;
     }
-    if (id >= P_DTUNE && id <= P_DMASTER)        /* (the DRUMS: what the values mean, worked out again) */
+    if (id >= P_DTUNE && id <= P_DSWING)        /* (the DRUMS: what the values mean, worked out again) */
         drm_coef_all();
+    if (id >= P_CAMT && id <= P_CRAT)            /* (the COMPRESSOR's) */
+        cmp_coef();
 }
 static int32_t p_hi(uint32_t id)
 {
-    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING ? 100
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING || id == P_CAMT ? 100
            : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE || id == P_RMIX ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
@@ -479,7 +499,7 @@ static const char *p_name(uint32_t id)
     case P_DTUNE: return "TUNE";
     case P_DDECAY: return "DECAY";
     case P_DDRIVE: return "DRIVE";
-    case P_DLEVEL: case P_DMASTER: return "LEVEL";
+    case P_DLEVEL: return "LEVEL";
     case P_DSWEEP: return "SWEEP";
     case P_DATTACK: return "ATTACK";
     case P_DNOISE: return "NOISE";
@@ -491,6 +511,12 @@ static const char *p_name(uint32_t id)
     case P_DMETAL: return "METAL";
     case P_DFILT: return "FILTER";
     case P_DSWING: return "SWING";
+    case P_CAMT: return "AMOUNT";
+    case P_CTHR: return "THRESH";               /* ("THRESHOLD" does not fit beside its bar) */
+    case P_CREL: return "RELEASE";
+    case P_CSC: return "SIDECHAIN";
+    case P_CATT: return "ATTACK";
+    case P_CRAT: return "RATIO";
     default: return "";
     }
 }
@@ -612,6 +638,26 @@ static void p_text(uint32_t id, int32_t v, char *b)
     case P_DMETAL: str_cpy(b, DM_NAME[clampi(v, 0, DM_N - 1)], 12); break;
     case P_DFILT: str_cpy(b, DN_NAME[clampi(v, 0, DN_N - 1)], 12); break;
     case P_DSWING: fmt_int(b, v); break;
+    case P_CAMT:
+        if (!v)
+            str_cpy(b, "OFF", 12);
+        else {
+            fmt_int(b, v);
+            str_cpy(b + str_len(b), " %", 3);
+        }
+        break;
+    case P_CTHR: db_text(b, cmp_thr_db10(v)); break;
+    case P_CSC: str_cpy(b, v ? "KICK" : "OFF", 12); break;
+    case P_CRAT: str_cpy(b, CMP_RNAME[clampi(v, 0, 5)], 12); break;
+    case P_CATT: case P_CREL: {                  /* (tenths of a ms) */
+        int32_t t = id == P_CATT ? cmp_att_x10(v) : cmp_rel_x10(v);
+        if (t < 100)
+            fmt_fix(b, t, 1);
+        else
+            fmt_int(b, (t + 5) / 10);
+        str_cpy(b + str_len(b), " MS", 4);
+        break;
+    }
     case P_PAN: case P_DPAN:
         if (!v)
             str_cpy(b, "CENTRE", 12);
@@ -994,14 +1040,14 @@ static void ui_input(void)
         mod_random(&par.ch[ui.sel].mod, next_seed());
         say("NEW MOTION", 1000);
         ui.force = 1;
-    } else if (btn_bit(press, B_SEQ)) {         /* OUT, OUT EQ, OUT FX, LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8, back */
+    } else if (btn_bit(press, B_SEQ)) {         /* COMP, OUT, OUT EQ, OUT FX, LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8, back */
         int k = seq_ix(ui.page);
         if (k >= 0 && k + 1 < (int)sizeof SEQ_PG)
             goto_page(SEQ_PG[k + 1]);
         else if (k >= 0)
             goto_page(ui.last_ch_page <= PG_FX ? ui.last_ch_page : PG_MAIN);
         else
-            goto_page(PG_OUT);
+            goto_page(SEQ_PG[0]);
     }
     if (btn_bit(press, B_ARP)) {
         if (ui.page == PG_VIEW)
@@ -1134,6 +1180,16 @@ static void ui_input(void)
             ui.force = 1;
         }
     }
+    if (ui.dkey >= 0) {                          /* a DRUMS voice's key held 0.7 s: muted, or back */
+        if (!((keys >> (uint32_t)ui.dkey) & 1u))
+            ui.dkey = -1;
+        else if (!ui.dkey_done && (uint32_t)(fm1_ms - ui.dkey_t0) >= 700u) {
+            ui.dkey_done = 1;
+            drm.mute ^= (uint8_t)(1u << ui.dsel);
+            say(drm.mute >> ui.dsel & 1u ? "MUTED" : "UNMUTED", 900);
+            ui.force = 1;
+        }
+    }
     if (ui.page == PG_SNAP && ui.snap_key >= 0) {   /* a snapshot's key: let go soon, recalled; held, stored */
         uint32_t kk = (uint32_t)ui.snap_key, sw = (uint32_t)white_ix(kk);
         if ((up >> kk) & 1u) {
@@ -1166,6 +1222,9 @@ static void ui_input(void)
                                                   * sound for it; the rest nothing here */
             if (w < (int32_t)NDV) {
                 ui.dsel = (uint8_t)w;
+                ui.dkey = (int8_t)k;             /* (held: muted, or back) */
+                ui.dkey_t0 = fm1_ms;
+                ui.dkey_done = (uint8_t)sh;
                 if (sh) {
                     drm_draw_voice((uint32_t)w, next_seed(), -1);
                     drm_coef_all();
@@ -1233,7 +1292,7 @@ static void ui_input(void)
             if (s)
                 mtx_knob(k, s, sh);
         }
-    } else if (ui.page <= PG_OFX || rhy_page() || drm_page()) {
+    } else if (ui.page <= PG_COMP || rhy_page() || drm_page()) {
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
@@ -1311,9 +1370,11 @@ static void ui_leds(void)
             led_dim_key(14u + k, snap_has((uint32_t)w));
             continue;
         }
-        if (drm_page() && w >= 0) {              /* the DRUMS' pages: the three voices, the one chosen lit */
-            fm1_led_key(14u + k, w == ui.dsel);
-            led_dim_key(14u + k, w < (int32_t)NDV);
+        if (drm_page() && w >= 0) {              /* the DRUMS' pages: the voices, the one chosen lit; a muted one
+                                                  * blinking, dim */
+            int muted = w < (int32_t)NDV && (drm.mute >> w & 1u);
+            fm1_led_key(14u + k, w == ui.dsel && !muted);
+            led_dim_key(14u + k, muted ? blink : w < (int32_t)NDV);
             continue;
         }
         if (w >= 0 && w < SRC_N) {               /* the inputs: the one chosen lit, the others glowing */
@@ -1473,7 +1534,7 @@ static uint16_t page_col(void) { return rhy_page() ? C_RHY : drm_page() ? C_DRM 
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
 {
     uint32_t j;
-    if (!((ui.keys >> KEY_SHIFT) & 1u) || (ui.page > PG_OFX && !drm_page()) || (ui.page >= PG_LFO1 && ui.page <= PG_MTX2))
+    if (!((ui.keys >> KEY_SHIFT) & 1u) || (ui.page > PG_COMP && !drm_page()) || (ui.page >= PG_LFO1 && ui.page <= PG_MTX2))
         return 0;
     for (j = 0; j < 4u; j++)
         if (PG_SHROW[ui.page][j] != P_NONE)
@@ -1503,7 +1564,8 @@ static void draw_title(void)
         str_cpy(t, DV_NAME[ui.dsel % NDV], sizeof t);
         if (!show_shift()) {
             str_cpy(t + str_len(t), "  ", 3);
-            str_cpy(t + str_len(t), DKIT[drm.kit[ui.dsel % NDV] % NDKIT].name, sizeof t - str_len(t));
+            str_cpy(t + str_len(t), drm.mute >> ui.dsel & 1u ? "MUTED" : DKIT[drm.kit[ui.dsel % NDV] % NDKIT].name,
+                    sizeof t - str_len(t));
         }
     }
     if (show_shift())                            /* (SHIFT held: the switches) */
@@ -2004,6 +2066,7 @@ static void ui_init(void)
     memset(&ui, 0, sizeof ui);
     ui.touched = -1;
     ui.snap_key = -1;
+    ui.dkey = -1;
 #if TELEMETRY
     ui.seed = 0x5EEDu;                           /* (a diagnostic build: the same patch each start) */
 #else
@@ -2018,6 +2081,7 @@ static void ui_init(void)
         patch_set(&q, FAM[f].name);
     }
     drm_init(next_seed());                       /* the DRUMS: a kit and a rhythm drawn, stopped */
+    cmp_coef();                                  /* (the COMPRESSOR: as it stands -- off) */
     ui.shown_sel = 0xFF;
     ui.force = 1;
 }

@@ -1209,6 +1209,22 @@ static int32_t ost_l[CTL], ost_r[CTL], ost_r1[CTL], ost_r2[CTL];   /* (the last 
 static int32_t oout_l[CTL], oout_r[CTL];                            /* (the stage's output) */
 static int32_t rv_in[CTL], rv_l[CTL], rv_r[CTL];
 #include "drums.c"                       /* (the DRUMS' voices: rendered in out_stage) */
+/* the COMPRESSOR (build 17): on the mixer's output (after the meters: the trim weighs the mix as it is), before the
+ * drums join it. A peak compressor in dB (log2), a block at a time, its gain gliding over the block. AMOUNT brings the
+ * mix forward -- its makeup, up to all the gain a full-scale peak loses -- and, with SIDECHAIN, ducks it under each
+ * kick, up to 18 dB, back over RELEASE: more AMOUNT, more contrast, more pumping. AMOUNT 0: off, untouched */
+typedef struct {
+    uint8_t amount, ratio, sc, rsv;  /* 0 .. 100 (0: off); CMP_RAT's; the kick ducking the mix */
+    int16_t thresh, attack, release, rsv2;   /* 0 .. PMAX: -48 .. 0 dB; 0.2 .. 50 ms; 20 ms .. 1 s */
+} cmp_par_t;
+static cmp_par_t cmp = {0, 2, 1, 0, 625, 300, 450, 0};
+typedef struct {
+    int32_t thr, slope, makeup, depth;   /* log2 Q16; Q15 (1 - 1 / ratio); log2 Q16; log2 Q16 */
+    int32_t ka, kr;                      /* a block's share of the way, Q15: attack, release */
+    uint8_t on, sc, rsv[2];
+} cmp_coef_t;
+static cmp_coef_t cmpk;
+static struct { int32_t env, duck, g; } cmpr = {0, 0, 1 << 16};   /* the level (log2 Q16); the duck (Q16); the gain (Q16) */
 
 static FAST void out_coef(void)
 {
@@ -1324,6 +1340,31 @@ static FAST void out_stage(void)
         }
     }
     out_meter = pk > out_meter ? pk : out_meter - (out_meter >> 4);
+    if (cmpk.on || cmpr.g != (1 << 16)) {        /* the COMPRESSOR (off: back to unity over a block, then left alone) */
+        int32_t gl = 0, gt, dg;
+        if (cmpk.on) {
+            int32_t lv = pk > 0 ? log2_q16((uint32_t)pk) - (15 << 16) : -(20 << 16), over;   /* (the peak, octaves of
+                                                                                               * full scale) */
+            cmpr.env += mulq15(lv - cmpr.env, lv > cmpr.env ? cmpk.ka : cmpk.kr);
+            over = cmpr.env - cmpk.thr;
+            gl = cmpk.makeup - (over > 0 ? mulq15(over, cmpk.slope) : 0);
+            if (cmpk.sc) {                       /* SIDECHAIN: a kick ducks the mix, back over RELEASE */
+                if (dtrig[DV_KICK].fire)
+                    cmpr.duck = 1 << 16;
+                gl -= mulq16(cmpr.duck, cmpk.depth);
+                cmpr.duck -= mulq15(cmpr.duck, cmpk.kr);
+            }
+        }
+        gt = (int32_t)exp2_q16(clampi(gl, -(8 << 16), 4 << 16));
+        dg = (gt - cmpr.g) / (int32_t)CTL;
+        for (i = 0; i < CTL; i++) {
+            cmpr.g += dg;
+            oout_l[i] = mulq16(oout_l[i], cmpr.g);
+            oout_r[i] = mulq16(oout_r[i], cmpr.g);
+        }
+        if (!cmpk.on)
+            cmpr.g = 1 << 16;
+    }
     if (drm_live || drm_wet)                     /* the DRUMS, dry: after the meters (the trim and the guard weigh
                                                   * the mix alone; the drums keep their own level) */
         for (i = 0; i < CTL; i++) {
@@ -1371,7 +1412,6 @@ static uint8_t rhy_gmode[NCH];                   /* .. how it is applied (RM_*) 
 static int32_t rhy_acc[NCH];                     /* ACCENT's push, decaying (Q15) */
 static volatile uint8_t rhy_reset = 1;           /* (the main loop: from the top -- every lane on its first step) */
 static volatile uint32_t rhy_beat;               /* the beats counted (the lights) */
-static uint32_t rhy_bph;
 static rnd_t rhy_r = {0x2468ACE1u};
 AINL int32_t rhy_wet(void)                       /* MIX: how much of the gate is heard (Q15; DRY 0, as before: all) */
 {
@@ -1394,19 +1434,49 @@ static FAST void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t i
     else if (L->mode == RM_ACCENT)
         rhy_acc[c] = mulq15(accent ? Q15 : 20000, rhy_wet());
 }
+/* the beat (build 17): one clock for the RHYTHM and the DRUMS, running while either plays. Each starts -- or starts
+ * a new pattern -- on its next beat, and the other plays on untouched (before, a new RHYTHM restarted the drums) */
+static uint32_t clk_bph;
+static uint8_t clk_run, clk_edge;
+static uint8_t rhy_running;      /* (the RHYTHM's lanes playing: a new one waits for the beat over them) */
+static FAST void clk_block(void)
+{
+    uint32_t b0 = clk_bph;
+    clk_edge = 0;
+    if (!par.rhy.on && !drm.on) {
+        clk_run = 0;
+        return;
+    }
+    if (!clk_run) {                              /* (nothing was playing: the beat is now) */
+        clk_run = 1;
+        clk_bph = 0;
+        clk_edge = 1;
+        rhy_beat++;
+        return;
+    }
+    clk_bph += (uint32_t)clampi(par.rhy.bpm, 10, 500) * 2u * 25971u;
+    if (clk_bph < b0) {
+        clk_edge = 1;
+        rhy_beat++;
+    }
+}
 static FAST void rhythm_block(void)
 {
     uint32_t c, bpm = (uint32_t)clampi(par.rhy.bpm, 10, 500);
-    if (!par.rhy.on) {
+    if (!par.rhy.on || (rhy_reset && !clk_edge && !rhy_running)) {   /* (off; or about to start, on the beat) */
         for (c = 0; c < NCH; c++) {
             rhy_gmode[c] = RM_OFF;
             rhy_g[c] = Q15;
             rhy_acc[c] = 0;
         }
-        rhy_reset = 1;
+        if (!par.rhy.on) {
+            rhy_reset = 1;
+            rhy_running = 0;
+        }
         return;
     }
-    if (rhy_reset) {                             /* (from the top: each lane's first step on the next block) */
+    if (rhy_reset && clk_edge) {                 /* (from the top, on the beat: each lane's first step now; until
+                                                  * then a rhythm playing plays on) */
         rhy_reset = 0;
         for (c = 0; c < NCH; c++) {
             lrt[c].ph = 0xFFFFFFFFu;
@@ -1415,16 +1485,8 @@ static FAST void rhythm_block(void)
             lrt[c].env = 0;
             lrt[c].hold = 0;
         }
-        rhy_bph = 0xFFFFFFFFu;
-        if (drm.on)
-            drm_reset = 2;                       /* (the DRUMS from the top with it) */
     }
-    {   /* the beat, for the lights */
-        uint32_t b0 = rhy_bph;
-        rhy_bph += bpm * 2u * 25971u;
-        if (rhy_bph < b0)
-            rhy_beat++;
-    }
+    rhy_running = 1;
     for (c = 0; c < NCH; c++) {
         const lane_t *L = &par.rhy.lane[c];
         uint32_t inc, p0, len = (uint32_t)clampi(L->len, 1, 32);
@@ -1564,6 +1626,7 @@ static FAST void mix_block(int32_t *out)
     midi_main_drain();
     for (c = 0; c < NSLOT; c++)
         SCOPY(eff_slot[c], par.slot[c]);
+    clk_block();
     rhythm_block();
     drums_block();
     tp = COST_NOW_();
@@ -1647,6 +1710,7 @@ static int mx_quiet(void)                         /* nothing heard: the flash ma
 }
 static void mx_init(void)
 {
+    sine_init();                                 /* (SINE, in the POOL: from the flash's) */
     uint32_t c;
     memset(chr, 0, sizeof chr);
     memset(slr, 0, sizeof slr);

@@ -251,9 +251,9 @@ static void bench_handle(const uint8_t *m, uint32_t d)
         bench_costs();
     else if (m[2] == 0x61u && d == 7u + 6u) {
         bench_patch(bk_rd32(b), b[4] == 255u ? -1 : (int)b[4], b[5] & 0x7Fu);
-        if (b[5] & 0x80u) {                      /* (+ the DRUMS at their densest: BLAST, the three voices, long) */
+        if (b[5] & 0x80u) {                      /* (+ the DRUMS at their densest: every voice on every sixteenth, long) */
             uint32_t c;
-            drm_draw_rhythm(bk_rd32(b), DS_BLAST);
+            drm_draw_rhythm(bk_rd32(b), DS_PISTON);
             for (c = 0; c < NDV; c++) {
                 drm.l[c].hits = 0xFFFFu;
                 drm.l[c].len = 16;
@@ -263,7 +263,7 @@ static void bench_handle(const uint8_t *m, uint32_t d)
             }
             drm_coef_all();
             drm.on = 1;
-            drm_reset = 2;
+            drm_reset = 1;
         } else
             drm.on = 0;
     }

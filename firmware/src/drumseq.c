@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * LILLIPUT: the DRUMS' steps, a block at a time (the ISR, CPU0, beside the RHYTHM's): each voice's lane a phase, a
- * step a wrap, on the RHYTHM's tempo. Started while the RHYTHM plays, the drums wait for its next beat, so the two
- * are in step; the RHYTHM started anew restarts them with it. A hit (its chance) is handed to the voices
+ * step a wrap, on the RHYTHM's tempo and its beat (mixer.c's clk_block): started, or given a new rhythm, they begin
+ * on the next beat, and the RHYTHM is never disturbed by them, nor they by it. A hit (its chance) is handed to the voices
  * (drums_render, out_stage) with its accent, its pitch and ALT; SWING makes the off steps late. */
 static struct { uint32_t ph; uint8_t step, pend, pacc, palt; int8_t ppitch, rsv[3]; } dlr[NDV];
-static uint8_t drm_wait;
-static uint32_t drm_beat0;
+static uint8_t drm_running;      /* (the lanes playing: a new rhythm waits for the beat over them) */
 static FAST void drm_hit(uint32_t c, uint32_t s)
 {
     const dlane_t *L = &drm.l[c];
+    if (drm.mute >> c & 1u)                      /* (muted: its steps run on, unheard) */
+        return;
     dtrig[c].acc = (uint8_t)(L->acc >> s & 1u);
     dtrig[c].alt = (uint8_t)(L->alt >> s & 1u);
     dtrig[c].pitch = L->pitch[s];
@@ -21,23 +22,22 @@ static FAST void drums_block(void)
         dtrig[c].fire = 0;
     if (!drm.on) {
         drm_reset = 1;
+        drm_running = 0;
         return;
     }
-    if (drm_reset) {
-        for (c = 0; c < NDV; c++) {
-            dlr[c].ph = 0xFFFFFFFFu;
-            dlr[c].step = 0xFF;
-            dlr[c].pend = 0;
-        }
-        drm_wait = drm_reset == 1u && par.rhy.on;
-        drm_beat0 = rhy_beat;
-        drm_reset = 0;
-    }
-    if (drm_wait) {                              /* (the RHYTHM playing: from its next beat) */
-        if (par.rhy.on && rhy_beat == drm_beat0)
+    if (drm_reset) {                             /* (from the top on the beat; until then a rhythm playing plays on) */
+        if (!clk_edge && !drm_running)
             return;
-        drm_wait = 0;
+        if (clk_edge) {
+            for (c = 0; c < NDV; c++) {
+                dlr[c].ph = 0xFFFFFFFFu;
+                dlr[c].step = 0xFF;
+                dlr[c].pend = 0;
+            }
+            drm_reset = 0;
+        }
     }
+    drm_running = 1;
     for (c = 0; c < NDV; c++) {
         const dlane_t *L = &drm.l[c];
         uint32_t len = (uint32_t)clampi(L->len, 1, (int32_t)DSTEPS), p0 = dlr[c].ph;

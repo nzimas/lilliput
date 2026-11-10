@@ -16,7 +16,7 @@
  * RHYTHM's (drumseq.c). Everything slow -- pitches, times, filters, gains -- is worked out in the main loop when a
  * value moves (drumkit.c's drm_coef), so the audio does only adds and multiplies. */
 
-enum { DV_KICK, DV_SNARE, DV_HAT, NDV };
+enum { DV_KICK, DV_SNARE, DV_HAT, DV_PERC, NDV };   /* (PERC: build 17 -- industrial, metallic) */
 enum { DN_LP, DN_BP, DN_HP, DN_N };
 #define DM_N 7u                  /* METAL: OFF, then six ratios */
 typedef struct {
@@ -32,10 +32,17 @@ typedef struct {
 typedef struct {
     dvoice_t v[NDV];
     dlane_t l[NDV];
-    uint8_t on, style, swing, rsv;
-    uint8_t kit[NDV], rsv2;      /* each voice's sound, as drawn (its recipe: the name) */
-    int16_t level, rsv3;         /* the drums' level, 0 .. PMAX (707: as drawn) */
+    uint8_t on, style, swing, mute;   /* mute: a bit a voice (its white key held) */
+    uint8_t kit[NDV];            /* each voice's sound, as drawn (its recipe: the name) */
+    int16_t level, rsv3;         /* the drums' level (707: as drawn; not on the panel since build 17) */
 } drm_par_t;
+typedef struct {                 /* (build 16's, three voices: sessions saved then) */
+    dvoice_t v[3];
+    dlane_t l[3];
+    uint8_t on, style, swing, rsv;
+    uint8_t kit[3], rsv2;
+    int16_t level, rsv3;
+} drm16_t;
 static drm_par_t drm;
 
 /* a voice's coefficients (drumkit.c's drm_coef, the main loop) */
@@ -62,7 +69,7 @@ static volatile struct { uint8_t fire, acc, alt; int8_t pitch; } dtrig[NDV];   /
 static int32_t drm_l[CTL], drm_r[CTL], drm_s[CTL];   /* the drums this block: dry left, right; into the reverb */
 static uint8_t drm_wet;          /* (a voice sounding with a reverb send, or its tail: the stage's reverb runs with them) */
 static uint32_t drm_tail;        /* (blocks the reverb runs on for the drums' tail) */
-static uint8_t drm_reset = 1;    /* (the steps from the top: 1, on the RHYTHM's next beat if it plays; 2, now) */
+static uint8_t drm_reset = 1;    /* (the steps from the top, on the next beat) */
 static volatile uint8_t drm_live;   /* (a voice sounding: the flash is not blanked under it) */
 
 static const uint32_t DSEMI[25] TABLE_RAM = {32768, 34716, 36781, 38968, 41285, 43740, 46341, 49097, 52016, 55109, 58386, 61858, 65536, 69433, 73562, 77936, 82570, 87480, 92682, 98193, 104032, 110218, 116772, 123715, 131072};   /* (2^(n / 12), Q16, n -12 .. 12) */
@@ -90,6 +97,10 @@ static FAST void drums_render(void)
         }
         if (!v->live)
             continue;
+        if (drm.mute >> c & 1u) {                /* (muted: let go at once, ~2 ms) */
+            v->up = 0;
+            v->dec = 0xFE000000u;
+        }
         for (i = 0; i < CTL; i++) {
             uint32_t inc = v->inc + (uint32_t)(((uint64_t)v->sinc * v->penv) >> 30);
             int32_t tone, n, f, bp, lp, hp, x;

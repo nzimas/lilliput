@@ -304,6 +304,7 @@ static void fm1_main(void)
 {
     int32_t knob = 512 * 16, batt_acc = 0;
     uint32_t healthy_since, t_both = 0, batt_at = 0;
+    sine_init();                                     /* (SINE in the RAM before anything draws or sounds: the logo) */
     {
         uint32_t f = irq_save();
         flash_ok = FL_JEDEC_OK(FL_FAR(fl_jedec_ram)());   /* a known 1 MiB part (fm1_flash_id.h) */
