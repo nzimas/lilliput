@@ -1,5 +1,13 @@
 # Changelog
 
+## Build 5 (2026-11-10)
+
+- Six effects in the rack, none moving pitch: CYCLES (WAVELOSS, SPUTTER, WAVESET), REED (a clarinet's bore, its
+  note a fixed step), OCTAVER (one or two octaves down), DIFFUSER (four allpasses), SAG (a power supply starving),
+  CUTS (BBCut-style phrases of cuts and rolls; GLITCH unchanged). Their notes, modes, sizes and windows are steps,
+  out of the modulation's reach. The families use them.
+- Sessions saved by build 4 load as they were.
+
 ## Build 4 (2026-11-10)
 
 - FOLD in every channel, after the tube: a wavefolder (x 1.2 .. x 16), more harmonics as it is driven, never more

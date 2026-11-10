@@ -203,9 +203,14 @@ static const struct { uint8_t p; int16_t lo, hi; } FAM_FOLD[] = {
     {20, 50, 250}, {5, 30, 120}, {15, 50, 300}, {30, 100, 500}, {50, 200, 800}, {20, 100, 400}, {40, 100, 500},
     {10, 30, 150}, {30, 100, 500}, {15, 50, 250}, {20, 50, 300}, {30, 100, 450}, {25, 50, 350}, {80, 300, 1000},
     {60, 200, 900}, {20, 50, 300}};
-static const uint8_t FAM_FX2[][4] = {
-    {4, 1, 0, 1}, {3, 0, 0, 0}, {1, 1, 0, 0}, {1, 2, 1, 2}, {1, 4, 1, 2}, {3, 1, 1, 2}, {1, 3, 2, 1}, {5, 1, 0, 0},
-    {1, 1, 4, 4}, {3, 0, 1, 1}, {2, 1, 0, 1}, {1, 3, 1, 2}, {3, 1, 1, 0}, {1, 4, 1, 1}, {1, 4, 2, 3}, {2, 0, 3, 2}};
+/*                                   RESONATOR XMOD DUCK GATE | CYCLES REED OCTAVER DIFFUSER SAG CUTS (build 5) */
+static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
+    {4, 1, 0, 1, 1, 2, 2, 3, 1, 0}, {3, 0, 0, 0, 0, 2, 0, 2, 0, 0}, {1, 1, 0, 0, 0, 1, 1, 1, 1, 0},
+    {1, 2, 1, 2, 2, 0, 1, 1, 1, 2}, {1, 4, 1, 2, 3, 0, 1, 1, 2, 2}, {3, 1, 1, 2, 3, 1, 0, 1, 1, 2},
+    {1, 3, 2, 1, 1, 1, 2, 2, 2, 0}, {5, 1, 0, 0, 0, 2, 1, 2, 0, 0}, {1, 1, 4, 4, 2, 0, 1, 0, 3, 3},
+    {3, 0, 1, 1, 0, 1, 2, 4, 1, 0}, {2, 1, 0, 1, 0, 3, 1, 2, 0, 0}, {1, 3, 1, 2, 3, 0, 1, 1, 2, 2},
+    {3, 1, 1, 0, 1, 2, 4, 2, 1, 0}, {1, 4, 1, 1, 2, 1, 2, 0, 2, 1}, {1, 4, 2, 3, 4, 0, 1, 1, 1, 5},
+    {2, 0, 3, 2, 0, 1, 1, 3, 3, 0}};
 typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM ? 1 : -1];
 
 /* ------------------------------------------------------------ drawing --- */
@@ -275,6 +280,14 @@ static void draw_slot(rnd_t *r, const family_t *f, slot_par_t *s, uint32_t in, u
         s->p1 = (int16_t)rnd_below(r, 36);
     if (s->fx == FX_DUCK || s->fx == FX_GATE)
         s->p1 = (int16_t)pr_in(r, 500, 1000);
+    if (s->fx == FX_REED) {                      /* (a note where loops sing, a breath that blows) */
+        s->p1 = (int16_t)rnd_below(r, 36);
+        s->p2 = (int16_t)pr_in(r, 450, 850);
+    }
+    if (s->fx == FX_SAG)
+        s->p1 = (int16_t)pr_in(r, 3, NSAGW - 1);
+    if (s->fx == FX_CYCLES || s->fx == FX_CUTS)
+        s->p2 = (int16_t)pr_in(r, 250, 800);
     s->pres = (int16_t)(in == FI_INS ? pr_in(r, 300, 850) : PMAX);
     s->lofi = (uint8_t)rnd_chance(r, f->lofi);
     s->bypass = 0;
@@ -470,8 +483,10 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
         if (s1 == SLOT_OUT)
             s1 = act[NCH - 1u];
         draw_slot(&r, f, &q->slot[s1], FI_SEN1, FO_RET1);
-        if (q->slot[s1].fx == FX_BITCRUSH && rnd_chance(&r, 50))
-            q->slot[s1].fx = FX_DELAY;
+        if ((q->slot[s1].fx == FX_BITCRUSH && rnd_chance(&r, 50)) || q->slot[s1].fx == FX_XMOD ||
+            q->slot[s1].fx == FX_DUCK || q->slot[s1].fx == FX_GATE)
+            q->slot[s1].fx = FX_DELAY;           /* (the loop through the rack: never through something that is silent
+                                                  * unless another signal opens it -- it could never start) */
         if (s1 + 1u < NCH && q->slot[s1 + 1u].in == FI_NON && rnd_chance(&r, 40)) {
             s2 = s1 + 1u;
             draw_slot(&r, f, &q->slot[s2], FI_PREV, FO_RET2);
@@ -506,6 +521,23 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
             if (f->g[i].shapes >> b & 1u)
                 sh[n++] = (uint8_t)b;
         motion_sync.shape[i] = n ? sh[rnd_below(&r, (int32_t)n)] : MS_SINE;
+    }
+    for (i = 0; i < NSLOT; i++) {                /* XMOD's and GATE's other signal: a channel that sings by itself */
+        slot_par_t *sl = &q->slot[i];
+        uint32_t c, best = NCH;
+        if (sl->in == FI_NON || (sl->fx != FX_XMOD && sl->fx != FX_GATE && sl->fx != FX_DUCK))
+            continue;
+        for (c = 0; c < NCH; c++) {
+            const ch_par_t *p = &q->ch[c];
+            if (c == i || !p->level || (p->src != SRC_PRE && p->src != SRC_POST && p->src != SRC_MIXL && p->src != SRC_MIXR))
+                continue;
+            if (best == NCH || rnd_chance(&r, 50))
+                best = c;
+        }
+        if (best < NCH)
+            sl->p2 = (int16_t)best;
+        else if (sl->fx != FX_DUCK)              /* (none: something that needs nothing else) */
+            sl->fx = FX_DIFFUSE;
     }
     for (i = 0; i < NCH; i++)                    /* how each one moves */
         draw_motion(&r, f, &q->ch[act[i]], seed * 2654435761u + i * 40503u);

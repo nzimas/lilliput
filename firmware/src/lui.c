@@ -532,7 +532,7 @@ static void p_text(uint32_t id, int32_t v, char *b)
         if (fx_pcount(s->fx, id == P_P2)) {      /* a choice: its name */
             int32_t n = clampi(v, 0, fx_pcount(s->fx, id == P_P2) - 1);
             static const char *const NOTE[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-            if (s->fx == FX_RESON && id == P_P1) {   /* ROOT: C2 .. B5 */
+            if ((s->fx == FX_RESON || s->fx == FX_REED) && id == P_P1) {   /* ROOT, NOTE: C2 .. B5 */
                 str_cpy(b, NOTE[n % 12], 4);
                 b[str_len(b) + 1] = 0;
                 b[str_len(b)] = (char)('2' + n / 12);
@@ -540,12 +540,26 @@ static void p_text(uint32_t id, int32_t v, char *b)
                 str_cpy(b, CHORD_NAME[n], 12);
             else if (s->fx == FX_XMOD && id == P_P1)
                 str_cpy(b, XM_NAME[n], 12);
+            else if (s->fx == FX_CYCLES)
+                str_cpy(b, CY_NAME[n], 16);
+            else if (s->fx == FX_OCTAVE)
+                str_cpy(b, OC_NAME[n], 12);
+            else if (s->fx == FX_DIFFUSE) {      /* SIZE 1 .. 8 */
+                str_cpy(b, "SIZE ", 12);
+                b[5] = (char)('1' + n);
+                b[6] = 0;
+            } else if (s->fx == FX_SAG)          /* TIME: its window */
+                ms_text(b, 64 << n);
             else
                 str_cpy(b, XSRC_NAME[n], 12);
             break;
         }
         if (id == P_P2) {
             fmt_int(b, (v + 5) / 10);
+            break;
+        }
+        if (s->fx == FX_CUTS) {                  /* UNIT: 10 .. 46 ms */
+            ms_text(b, 441 + v * 1607 / PMAX);
             break;
         }
         if (s->fx == FX_DELAY) {

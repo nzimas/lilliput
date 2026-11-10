@@ -171,11 +171,29 @@ or RET 2. An insert's output goes on through its channel, and to a return too if
 | DUCK | DEPTH | KEY: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 — the louder it is, the quieter this |
 | GATE | DEPTH | KEY: as DUCK's — the louder it is, the more this opens |
 
+| CYCLES | MODE: WAVELOSS (the first n of every 8 cycles silent), SPUTTER (a half-cycle now and then turned over or silent), WAVESET (each cycle repeated) | AMOUNT |
+| REED | NOTE, C2 … B5, a semitone a step | BREATH |
+| OCTAVER | MODE: ONE DOWN, TWO DOWN, BOTH | TONE |
+| DIFFUSER | SIZE 1 … 8 | DENSITY |
+| SAG | TIME: the window it averages over, 1.5 … 371 ms | DEPTH |
+| CUTS | UNIT, 10 … 46 ms | DENSITY |
+
 **RESONATOR** is six tuned resonators on the root, in the chord's intervals, ringing about 1.2 s (after 4ms's SMR).
 In a loop it pulls the feedback onto those notes and holds it there. Its ROOT and CHORD are steps and no LFO can
 move them: it steadies pitch, never glides it. **XMOD** (after Mutable Instruments' Warps) and **DUCK / GATE**
 (after its Streams) take a second signal, so one loop can shape another: ring-modulate it, mangle its bits, duck it
 or open it in time with it.
+
+Build 5's six, all steady in pitch: **CYCLES** works on whole wave cycles between the zero crossings — WAVELOSS
+drops some in a regular pattern (rhythmic holes a loop rebuilds itself through), SPUTTER turns half-cycles over or
+silences them at random (crackle), WAVESET repeats each cycle (a time-stretched stutter that sinks into sub-drones).
+**REED** is a clarinet's bore and reed (after STK's Clarinet): the signal is its breath, and it blows at its NOTE,
+which is a step and never moves. **OCTAVER** adds one or two octaves down, locked to the signal by flip-flops on its
+zero crossings (after OWL's OctaveDown). **DIFFUSER** smears transients into a dense, metallic wash (Clouds'
+diffuser). **SAG** is a power supply starving (after Airwindows' PowerSag2): loud a while, the gain sinks and comes
+back, so loops pulse and breathe; TIME is how long it remembers. **CUTS** cuts the sound into phrases (3 3 2, 2 2 2 2
+and the like); a cut plays on, or repeats what came just before it, whole or in halves or quarters — structured
+stutters after BBCut and Livecut. GLITCH is unchanged.
 
 **PRESENCE** is how much of the effect is heard; **LO-FI** halves its rate and its bits.
 

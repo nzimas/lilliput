@@ -538,3 +538,14 @@ octaves	AA1 K T IH0 V Z
 root	R UW1 T
 with	W IH1 DH
 xmod	K R AO1 S M AA2 D
+both	B OW1 TH
+cuts	K AH1 T S
+cycles	S AY1 K AH0 L Z
+diffuser	D IH0 F Y UW1 Z ER0
+down	D AW1 N
+octaver	AA1 K T EY2 V ER0
+sag	S AE1 G
+sputter	S P AH1 T ER0
+unit	Y UW1 N AH0 T
+waveloss	W EY1 V L AO2 S
+waveset	W EY1 V S EH2 T

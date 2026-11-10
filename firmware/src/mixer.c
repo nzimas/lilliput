@@ -51,7 +51,12 @@ enum { OA_TL072, OA_NE5532, OA_4558, OA_741, OA_OP07, OA_3140, OA_N };
 enum { FT_SHELF, FT_CUT, FT_N };
 enum { MT_PEAK, MT_NOTCH, MT_BAND, MT_N };
 enum { FX_DELAY, FX_FLANGER, FX_CHORUS, FX_TREMOLO, FX_FORMANT, FX_BITCRUSH, FX_GLITCH,
-       FX_RESON, FX_XMOD, FX_DUCK, FX_GATE, FX_N };
+       FX_RESON, FX_XMOD, FX_DUCK, FX_GATE,
+       FX_CYCLES, FX_REED, FX_OCTAVE, FX_DIFFUSE, FX_SAG, FX_CUTS, FX_N };
+enum { CY_LOSS, CY_DISINT, CY_WAVESET, CY_N };   /* CYCLES' modes */
+enum { OC_ONE, OC_TWO, OC_BOTH, OC_N };          /* OCTAVER's */
+#define NDIFF 8                  /* DIFFUSER's sizes */
+#define NSAGW 9                  /* SAG's windows: 64 .. 16384 samples, doubling */
 #define NCHORD 8                 /* RESONATOR's chords */
 #define NXSRC 10                 /* XMOD's, DUCK's and GATE's other signal: CH 1 .. 6, MIX L, MIX R, SEND 1, SEND 2 */
 enum { XM_RING, XM_XOR, XM_FOLD, XM_COMP, XM_N };
@@ -186,6 +191,21 @@ typedef struct {
     int32_t last, held;
     svf_t s1, s2;
     int32_t r1s[6];              /* RESONATOR: the bands' first states */
+    /* (build 5) */
+    uint32_t tw;                 /* samples written, counted on (CYCLES' WAVESET, CUTS: places in the line) */
+    int32_t zp, mult;            /* CYCLES: the last input; the half-cycle's gain (Q15) */
+    uint32_t cyc, cyp;           /* .. the cycles counted; DISINTEGRATE's chance (of 2^32); WAVELOSS' cycles lost of 8 */
+    uint32_t wb[32], wbw, wbr;   /* WAVESET: the cycles' starts, a ring */
+    uint32_t cs, ce, rd, rleft, reps;   /* .. the cycle played: its start, end, the place, repeats left; how many */
+    int32_t rlen, rz, breath;    /* REED: the bore (samples, Q8); its one-zero filter; the breath (Q15) */
+    int32_t olp, otone, ot;      /* OCTAVER: the detector's low-pass; the tone's coefficient and state */
+    uint8_t ff1, ff2, omode, cmode;   /* .. its two flip-flops, its mode; CYCLES' mode */
+    uint16_t dlen[4], didx[4];   /* DIFFUSER: its four allpasses' lengths and places */
+    int32_t dg;                  /* .. their gain (Q15) */
+    uint32_t ssum, swin, sshift; /* SAG: the window's sum of |x|, its length, its log2 */
+    uint32_t cut_left, cpos, cseg, cstart, cunit;   /* CUTS: the cut's samples left; the place in its repeat; the repeat's
+                                                     * length, its start; the unit */
+    uint8_t cpat, cpi, crep, rsv5;                  /* .. the pattern, the place in it, repeating */
     rnd_t r;
     slot_par_t seen;
     uint8_t fresh;
@@ -221,7 +241,10 @@ static const char *const TM_NAME[TM_N] = {"LINEAR", "SATURATED"};
 static const char *const OA_NAME[OA_N] = {"TL072", "NE5532", "4558", "741", "OP07", "CA3140"};
 static const char *const MT_NAME[MT_N] = {"PEAK", "NOTCH", "BAND"};
 static const char *const FX_NAME[FX_N] = {"DELAY", "FLANGER", "CHORUS", "TREMOLO", "FORMANT", "BITCRUSH", "GLITCH",
-                                          "RESONATOR", "XMOD", "DUCK", "GATE"};
+                                          "RESONATOR", "XMOD", "DUCK", "GATE", "CYCLES", "REED", "OCTAVER", "DIFFUSER",
+                                          "SAG", "CUTS"};
+static const char *const CY_NAME[CY_N] = {"WAVELOSS", "SPUTTER", "WAVESET"};
+static const char *const OC_NAME[OC_N] = {"ONE DOWN", "TWO DOWN", "BOTH"};
 static const char *const CHORD_NAME[NCHORD] = {"OCTAVES", "FIFTHS", "MAJOR", "MINOR", "SUS", "CLUSTER", "PELOG",
                                               "HARMONICS"};
 static const char *const XSRC_NAME[NXSRC] = {"CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "MIX L", "MIX R", "SEND 1",
@@ -240,6 +263,11 @@ static int32_t fx_pcount(int32_t fx, int which)
     case FX_RESON: return which ? NCHORD : 48;   /* ROOT: C2 .. B5, a semitone a step; CHORD */
     case FX_XMOD: return which ? NXSRC : XM_N;   /* MODE; WITH */
     case FX_DUCK: case FX_GATE: return which ? NXSRC : 0;   /* DEPTH; KEY */
+    case FX_CYCLES: return which ? 0 : CY_N;     /* MODE; AMOUNT */
+    case FX_REED: return which ? 0 : 48;         /* NOTE: C2 .. B5, a semitone a step; BREATH */
+    case FX_OCTAVE: return which ? 0 : OC_N;     /* MODE; TONE */
+    case FX_DIFFUSE: return which ? 0 : NDIFF;   /* SIZE (the lines' lengths: steps, never glided); DENSITY */
+    case FX_SAG: return which ? 0 : NSAGW;       /* TIME (its window: steps); DEPTH */
     default: return 0;
     }
 }
@@ -248,9 +276,9 @@ static const char *const FO_NAME[FO_N] = {"NONE", "RET 1", "RET 2"};
 static const char *const SP_NAME[SP_N] = {"ROOM", "HALL", "PLATE", "CAVE", "ABYSS", "VOID"};
 /* each effect's two parameters, by name */
 static const char *const FX_P1[FX_N] = {"TIME", "DEPTH", "INTENSITY", "RATE", "VOWEL", "ALGORITHM", "LENGTH", "ROOT",
-                                        "MODE", "DEPTH", "DEPTH"};
+                                        "MODE", "DEPTH", "DEPTH", "MODE", "NOTE", "MODE", "SIZE", "TIME", "UNIT"};
 static const char *const FX_P2[FX_N] = {"FEEDBACK", "RATE", "RATE", "VIBRATO", "WIDTH", "OFFSET", "REPEATS", "CHORD",
-                                        "WITH", "KEY", "KEY"};
+                                        "WITH", "KEY", "KEY", "AMOUNT", "BREATH", "TONE", "DENSITY", "DEPTH", "DENSITY"};
 
 /* the tubes: drive when saturated (Q12), bias (Q15: the even harmonics), the halves' gains (Q12: grid current
  * squashes the positive half), as heard: 12AX7 bright and quick to break up, 12AT7 cleaner, 6C16 (a Soviet triode)
@@ -410,6 +438,14 @@ static void slot_coef(uint32_t s)
         memset(k->r2, 0, sizeof k->r2);
         k->env = 0;
         k->gg = Q15;
+        k->wbw = k->wbr = 0;
+        k->rleft = 0;
+        k->cs = k->ce = k->rd = k->tw;
+        k->ssum = 0;
+        k->swin = 0;
+        k->cut_left = 0;
+        k->rz = k->olp = k->ot = 0;
+        memset(k->didx, 0, sizeof k->didx);
         k->gleft = 0;
         k->d = 0;
     }
@@ -507,6 +543,55 @@ static void slot_coef(uint32_t s)
     case FX_GATE:
         k->depth = p1 * Q15 / PMAX;
         k->xsrc = (uint8_t)clampi(p2, 0, NXSRC - 1);
+        break;
+    case FX_CYCLES:
+        k->cmode = (uint8_t)clampi(p1, 0, CY_N - 1);
+        k->cyp = (uint32_t)p2 * 4294967u;        /* (DISINTEGRATE: p2 / 1000 of the half-cycles) */
+        k->reps = 1u + (uint32_t)p2 * 7u / PMAX; /* (WAVESET: 1 .. 8 times each; WAVELOSS: 0 .. 7 of 8 lost) */
+        break;
+    case FX_REED: {                              /* a clarinet's bore: half a period of delay (STK's Clarinet) */
+        int32_t note = clampi(p1, 0, 47);
+        int32_t hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16((36 + note - 69) * 65536 / 12)) >> 16);
+        k->rlen = (int32_t)(((uint32_t)FS * 128u / (uint32_t)(hz8 / 256 > 0 ? hz8 / 256 : 1))) - 384;   /* (FS / 2f
+                                                                                       * - 1.5, Q8) */
+        if (k->rlen < 512)
+            k->rlen = 512;
+        k->breath = 9830 + p2 * 22938 / PMAX;    /* (0.3 .. 1.0) */
+        break;
+    }
+    case FX_OCTAVE:
+        k->omode = (uint8_t)clampi(p1, 0, OC_N - 1);
+        k->otone = clampi(hz_log(p2, 150, 1440) * 467 / 100, 300, 32767);   /* (150 Hz .. 7.7 kHz, a one-pole's) */
+        break;
+    case FX_DIFFUSE: {                           /* four allpasses, Clouds' lengths at 44.1 kHz, scaled by SIZE */
+        static const uint16_t DL[4] = {174, 248, 371, 612};
+        static const uint8_t DS[NDIFF] = {32, 48, 64, 80, 96, 112, 128, 160};   /* (x / 128) */
+        int32_t sz = clampi(p1, 0, NDIFF - 1), i;
+        for (i = 0; i < 4; i++) {
+            uint16_t n = (uint16_t)(DL[i] * DS[sz] / 128u);
+            if (k->dlen[i] != n) {
+                k->dlen[i] = n;
+                k->didx[i] = 0;
+            }
+        }
+        k->dg = 9830 + p2 * 16384 / PMAX;        /* (0.3 .. 0.8) */
+        break;
+    }
+    case FX_SAG: {                               /* the average of |x| over a window (Airwindows' PowerSag2) */
+        uint32_t sh = 6u + (uint32_t)clampi(p1, 0, NSAGW - 1), i;
+        if (k->sshift != sh) {                   /* (a new window: from silence) */
+            k->sshift = sh;
+            k->swin = 1u << sh;
+            k->ssum = 0;
+            for (i = 0; i < SLOT_LEN; i++)
+                slot_mem[s][i] = 0;
+        }
+        k->depth = p2 * Q15 / PMAX;
+        break;
+    }
+    case FX_CUTS:
+        k->cunit = 441u + (uint32_t)p1 * 1607u / PMAX;   /* (10 .. 46 ms) */
+        k->depth = p2;                           /* (DENSITY: the cuts that repeat, of 1000) */
         break;
     default:                                     /* GLITCH: 10 .. 300 ms stuck, 1 .. 16 times */
         k->glen = (uint32_t)hz_log(p1, 441, 1258);   /* (4.9 octaves: 441 .. 13230) */
@@ -653,6 +738,133 @@ static FAST int32_t fx_tick(uint32_t s, int32_t x)
         gt = k->fx == FX_DUCK ? Q15 - mulq15(k->depth, e) : Q15 - k->depth + mulq15(k->depth, e);
         k->gg += (gt - k->gg) >> 6;              /* (no clicks: ~1.5 ms) */
         wet = mulq15(x, k->gg);
+        break;
+    }
+    case FX_CYCLES: {                            /* whole cycles, between the zero crossings, lost, broken or repeated */
+        int up = k->zp < 0 && x >= 0, cross = (k->zp < 0) != (x < 0);
+        if (k->cmode == CY_LOSS) {               /* WAVELOSS: the first n of every 8 cycles silent */
+            if (up) {
+                k->cyc = (k->cyc + 1u) & 7u;
+                k->mult = k->cyc < (k->reps - 1u) ? 0 : Q15;
+            }
+            wet = mulq15(x, k->mult);
+        } else if (k->cmode == CY_DISINT) {      /* SPUTTER (SuperCollider's Disintegrator): a half-cycle now and then turned over, or silent */
+            if (cross) {
+                uint32_t rn = rnd_next(&k->r);
+                k->mult = rn < k->cyp ? ((rn & 1u) ? -Q15 : 0) : Q15;
+            }
+            wet = mulq15(x, k->mult);
+        } else {                                 /* WAVESET: each cycle played REPEATS times (Wishart's), in turn */
+            b[k->tw & SLOT_MASK] = (int16_t)xi;
+            if ((up || k->tw - (k->wbw ? k->wb[(k->wbw - 1u) & 31u] : 0u) >= 2048u) && k->wbw - k->wbr < 32u)
+                k->wb[k->wbw++ & 31u] = k->tw;   /* (a cycle's start; a long one cut at 2048) */
+            if (k->rd >= k->ce) {
+                if (k->rleft > 1u) {             /* the same cycle again */
+                    k->rleft--;
+                    k->rd = k->cs;
+                } else if (k->wbr != k->wbw && k->wb[k->wbr & 31u] > k->ce) {   /* the next cycle */
+                    k->cs = k->ce;
+                    k->ce = k->wb[k->wbr++ & 31u];
+                    k->rd = k->cs;
+                    k->rleft = k->reps;
+                } else if (k->wbr != k->wbw)
+                    k->wbr++;                    /* (a start already passed) */
+            }
+            if (k->tw - k->rd > 12000u) {        /* (too far behind: to the newest) */
+                k->wbr = k->wbw;
+                k->cs = k->ce = k->rd = k->tw;
+                k->rleft = 0;
+            }
+            wet = k->rd < k->ce ? b[k->rd++ & SLOT_MASK] : 0;
+            k->tw++;
+        }
+        k->zp = x;
+        break;
+    }
+    case FX_REED: {                              /* the bore's delay, the reed's table, the breath (the input in it) */
+        int32_t d = line_rd(b, k->w, k->rlen), f = (d + k->rz) >> 1, pd, reed, o, br;
+        k->rz = d;
+        br = k->breath + (x >> 2);
+        pd = -mulq15(31130, f) - br;             /* (-0.95 x the bore, less the breath) */
+        reed = clampi(22938 - mulq15(9830, pd), -Q15, Q15);   /* (0.7 - 0.3 x the pressure, within +-1) */
+        o = br + mulq15(pd, reed);
+        b[k->w] = (int16_t)sat16(o);
+        wet = d;
+        break;
+    }
+    case FX_OCTAVE: {                            /* flip-flops on the zero crossings: one and two octaves down (OWL's) */
+        int32_t pl = k->olp, o1, o2;
+        k->olp += mulq15(x - k->olp, 3277);      /* (the detector: ~700 Hz) */
+        if (pl < 0 && k->olp >= 0) {
+            k->ff1 ^= 1u;
+            if (k->ff1)
+                k->ff2 ^= 1u;
+        }
+        o1 = k->ff1 ? x : -x;
+        o2 = k->ff2 ? x : -x;
+        wet = k->omode == OC_ONE ? o1 : k->omode == OC_TWO ? o2 : (o1 + o2) >> 1;
+        k->ot += mulq15(wet - k->ot, k->otone);
+        wet = k->ot;
+        break;
+    }
+    case FX_DIFFUSE: {                           /* four allpasses in a row (Clouds' diffuser) */
+        uint32_t i;
+        int32_t v = x;
+        for (i = 0; i < 4u; i++) {
+            int16_t *ln = b + i * 1024u;
+            int32_t dl = ln[k->didx[i]], wv = v + mulq15(dl, k->dg);
+            ln[k->didx[i]] = (int16_t)sat16(wv);
+            v = dl - mulq15(wv, k->dg);
+            if (++k->didx[i] >= k->dlen[i])
+                k->didx[i] = 0;
+        }
+        wet = v;
+        break;
+    }
+    case FX_SAG: {                               /* loud a while, the supply sags: the gain down, slowly back */
+        uint16_t *ab = (uint16_t *)b;
+        uint32_t a = (uint32_t)clampi(absi(x), 0, 65535), old = ab[(k->w - k->swin) & SLOT_MASK], av;
+        ab[k->w] = (uint16_t)a;
+        k->ssum += a - old;
+        av = k->ssum >> k->sshift;
+        k->gg += (Q15 - mulq15(k->depth, clampi((int32_t)av * 3, 0, Q15)) - k->gg) >> 6;
+        wet = mulq15(x, k->gg);
+        break;
+    }
+    case FX_CUTS: {                              /* cut patterns (BBCut's way, Livecut): a phrase of cuts, 3 3 2 and
+                                                  * the like; a cut plays on, or repeats the sound just before it --
+                                                  * whole, in halves or in quarters (a roll) */
+        static const uint8_t PAT[6][6] = {{3, 3, 2}, {2, 2, 2, 2}, {3, 3, 1, 1}, {4, 2, 2}, {1, 1, 2, 2, 2}, {2, 1, 1, 2, 2}};
+        b[k->tw & SLOT_MASK] = (int16_t)xi;
+        if (!k->cut_left) {
+            uint32_t n, rn = rnd_next(&k->r);
+            if (k->cpi >= 6u || !PAT[k->cpat % 6u][k->cpi]) {   /* (a phrase done: another) */
+                k->cpat = (uint8_t)(rn % 6u);
+                k->cpi = 0;
+            }
+            n = PAT[k->cpat % 6u][k->cpi++];
+            k->cut_left = n * k->cunit;
+            k->crep = (uint8_t)((rn >> 8) % 1000u < (uint32_t)k->depth);
+            if (k->crep) {
+                uint32_t div = (rn >> 20) & 3u;  /* (whole, half, quarter: rolls the denser the more) */
+                k->cseg = k->cut_left >> (div == 3u ? 2u : div == 2u ? 1u : 0u);
+                if (k->cseg < 64u)
+                    k->cseg = 64u;
+                k->cstart = k->tw - k->cseg;
+                k->cpos = 0;
+            }
+        }
+        if (k->crep) {
+            uint32_t e = k->cpos < k->cseg - k->cpos ? k->cpos : k->cseg - k->cpos;   /* (a 1.5 ms fade at each end) */
+            wet = b[(k->cstart + k->cpos) & SLOT_MASK];
+            if (e < 64u)
+                wet = wet * (int32_t)e >> 6;
+            if (++k->cpos >= k->cseg)
+                k->cpos = 0;
+        } else
+            wet = xi;
+        k->cut_left--;
+        k->tw++;
         break;
     }
     default:                                     /* GLITCH */

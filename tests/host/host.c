@@ -909,7 +909,7 @@ static stats_t fx_run(int fx, int p1, int p2, int as_send)
     patch_plain(&par);
     par.out.spres = 0;
     par.ch[0].level = LVL_0DB - 80;              /* a loop of its own, singing */
-    par.ch[1].level = fx == FX_RESON ? 0 : LVL_0DB - 80;   /* (a second loop: XMOD's, DUCK's, GATE's other signal;
+    par.ch[1].level = fx == FX_XMOD || fx == FX_DUCK || fx == FX_GATE ? LVL_0DB - 80 : 0;   /* (a second loop: XMOD's, DUCK's, GATE's other signal;
                                                          * the RESONATOR heard alone) */
     par.ch[1].src = SRC_PRE;
     par.ch[1].mfreq = 300;
@@ -933,7 +933,12 @@ static int cmd_effects(void)
     static const struct { const char *n; int fx, p1, p2; } T[] = {
         {"RESONATOR C3 MAJOR", FX_RESON, 12, 2}, {"RESONATOR A2 PELOG", FX_RESON, 9, 6},
         {"XMOD RING", FX_XMOD, XM_RING, 1}, {"XMOD XOR", FX_XMOD, XM_XOR, 1}, {"XMOD FOLD", FX_XMOD, XM_FOLD, 1},
-        {"XMOD COMPARE", FX_XMOD, XM_COMP, 1}, {"DUCK BY CH 2", FX_DUCK, 900, 1}, {"GATE BY CH 2", FX_GATE, 900, 1}};
+        {"XMOD COMPARE", FX_XMOD, XM_COMP, 1}, {"DUCK BY CH 2", FX_DUCK, 900, 1}, {"GATE BY CH 2", FX_GATE, 900, 1},
+        {"CYCLES WAVELOSS", FX_CYCLES, CY_LOSS, 600}, {"CYCLES SPUTTER", FX_CYCLES, CY_DISINT, 500},
+        {"CYCLES WAVESET", FX_CYCLES, CY_WAVESET, 600}, {"REED A2", FX_REED, 9, 700}, {"REED E4", FX_REED, 28, 600},
+        {"OCTAVER ONE DOWN", FX_OCTAVE, OC_ONE, 600}, {"OCTAVER BOTH", FX_OCTAVE, OC_BOTH, 400},
+        {"DIFFUSER SIZE 5", FX_DIFFUSE, 4, 700}, {"SAG 23 MS", FX_SAG, 4, 800}, {"SAG 371 MS", FX_SAG, 8, 900},
+        {"CUTS", FX_CUTS, 500, 600}};
     uint32_t i, bad = 0, a;
     for (i = 0; i < NELEM(T); i++)
         for (a = 0; a < 2u; a++) {

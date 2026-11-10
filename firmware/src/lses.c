@@ -21,7 +21,7 @@
 #define SES_SECT 4096u
 #define SES_NSECT ((SES_HI - SES_LO) / SES_SECT)
 #define SES_MAGIC 0x314C494Cu    /* "LIL1" */
-#define SES_FORMAT 4u           /* 4: FOLD, four more effects; 3: eight matrix slots, the snapshots and the gesture loop; 2: LEVEL in tenths of a dB,
+#define SES_FORMAT 4u           /* (build 5: the same: six more effects, the stored layout unchanged) 4: FOLD, four more effects; 3: eight matrix slots, the snapshots and the gesture loop; 2: LEVEL in tenths of a dB,
                                   * PAN -50 .. 50, each channel's modulation */
 #define SES_MAX 73u              /* records in the list (one a sector at most) */
 #define SES_BUF (32u + 24u + 12u + (uint32_t)sizeof(lil_par_t) * (2u + NSNAP) + GEV_MAX * 8u)   /* the largest: a
