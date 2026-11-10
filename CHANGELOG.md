@@ -1,5 +1,17 @@
 # Changelog
 
+## Build 14 (2026-11-10)
+
+- No more silence under the RHYTHM: in the host's test every recipe with every style (400 pairs) now sounds, the
+  quietest at -33 dB (build 13: six near silent, down to -58 dB). Three causes, three fixes:
+  - A channel in a ring was choked by KICK and CHOKE: the ring died between the hits and never grew back. Now its
+    gate cuts what is heard, and the ring runs on.
+  - A sparse lane (a hit or two a bar, short) left its channel all but silent: it is chopped now, over a bed 14 dB
+    down.
+  - The trim measured a quiet output, chopped by the RHYTHM, as silence, and never brought it up (32 dB short in
+    one case). Its measure is finer now.
+- The RHYTHM's test plays every recipe with every style, and fails under -40 dB (before: every third recipe, -50).
+
 ## Build 13 (2026-11-10)
 
 - SEQ now reaches the chosen channel's motion: OUT, OUT EQ, OUT FX, then LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8, then

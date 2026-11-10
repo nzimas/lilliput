@@ -1229,9 +1229,9 @@ static int cmd_rhythm(void)
     for (st = 0; st < RS_N; st++) {
         double m0 = 0, m1 = 0, lo = 0;
         uint32_t n = 0;
-        /* (the first 24 recipes, every third, as before FREE. Known, build 13: KICK and CHOKE can choke a ring of
-         * channels to silence -- 6 of 400 recipe x style pairs, FREE x MARCH among them; for the RHYTHM's stage 2) */
-        for (f = 0; f < 24u && f < NFAM; f += 3) {
+        /* (every recipe: no recipe x style may fall silent -- build 14: rings no longer choked, sparse lanes over a
+         * bed, the trim's measure fine enough for a chopped quiet output) */
+        for (f = 0; f < NFAM; f++) {
             stats_t a, b;
             fresh_mixer();
             patch_draw(&par, 777u + f * 31u + st, (int)f);
@@ -1252,7 +1252,7 @@ static int cmd_rhythm(void)
             n++;
         }
         printf("  %-12s movement %4.1f -> %4.1f dB   quietest %6.1f dB\n", RS_NAME[st], m0 / n, m1 / n, lo);
-        if (m1 / n < m0 / n + 1.5 || lo < -50)
+        if (m1 / n < m0 / n + 1.5 || lo < -40)
             bad++;
     }
     {   /* the clock: beats in 10 s at 10, 120, 500 BPM */

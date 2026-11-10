@@ -288,12 +288,17 @@ different time (polyrhythm). A lane plays its channel one of four ways:
 - **CHOKE** — the loop itself is gated: it dies between the hits and grows back on each, a swell.
 - **KICK** — the loop is choked, and struck at each hit by a burst of noise, pushed past its edge (+6 dB) while it
   is open: the loop's own sound made a drum.
+
+A channel in a ring (it takes another channel, or another takes it) is never choked: CHOKE and KICK gate what is
+heard instead, so the ring runs on behind the gate (choked, it died and never came back).
 - **ACCENT** — no gate: each hit pushes GAIN and FOLD up for a moment. A drone pulses in timbre, never in pitch.
 
 **SHIFT + the 2nd black key from the right** draws a new rhythm for the patch as it is: the darkest loop gets the
 kick's part, the brightest the hats', those between the snare's and the percussion's; a channel with its fader down
 is left out, and now and then a drone is left free under it all. A loop slow to grow (a slow limiter, a narrow
-band-pass, a loop through the sends) is chopped rather than choked. The styles:
+band-pass, a loop through the sends) is chopped rather than choked. A sparse lane — open a fifth of the time or less —
+is chopped too, over a bed 14 dB down, so its channel is never all but silent. Every recipe with every style sounds
+(the host's test plays them all). The styles:
 
 | Style | |
 | --- | --- |

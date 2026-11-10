@@ -291,6 +291,21 @@ static uint32_t rhythm_draw(lil_par_t *q, uint32_t seed, int st)
             L->depth = 100;
         }
     }
+    for (i = 0; i < n; i++) {                    /* (build 14) a sparse lane -- open a fifth of the time or less:
+                                                  * a hit or two a bar, short -- would leave its channel all but
+                                                  * silent. Its loop is not choked (it would never grow back between
+                                                  * the hits) and its gate leaves a bed, -14 dB, under the hits */
+        lane_t *L = LANE_OF(i);
+        uint32_t len = L->len ? L->len : 1u, hits = __builtin_popcount(L->hits & (len >= 32u ? 0xFFFFFFFFu : (1u << len) - 1u));
+        if (L->mode != RM_CHOP && L->mode != RM_CHOKE && L->mode != RM_KICK)
+            continue;
+        if (hits * L->gate * 5u <= len * 100u) {
+            if (L->mode != RM_CHOP)
+                L->mode = RM_CHOP;
+            if (L->depth > 80u)
+                L->depth = 80;
+        }
+    }
     if (n >= 4u && rnd_chance(&r, 35))           /* (now and then a drone left free under it) */
         R->lane[ord[n / 2u]].mode = RM_OFF;
 #undef PART

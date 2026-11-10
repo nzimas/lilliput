@@ -1470,6 +1470,17 @@ static FAST void rhythm_block(void)
         rhy_acc[c] -= rhy_acc[c] >> 5;
 }
 
+/* a channel in a ring: it takes another channel, or another takes it (their loop runs through more than one) */
+AINL int ch_in_ring(uint32_t c)
+{
+    uint32_t j;
+    if (chr[c].seen.src >= SRC_CH1 && chr[c].seen.src != (int16_t)(SRC_CH1 + c))
+        return 1;
+    for (j = 0; j < NCH; j++)
+        if (j != c && chr[j].seen.src == (int16_t)(SRC_CH1 + c))
+            return 1;
+    return 0;
+}
 static FAST void ch_gains(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
@@ -1480,8 +1491,9 @@ static FAST void ch_gains(uint32_t c)
     tl = on ? lvl_q15(p->level) : 0;
     tpl = p->mainmix ? sin_ph(ph + 0x40000000u) : 0;
     tpr = p->mainmix ? sin_ph(ph) : 0;
-    if (rhy_gmode[c] == RM_CHOP) {               /* the RHYTHM: what is heard gated, the loop running on .. */
-        tpl = mulq15(tpl, rhy_g[c]);
+    if (rhy_gmode[c] == RM_CHOP || ((rhy_gmode[c] == RM_CHOKE || rhy_gmode[c] == RM_KICK) && ch_in_ring(c))) {
+        tpl = mulq15(tpl, rhy_g[c]);             /* the RHYTHM: what is heard gated, the loop running on (build 13: a
+                                                  * channel in a ring too -- choked, the ring died and never grew back) */
         tpr = mulq15(tpr, rhy_g[c]);
     } else if (rhy_gmode[c] == RM_CHOKE || rhy_gmode[c] == RM_KICK)
         tl = mulq15(tl, rhy_g[c]);               /* .. or the loop itself choked */

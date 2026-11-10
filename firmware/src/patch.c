@@ -749,12 +749,16 @@ static void trim_poll(void)
         return;
     trim.on = 0;
     {
-        uint32_t mean = out_pw / out_pw_n;       /* (mean of (|x| / 64)^2 over a block / 32: x 32 back) */
+        /* (mean of (|x| / 64)^2 over a block / 32: x 32 back), x 64 -- build 14: whole, a quiet output chopped by the
+         * RHYTHM came out under 1, read as silence, and was never brought up */
+        uint32_t mean = out_pw < (1u << 26) ? (out_pw << 6) / out_pw_n : (out_pw / out_pw_n) << 6;   /* (no 64-bit
+                                                  * division on the chip) */
         int32_t db10, d;
         if (mean < 1u)
             return;                              /* (silent: nothing to go by) */
-        /* dB of the rms: 10 log10(mean) + 20 log10(64 / 32768), and 20 log10(1 / 512) is 18 octaves of power */
-        db10 = (int32_t)(((int64_t)(log2_q16(mean) - (18 << 16)) * 1972830) >> 32);
+        /* dB of the rms: 10 log10(mean / 64) + 20 log10(64 / 32768), and 20 log10(1 / 512) is 18 octaves of power;
+         * the 64: 6 more */
+        db10 = (int32_t)(((int64_t)(log2_q16(mean) - (24 << 16)) * 1972830) >> 32);
         d = -160 - db10;                         /* to about -16 dB .. */
         if (trim.pk > 0 && d > -40 - db10_of((uint32_t)trim.pk))
             d = -40 - db10_of((uint32_t)trim.pk);   /* (.. its peaks under -4 dB) */
