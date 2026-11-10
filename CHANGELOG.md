@@ -1,5 +1,16 @@
 # Changelog
 
+## Build 13 (2026-11-10)
+
+- SEQ now reaches the chosen channel's motion: OUT, OUT EQ, OUT FX, then LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8, then
+  back to the channel's page. OCT- / OCT+ step through them there. A channel's own OCT pages end at FX.
+- A new recipe, **FREE**: no direction, anything goes as long as it sounds (every connection, voice, effect and space
+  as likely as the next, over the widest ranges; its gestures to destinations drawn per channel). On PRESETS it sits
+  last, beside ANY. Tested: 200 FREE patches, none quiet, none clipped.
+- A muted channel is grey too, even while the RHYTHM runs.
+- Known: the RHYTHM's KICK and CHOKE can choke a ring of channels to near silence (6 of 400 recipe x style pairs in
+  the host's test, in several recipes, FREE among them). Not changed yet.
+
 ## Build 12 (2026-11-10)
 
 - A gesture loop for each channel, each on its own (as Tonitor's looper is a layer's): REC and PLAY act on the

@@ -25,7 +25,7 @@ fixed point.
 - **A rack of seven effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
   on its channel, or fed from a send bus, or from the slot before it, into a return bus.
 - **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with six spaces.
-- **Twenty-four recipes**: archetypes, not presets. **HOME draws a new patch** — from any recipe, or from the one
+- **Twenty-five recipes**: archetypes, not presets. **HOME draws a new patch** — from any recipe, or from the one
   PRESETS chose — new connections, new settings and new motion for the whole mixer, different every time but always
   in the recipe's direction. Every patch drawn sounds at once, and moves. Each start is a new patch too.
 - **Each channel has two LFOs and four modulation slots** (Tonitor's matrix), so its parameters move by
@@ -68,9 +68,9 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SELECT** knob | the chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
 | **ALGORITHM** knob | its **PAN**, **one step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through the mix bus it is part of the loop. |
 | **KNOB 1–4** | on the main view: **GAIN**, **FREQ** (the middle filter's), **LIMIT** (the loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (the middle filter's gain or width), **PROTECT** (the overload protection), **SEND 2**. A dial covers the screen while you turn. On a page: its four rows. |
-| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX, LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8 (on the output's pages: OUT, OUT EQ, OUT FX). Their lights: a page that way. |
+| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way. |
 | **SHIFT** held on a page | its rows show the page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
-| **SEQ** | the output's pages: OUT, OUT EQ, OUT FX, then back. |
+| **SEQ** | OUT, OUT EQ, OUT FX, then the chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to the channel's page. On LFO and MOD pages a channel's button shows the same page for that channel. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
 | **HOME** | a **new patch**: from any recipe, or from the one PRESETS chose (see [New patches](#new-patches)). |
@@ -98,7 +98,7 @@ going back to Tonitor erases Lilliput's sessions.)
 ## The main view
 
 The chosen channel's number, very large, in its colour — in grey when the channel is not in the patch (muted, or
-its LEVEL and SENDs off with no RHYTHM: nothing of it reaches anything); under it its **input**; under that the **patch's name**
+nothing of it reaches anything: its LEVEL and SENDs off, with no RHYTHM); under it its **input**; under that the **patch's name**
 (or a message, black on white; or MUTED, white on red); its **meter**, with a white bar where its fader is
 (red at the left when the fader is down); its **pan** along the bottom.
 
@@ -246,6 +246,7 @@ recipe's direction:
 | FURNACE | a dense saturated web, hard folds, crushers, the protection tripping | the gain, the folds and the threshold churn |
 | AURORA | high shimmering loops, chorus, flanger and diffusion, vast spaces | slow sweeps; the pans and the effects drift |
 | SONAR | one to three pings into long delays, deep spaces | in step: pings that swell and fade; the delays jump |
+| FREE | no direction: any connection, voice, effect and space, each as likely as the next, over the widest ranges the recipes use — as Lilliput drew before it had recipes. Only what makes it sound is kept: two channels heard at least, the faders past where the loops sing | each gesture to a destination drawn for each channel |
 
 **HOME** draws from the recipe chosen, or from any; **SHIFT + HOME** from another than the one playing, drawn at
 random. The patch's name, on the main view, is its recipe's.

@@ -10,9 +10,10 @@
  *                             SHIFT +: NOISE, MID (the middle filter's gain or width), PROTECT (the overload
  *                             protection's threshold), SEND 2 -- a dial over
  *                             the whole screen while turning. On a page: its four rows (SHIFT +: the page's switches)
- *   OCT- / OCT+               the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on the output's: OUT, OUT EQ, OUT FX;
+ *   OCT- / OCT+               the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's: through them;
  *                             on the RHYTHM's: TEMPO SWING CHAOS LENGTH (the gates'), then MIX)
- *   SEQ                       the output's pages: OUT, OUT EQ, OUT FX, then back
+ *   SEQ                       OUT, OUT EQ, OUT FX, then the chosen channel's LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8,
+ *                             then back to the channel's page
  *   ARP                       the OVERVIEW: the six channels, their inputs and levels, at once
  *   PRESETS (knob)            the recipe: its name replaces the patch's in the main view (nothing else changes)
  *   HOME                      a NEW PATCH from the recipe shown: the whole mixer drawn again -- its connections and
@@ -52,7 +53,8 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
 #define C_OUT RGB(140, 190, 255)
 /* a channel's colour; grey when it is not in the patch -- muted, or its LEVEL and SENDs off with no RHYTHM (the mixer
  * does not run it: chr[c].dead) */
-static uint16_t ch_col(uint32_t c) { return chr[c].dead ? C_MONO : LAYER_COL[c]; }
+static int ch_out(uint32_t c) { return par.ch[c].mute || chr[c].dead; }
+static uint16_t ch_col(uint32_t c) { return ch_out(c) ? C_MONO : LAYER_COL[c]; }
 #define C_SES RGB(120, 255, 200)
 #define C_PRE RGB(255, 200, 120)          /* (the RECIPE's) */
 #define C_OK RGB(60, 220, 90)
@@ -64,7 +66,17 @@ enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
        PG_TEMPO, PG_RHY2,                                    /* the RHYTHM's (its key held; OCT- / OCT+ between) */
        PG_VIEW, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
-#define PG_CH_LAST PG_MTX2
+#define PG_CH_LAST PG_MTX2       /* (the chosen channel's pages; OCT reaches them up to FX, SEQ the rest) */
+/* SEQ's pages in turn: the output's, then the chosen channel's motion */
+static const uint8_t SEQ_PG[] = {PG_OUT, PG_OEQ, PG_OFX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2};
+static int seq_ix(uint32_t pg)           /* (its place in SEQ's turn; -1: not one of them) */
+{
+    uint32_t i;
+    for (i = 0; i < sizeof SEQ_PG; i++)
+        if (SEQ_PG[i] == pg)
+            return (int)i;
+    return -1;
+}
 static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
                                            "OUT", "OUT EQ", "OUT FX", "RHYTHM", "RHYTHM", "", "", "", "",
                                            ""};
@@ -792,7 +804,7 @@ static void touch(int32_t row)
 }
 static void goto_page(uint32_t pg)
 {
-    if (ui.page <= PG_CH_LAST)
+    if (ui.page <= PG_FX)                        /* (the page SEQ's turn comes back to) */
         ui.last_ch_page = ui.page;
     ui.page = (uint8_t)pg;
     ui.touched = -1;
@@ -870,10 +882,11 @@ static void ui_input(void)
     /* the pages */
     if (btn_bit(press, B_OCTDN) || btn_bit(press, B_OCTUP)) {
         int up = btn_bit(press, B_OCTUP);
-        if (ui.page <= PG_CH_LAST)
-            goto_page(up ? (ui.page < PG_CH_LAST ? ui.page + 1u : ui.page) : (ui.page ? ui.page - 1u : 0u));
-        else if (ui.page >= PG_OUT && ui.page <= PG_OFX)
-            goto_page(up ? (ui.page < PG_OFX ? ui.page + 1u : ui.page) : (ui.page > PG_OUT ? ui.page - 1u : ui.page));
+        int k = seq_ix(ui.page);
+        if (k >= 0)                              /* SEQ's pages: through them */
+            goto_page(SEQ_PG[up ? (k + 1 < (int)sizeof SEQ_PG ? k + 1 : k) : (k ? k - 1 : 0)]);
+        else if (ui.page <= PG_FX)
+            goto_page(up ? (ui.page < PG_FX ? ui.page + 1u : ui.page) : (ui.page ? ui.page - 1u : 0u));
         else if (rhy_page())                     /* the RHYTHM's: TEMPO .., then MIX */
             goto_page(up ? PG_RHY2 : PG_TEMPO);
     }
@@ -881,11 +894,12 @@ static void ui_input(void)
         mod_random(&par.ch[ui.sel].mod, next_seed());
         say("NEW MOTION", 1000);
         ui.force = 1;
-    } else if (btn_bit(press, B_SEQ)) {
-        if (ui.page >= PG_OUT && ui.page < PG_OFX)
-            goto_page(ui.page + 1u);
-        else if (ui.page == PG_OFX)
-            page_back();
+    } else if (btn_bit(press, B_SEQ)) {         /* OUT, OUT EQ, OUT FX, LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8, back */
+        int k = seq_ix(ui.page);
+        if (k >= 0 && k + 1 < (int)sizeof SEQ_PG)
+            goto_page(SEQ_PG[k + 1]);
+        else if (k >= 0)
+            goto_page(ui.last_ch_page <= PG_FX ? ui.last_ch_page : PG_MAIN);
         else
             goto_page(PG_OUT);
     }
@@ -1136,14 +1150,14 @@ static void ui_leds(void)
         led_dim_key(PANEL_BTN[LAYER_BTN[c]], ch_sounding(c) && !par.ch[c].mute);
     }
     fm1_led_key(PANEL_BTN[B_HOME], (int32_t)(ui.home_until - fm1_ms) > 0);
-    fm1_led_key(PANEL_BTN[B_SEQ], ui.page >= PG_OUT && ui.page <= PG_OFX);
+    fm1_led_key(PANEL_BTN[B_SEQ], seq_ix(ui.page) >= 0);
     fm1_led_key(PANEL_BTN[B_ARP], ui.page == PG_VIEW);
     fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK ||
                                    ui.page == PG_SNAP);
     fm1_led_key(PANEL_BTN[B_PLAY], gl[ui.sel].play);   /* (the chosen channel's loop) */
     fm1_led_key(PANEL_BTN[B_REC], gl_state(ui.sel) == GS_REC || (gl_state(ui.sel) == GS_ARMED && blink));
-    fm1_led_key(PANEL_BTN[B_OCTDN], (ui.page > PG_MAIN && ui.page <= PG_CH_LAST) || (ui.page > PG_OUT && ui.page <= PG_OFX));
-    fm1_led_key(PANEL_BTN[B_OCTUP], ui.page < PG_CH_LAST || (ui.page >= PG_OUT && ui.page < PG_OFX));
+    fm1_led_key(PANEL_BTN[B_OCTDN], (ui.page > PG_MAIN && ui.page <= PG_FX) || seq_ix(ui.page) > 0);
+    fm1_led_key(PANEL_BTN[B_OCTUP], ui.page < PG_FX || (seq_ix(ui.page) >= 0 && seq_ix(ui.page) + 1 < (int)sizeof SEQ_PG));
     for (k = 0; k < NKEY; k++) {
         int32_t w = white_ix(k);
         if (ui.page == PG_SNAP && w >= 0) {      /* the SNAPSHOTS page: stored ones glow, the last lit */
@@ -1512,7 +1526,7 @@ static void draw_view_row(uint32_t c)
     if (px && !p->mute)
         cv_rect(114, 14, px, 12, col);
     cv_blit(0, 40 * c);
-    ui.shown_view[c] = px * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024 + chr[c].dead * 0x100000;
+    ui.shown_view[c] = px * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024 + ch_out(c) * 0x100000;
 }
 static void draw_view(void)
 {
@@ -1524,7 +1538,7 @@ static void draw_view(void)
     for (c = 0; c < NCH; c++) {
         const ch_par_t *p = &par.ch[c];
         int32_t key = meter_px(ch_meter[c]) * 120 / METER_LEN * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024 +
-                      chr[c].dead * 0x100000;
+                      ch_out(c) * 0x100000;
         if (all || key != ui.shown_view[c])
             draw_view_row(c);
     }
@@ -1711,8 +1725,8 @@ static void ui_draw(void)
     int32_t px;
     if (draw_flash())
         return;
-    if (chr[ui.sel].dead != ui.shown_dead) {     /* (the channel in the patch, or out: its colours, or grey) */
-        ui.shown_dead = chr[ui.sel].dead;
+    if (ch_out(ui.sel) != ui.shown_dead) {       /* (the channel in the patch, or out: its colours, or grey) */
+        ui.shown_dead = (uint8_t)ch_out(ui.sel);
         ui.force = 1;
     }
     if (ui.cpu_page) {

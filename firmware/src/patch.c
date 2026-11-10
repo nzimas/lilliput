@@ -8,8 +8,8 @@
  * gestures, LFOs on the parameters that make its character (a siren's sweeping filter, a pulse's gated level, a
  * cavern's bending delay, a swarm's wandering pans), drawn anew for every channel so no two move alike.
  *
- * A family is a RECIPE (PRESETS shows them, one at a time): an archetype, never a fixed patch -- each draw from it
- * comes out otherwise, in its direction.
+ * A family is a RECIPE (PRESETS chooses one): an archetype, never a fixed patch -- each draw from it comes out
+ * otherwise, in its direction. The last, FREE, has none: anything goes, as long as it sounds.
  *   HOME            a new patch from the recipe shown
  *   SHIFT + HOME    a new patch from a recipe drawn at random (another than the one shown)
  *   HOME held       the patch nudged (the app's SHIFT): every channel's tone a little elsewhere, the rest kept
@@ -81,6 +81,8 @@ static void patch_plain(lil_par_t *q)
 #define SH_DRIFT 64u
 #define MD_LOOP 0xFEu            /* (a gesture's destination: whichever control makes the channel's loop -- its LEVEL,
                                   * or the SEND its input comes back from) */
+#define MD_ANY 0xFDu             /* (.. a destination drawn for each channel: FREE's) */
+#define SH_ALL 127u
 typedef struct {
     uint8_t p;                   /* % of the heard channels that make it */
     uint8_t dst;                 /* MD_*, or MD_LOOP */
@@ -239,6 +241,14 @@ static const family_t FAM[] = {
      {0, 1, 1, 4, 3, 1}, 300, 550, -5, 10, 0, 5,
      {{100, MD_LOOP, SH_SAWD | SH_SQR, 35, 60, 60, 100, 0}, {50, MD_FX1, SH_STEPS, 25, 50, 10, 40, 0},
       {30, MD_FREQ, SH_STEPS, 25, 50, 5, 20, 0}}, 1},
+    /* FREE: no direction -- every connection, voice, effect and space as likely as the next, each over the widest
+     * range the recipes use; its gestures each to a destination drawn per channel. Only what makes it sound is kept:
+     * two channels heard at least, the faders past where the loops sing, the trim */
+    {"FREE", {1, 1, 1, 1}, 40, 2, 6, 0, 1000, 80, 960, {6, 2, 2}, 400, 1000, 30, 200, 1000, 250, 900, 40,
+     {1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1}, {2, 2, 1, 2, 1, 1}, 0, 950, 35, {1, 1, 1, 1, 1, 1, 1}, 15,
+     {1, 1, 1, 1, 1, 1}, 150, 600, 5, 30, 0, 25,
+     {{70, MD_ANY, SH_ALL, 5, 85, 5, 60, 30}, {50, MD_ANY, SH_ALL, 5, 85, 5, 60, 30},
+      {30, MD_ANY, SH_ALL, 5, 85, 5, 60, 30}}, 0},
 };
 #define NFAM NELEM(FAM)
 /* (build 4) each family's FOLD -- how often, how hard -- and its weights for the newer effects: RESONATOR, XMOD,
@@ -248,7 +258,8 @@ static const struct { uint8_t p; int16_t lo, hi; } FAM_FOLD[] = {
     {10, 30, 150}, {30, 100, 500}, {15, 50, 250}, {20, 50, 300}, {30, 100, 450}, {25, 50, 350}, {80, 300, 1000},
     {60, 200, 900}, {20, 50, 300},
     {10, 30, 150}, {50, 150, 600}, {20, 50, 250}, {5, 30, 100}, {10, 30, 150}, {80, 300, 1000}, {5, 30, 100},
-    {5, 30, 100}};
+    {5, 30, 100},
+    {30, 50, 700}};
 /*                                   RESONATOR XMOD DUCK GATE | CYCLES REED OCTAVER DIFFUSER SAG CUTS (build 5) */
 static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
     {4, 1, 0, 1, 1, 2, 2, 3, 1, 0}, {3, 0, 0, 0, 0, 2, 0, 2, 0, 0}, {1, 1, 0, 0, 0, 1, 1, 1, 1, 0},
@@ -259,7 +270,8 @@ static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
     {2, 0, 3, 2, 0, 1, 1, 3, 3, 0},
     {7, 0, 0, 0, 0, 2, 1, 2, 0, 0}, {0, 4, 2, 1, 1, 0, 3, 0, 4, 0}, {0, 2, 1, 3, 2, 0, 0, 0, 0, 3},
     {2, 0, 0, 0, 0, 4, 4, 1, 0, 0}, {0, 1, 1, 3, 0, 0, 0, 0, 0, 2}, {0, 4, 0, 0, 2, 0, 2, 1, 4, 1},
-    {2, 0, 0, 0, 0, 0, 0, 5, 0, 0}, {1, 0, 0, 1, 0, 0, 0, 2, 0, 0}};
+    {2, 0, 0, 0, 0, 0, 0, 5, 0, 0}, {1, 0, 0, 1, 0, 0, 0, 2, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
 typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM ? 1 : -1];
 
 /* ------------------------------------------------------------ drawing --- */
@@ -358,6 +370,11 @@ static void draw_motion(rnd_t *r, const family_t *f, ch_par_t *p, uint32_t seed)
         if (!g->p || !rnd_chance(r, g->p))
             continue;
         d = g->dst;
+        if (d == MD_ANY) {                       /* (FREE: anything a channel has, its loop's control among them) */
+            static const uint8_t ANYD[] = {MD_GAIN, MD_NOISE, MD_FREQ, MD_MID, MD_HIGH, MD_LOW, MD_LIM, MD_OVER,
+                                           MD_LOOP, MD_PAN, MD_FX1, MD_FX2, MD_FXMIX, MD_FOLD};
+            d = ANYD[rnd_below(r, (int32_t)NELEM(ANYD))];
+        }
         if (d == MD_LOOP)                        /* (the control that makes this channel's loop) */
             d = p->src == SRC_SND1 || p->src == SRC_RET1 ? MD_SEND1 : p->src == SRC_SND2 || p->src == SRC_RET2 ? MD_SEND2
                                                                                                          : MD_LEVEL;

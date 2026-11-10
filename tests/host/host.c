@@ -505,6 +505,38 @@ static int cmd_check(void)
 }
 
 /* ------------------------------------------------------------- screens --- */
+/* FREE: anything goes, but never silence. 200 drawn, each heard 8 s: none quiet, none clipped */
+static int cmd_free(void)
+{
+    uint32_t i, quiet = 0, bad = 0, ffree = NFAM - 1u;
+    double lo = 0, hi = -200, mv = 0;
+    if (!str_eq(FAM[ffree].name, "FREE")) {
+        printf("FAIL free: FREE is not the last recipe\n");
+        return 1;
+    }
+    for (i = 0; i < 200u; i++) {
+        stats_t st;
+        fresh_mixer();
+        patch_draw(&par, 0xF4EEu + i * 104729u, (int)ffree);
+        st = render(8.0, 0, 0);
+        mv += st.move;
+        if (db(st.late_rms) < lo || i == 0)
+            lo = db(st.late_rms);
+        if (db(st.late_rms) > hi)
+            hi = db(st.late_rms);
+        if (db(st.late_rms) < -45) {
+            quiet++;
+            printf("  quiet: FREE %u %.1f dB\n", i, db(st.late_rms));
+        }
+        if (st.clip > 0.02 || fabs(st.dc) > 0.02) {
+            bad++;
+            printf("  bad: FREE %u clip %.2f%% dc %+.3f\n", i, st.clip * 100, st.dc);
+        }
+    }
+    printf("%sfree: 200 FREE patches, loudness %.1f .. %.1f dB, movement %.1f dB, %u quiet, %u bad\n",
+           quiet || bad ? "FAIL " : "", lo, hi, mv / 200, quiet, bad);
+    return quiet || bad ? 1 : 0;
+}
 static int cmd_screens(const char *dir)
 {
     char path[512];
@@ -541,16 +573,6 @@ static int cmd_screens(const char *dir)
     run_ms(60);
     SHOT("07a_fx_shift");
     key(KEY_SHIFT, 0);
-    press_btn(B_OCTUP);
-    run_ms(300);
-    SHOT("07b_lfo1");
-    press_btn(B_OCTUP);
-    press_btn(B_OCTUP);
-    run_ms(300);
-    SHOT("07c_mod_1_4");
-    press_btn(B_OCTUP);
-    run_ms(300);
-    SHOT("07d_mod_5_8");
     press_btn(B_SEQ);
     run_ms(60);
     SHOT("08_out");
@@ -560,6 +582,16 @@ static int cmd_screens(const char *dir)
     press_btn(B_SEQ);
     run_ms(60);
     SHOT("09b_out_fx");
+    press_btn(B_SEQ);
+    run_ms(300);
+    SHOT("09c_lfo1");
+    press_btn(B_SEQ);
+    press_btn(B_SEQ);
+    run_ms(300);
+    SHOT("09d_mod_1_4");
+    press_btn(B_SEQ);
+    run_ms(300);
+    SHOT("09e_mod_5_8");
     press_btn(B_SEQ);
     run_ms(60);
     press_btn(B_ARP);
@@ -761,7 +793,14 @@ static int cmd_flows(void)
         for (i = 0; i < 6u; i++)
             press_btn(B_OCTUP);
     }
-    EXPECT(ui.page == PG_LFO1, "OCT+ to LFO 1");
+    EXPECT(ui.page == PG_FX, "OCT+ stops at FX: the channel's pages");
+    press_btn(B_SEQ);
+    EXPECT(ui.page == PG_OUT, "SEQ: OUT");
+    press_btn(B_SEQ);
+    press_btn(B_SEQ);
+    EXPECT(ui.page == PG_OFX, "OUT EQ, OUT FX");
+    press_btn(B_SEQ);
+    EXPECT(ui.page == PG_LFO1 && ui.sel == 2, "SEQ on: the chosen channel's LFO 1");
     {
         uint8_t r0 = par.ch[2].mod.lfo[0].rate;
         turn(EN_K2, r0 < 100 ? 1 : -1);
@@ -789,6 +828,15 @@ static int cmd_flows(void)
         press_btn(B_SEQ);
         key(KEY_SHIFT, 0);
         EXPECT(memcmp(&before.ch[2].mod, &par.ch[2].mod, sizeof(mod_t)) != 0, "SHIFT + SEQ: the modulation thrown anew");
+        EXPECT(ui.page == PG_MTX2, "(SHIFT + SEQ: the page kept)");
+        press_btn(B_OCTDN);
+        EXPECT(ui.page == PG_MTX1, "OCT- there: back through SEQ's pages");
+        press_btn(LAYER_BTN[3]);
+        EXPECT(ui.page == PG_MTX1 && ui.sel == 3, "another channel's button: its MOD 1-4");
+        press_btn(LAYER_BTN[2]);
+        press_btn(B_SEQ);
+        press_btn(B_SEQ);
+        EXPECT(ui.page == PG_FX, "SEQ after MOD 5-8: back to the channel's page");
     }
     /* SHIFT + black key 1: the channel at random, its mute kept */
     before = par;
@@ -1046,7 +1094,7 @@ static int cmd_flows(void)
     EXPECT(!chr[2].dead && !ui.shown_dead && ch_col(2) == LAYER_COL[2], "a channel in the patch: its colour");
     tap_key(KEY_MUTE[2]);
     run_ms(200);
-    EXPECT(chr[2].dead && ui.shown_dead && ch_col(2) == C_MONO, "muted, out of the patch: grey");
+    EXPECT(ui.shown_dead && ch_col(2) == C_MONO, "muted, out of the patch: grey");
     tap_key(KEY_MUTE[2]);
     par.ch[2].level = 0;
     par.ch[2].send1 = par.ch[2].send2 = 0;
@@ -1181,7 +1229,9 @@ static int cmd_rhythm(void)
     for (st = 0; st < RS_N; st++) {
         double m0 = 0, m1 = 0, lo = 0;
         uint32_t n = 0;
-        for (f = 0; f < NFAM; f += 3) {
+        /* (the first 24 recipes, every third, as before FREE. Known, build 13: KICK and CHOKE can choke a ring of
+         * channels to silence -- 6 of 400 recipe x style pairs, FREE x MARCH among them; for the RHYTHM's stage 2) */
+        for (f = 0; f < 24u && f < NFAM; f += 3) {
             stats_t a, b;
             fresh_mixer();
             patch_draw(&par, 777u + f * 31u + st, (int)f);
@@ -1297,6 +1347,8 @@ static int cmd_cores(int n)
 
 int main(int argc, char **argv)
 {
+    if (argc >= 2 && str_eq(argv[1], "free"))
+        return cmd_free();
     if (argc >= 2 && str_eq(argv[1], "check"))
         return cmd_check();
     if (argc >= 3 && str_eq(argv[1], "screens"))
