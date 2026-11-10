@@ -14,7 +14,7 @@
  *                             on the RHYTHM's: TEMPO SWING CHAOS LENGTH (the gates'), then MIX)
  *   SEQ                       the output's pages: OUT, OUT EQ, OUT FX, then back
  *   ARP                       the OVERVIEW: the six channels, their inputs and levels, at once
- *   PRESETS (knob)            the RECIPE: an archetype a new patch is drawn from, its name shown (nothing else changes)
+ *   PRESETS (knob)            the recipe: its name replaces the patch's in the main view (nothing else changes)
  *   HOME                      a NEW PATCH from the recipe shown: the whole mixer drawn again -- its connections and
  *                             its settings, each time otherwise (patch.c)
  *   SHIFT + HOME              a new patch from a recipe drawn at random (another than the one shown)
@@ -102,6 +102,7 @@ static struct {
     char patch[16];              /* the patch's name: the recipe it was drawn from, or the session's */
     uint8_t fam;                 /* the recipe (family) of the patch playing */
     uint8_t recipe;              /* the RECIPE shown (PRESETS): HOME's next patch is drawn from it */
+    uint8_t browse;              /* PRESETS turned since the patch came: the main view names the recipe, not the patch */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
     uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
@@ -640,6 +641,7 @@ static void patch_set(const lil_par_t *q, const char *name)
     ch_fresh_all();
     gest_halt();                                 /* (a loop playing stops: it was another patch's) */
     str_cpy(ui.patch, name, sizeof ui.patch);
+    ui.browse = 0;
     trim_start();
     ui.force = 1;
 }
@@ -1041,10 +1043,12 @@ static void ui_input(void)
             ui.ses_ix = (uint8_t)clampi(ui.ses_ix + (s > 0 ? 1 : -1), 1, (int32_t)SES_SLOTS);
         else if (ui.page == PG_ASK)
             ui.ses_yes = (uint8_t)(s > 0);
-        else {                                   /* the RECIPE: shown, HOME draws from it */
+        else {                                   /* the recipe: its name in the main view, in place; HOME draws from it */
+            if (ui.page != PG_MAIN)
+                goto_page(PG_MAIN);
             ui.recipe = (uint8_t)((ui.recipe + NFAM + (s > 0 ? 1u : NFAM - 1u)) % NFAM);
-            flash("RECIPE", FAM[ui.recipe].name, C_PRE);
-            ui.force = 1;
+            ui.msg_until = fm1_ms;               /* (a message showing gives way to the name) */
+            ui.browse = ui.recipe != ui.fam || !str_eq(ui.patch, FAM[ui.fam].name);
         }
     }
     /* KNOB 1 .. 4 */
@@ -1772,7 +1776,7 @@ static void ui_draw(void)
         char rs[16];
         int rec = gs.st == GS_REC || gs.st == GS_ARMED;
         int kind = msg ? 1 : rec || par.out.mute || par.ch[ui.sel].mute ? 2 : 0;
-        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.patch;
+        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.browse ? FAM[ui.recipe].name : ui.patch;
         if (gs.st == GS_ARMED)
             str_cpy(rs, (fm1_ms / 250u) & 1u ? "ARMED" : "", sizeof rs);
         else if (gs.st == GS_REC) {              /* REC and the seconds so far */

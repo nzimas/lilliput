@@ -1,5 +1,11 @@
 # Changelog
 
+## Build 11 (2026-11-10)
+
+- PRESETS no longer flashes "RECIPE": turning it changes the name in the main view, in place, to the recipe's (from
+  another page it goes to the main view). Before, the flash went and the main view still named the patch playing.
+  HOME draws from the recipe named; turned back to the patch's own recipe, the patch's name is shown again.
+
 ## Build 10 (2026-11-10)
 
 - PRESETS are gone: there were sixteen fixed "factory patches" and a page of them. The knob now shows the **RECIPE**

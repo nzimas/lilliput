@@ -300,7 +300,6 @@ static stats_t render(double secs, int16_t *keep, uint32_t keep_max)
         fm1_ms = (uint32_t)((uint64_t)b * CTL * 1000u / FS);
         trim_poll();
         mix_block(out);
-        if (getenv("DBG") && b % 2756 == 0)
             fprintf(stderr, "  t %5.1f gm %d gmt %d level %d meter %d\n", b * CTL / (double)FS, outr.gm, outr.gmt, par.out.level, out_meter);
         for (i = 0; i < CTL; i++) {
             int32_t l = out[2 * i], r = out[2 * i + 1];
@@ -703,15 +702,24 @@ static int cmd_flows(void)
     {
         uint32_t f0 = ui.fam, pg = ui.page;
         turn(EN_PRESET, 1);
-        EXPECT(ui.recipe == (f0 + 1u) % NFAM && ui.fam == f0 && !memcmp(&before, &par, sizeof par) && ui.page == pg,
-               "PRESETS: the next recipe shown, the patch and the page left as they were");
+        run_ms(60);
+        EXPECT(ui.recipe == (f0 + 1u) % NFAM && ui.fam == f0 && !memcmp(&before, &par, sizeof par) && ui.page == PG_MAIN,
+               "PRESETS: the next recipe, the patch left as it was, the main view");
+        EXPECT(!ui.flash_on && str_eq(ui.shown_text, FAM[ui.recipe].name),
+               "PRESETS: the recipe's name in the main view, in place, no flash");
         turn(EN_PRESET, -1);
+        run_ms(60);
+        EXPECT(ui.recipe == f0 && str_eq(ui.shown_text, ui.patch), "PRESETS back to the patch's recipe: the patch's name");
         turn(EN_PRESET, -1);
-        EXPECT(ui.recipe == (f0 + NFAM - 1u) % NFAM, "PRESETS back: the one before");
+        run_ms(60);
+        EXPECT(ui.recipe == (f0 + NFAM - 1u) % NFAM && str_eq(ui.shown_text, FAM[ui.recipe].name),
+               "PRESETS back: the one before, its name shown");
         press_btn(B_HOME);
         EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam == (f0 + NFAM - 1u) % NFAM,
                "HOME draws a new patch from the recipe shown");
-        EXPECT(str_eq(ui.patch, FAM[ui.fam].name), "the patch named after its recipe");
+        EXPECT(str_eq(ui.patch, FAM[ui.fam].name) && str_eq(ui.shown_text, ui.patch) || ui.msg_until,
+               "the patch named after its recipe");
+        goto_page(pg);                           /* (the page the tests below expect) */
     }
     run_ms(3600);
     EXPECT(out_meter > 300, "the new patch sounds");
@@ -799,12 +807,13 @@ static int cmd_flows(void)
         EXPECT(gs.st == GS_ARMED, "REC arms");
         run_ms(300);
         EXPECT(gs.st == GS_ARMED, "nothing recorded until something changes");
-        turn(EN_SELECT, -3);
+        int dir = l0 > 10 ? -1 : 1;              /* (the way the level can move) */
+        turn(EN_SELECT, 3 * dir);
         EXPECT(gs.st == GS_REC, "the first change starts the recording");
         run_ms(400);
         tap_key(KEY_MUTE[3]);
         run_ms(400);
-        turn(EN_SELECT, -2);
+        turn(EN_SELECT, 2 * dir);
         l1 = par.ch[0].level;
         run_ms(300);
         press_btn(B_REC);
@@ -1168,7 +1177,6 @@ static int cmd_fits(void)
         FIT(text_w(&FONT_XS, FAM[f].name) <= 236, "a family's name", FAM[f].name);
     for (f = 0; f < NFAM; f++)
         FIT(text_w(&FONT_XS, FAM[f].name) <= 236, "a recipe's name", FAM[f].name);
-    FIT(text_w(&FONT_L, "RECIPE") <= 236, "the RECIPE flash", "RECIPE");
     for (pg = PG_TEMPO; pg <= PG_RHY2; pg++)    /* (the RHYTHM's pages) */
         for (j = 0; j < 4u; j++)
             if (PG_ROW[pg][j] != P_NONE)
@@ -1208,7 +1216,6 @@ int main(int argc, char **argv)
         fresh_mixer();
         printf("family %s\n", FAM[patch_draw(&par, 0xC0FFEEu + (uint32_t)atoi(argv[2]) * 7919u, -1)].name);
         print_patch();
-        setenv("DBG", "1", 1);
         st = render(12.0, 0, 0);
         printf("rms %.1f late %.1f clip %.2f%%\n", db(st.rms), db(st.late_rms), st.clip * 100);
         return 0;

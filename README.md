@@ -76,7 +76,7 @@ going back to Tonitor erases Lilliput's sessions.)
 | **HOME** | a **new patch** from the recipe shown (see [New patches](#new-patches)). |
 | **SHIFT + HOME** | a new patch from **another recipe**, drawn at random. |
 | **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | the **RECIPE**: its name shown; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
+| **PRESETS** knob | the **recipe**: its name in place of the patch's, in the main view; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
 | **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
@@ -210,7 +210,7 @@ At the top, SPACE MIX leaves the reverb alone.
 
 ## New patches
 
-**PRESETS** turns through the **recipes** and shows each one's name; **HOME** then draws a new patch from the one
+**PRESETS** turns through the **recipes**: the main view's name becomes each one's, in place; **HOME** then draws a new patch from the one
 shown. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
 channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
 the parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
