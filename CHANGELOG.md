@@ -1,5 +1,18 @@
 # Changelog
 
+## Build 16 (2026-11-10)
+
+- **DRUMS**: a drum section beside the mixer, after Ruismaker Noir (Bram Bos): KICK, SNARE and HATS, one engine
+  (a swept tone and filtered noise, ATTACK from a hard transient to 100 ms, DECAY, CLICK, METAL, DRIVE), each with
+  its lane of steps (accents, pitches, ALT) on the RHYTHM's tempo, coming in on its beat. Black key 9 (3rd from the
+  right): short, their pages; SHIFT +, a new drum rhythm; held, on or off. On their pages white keys 1-3 choose the
+  voice (SHIFT +: a new sound), PRESETS the rhythms. 21 sound recipes (7 a voice), 12 rhythm recipes. A REVERB send
+  a voice into SPACE; the dry drums after the reverb. Sessions keep them; older sessions load without touching them.
+  They run on CPU1 with the output stage.
+- The MASTER knob is read before any sound: the splash played for about a second at half volume, the knob down or
+  not.
+- tools/fm1_bench.py patches-drums: the load with the drums at their densest.
+
 ## Build 15 (2026-11-10)
 
 - HOME and SHIFT + HOME as on Tonitor: **HOME** a new patch from any recipe, always; **SHIFT + HOME** a new patch from

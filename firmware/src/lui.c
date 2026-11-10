@@ -22,6 +22,10 @@
  *   HOME held                 the patch nudged: every channel's tone a little elsewhere, the connections kept
  *   SAVE held                 save the session: over the one loaded at once, else a new one (asked)
  *   SHIFT + SAVE              the SESSIONS page (PRESETS chooses, SAVE loads); held 0.8 s: GLOBAL SETUP
+ *   3rd black key from right  the DRUMS (drums.c): short, their pages (again: back); SHIFT + short, a new drum rhythm,
+ *                             playing; held 0.8 s, the drums on or off. On their pages the first three white keys
+ *                             choose KICK, SNARE, HATS; SHIFT + one, a new sound for it; PRESETS, the drum rhythms;
+ *                             OCT- / OCT+ through the three pages
  *   REC / PLAY                the chosen channel's GESTURE loop: REC arms, ends; held, empties; PLAY plays or stops
  *                             it (one loop a channel, each on its own: perform.c)
  *   SHIFT + PLAY              the output muted, or back (a panic: the loops keep going, unheard)
@@ -41,6 +45,7 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 #define KEY_SHIFT 25u            /* the rightmost black key */
 #define KEY_CPU 15u              /* the 7th black key: SHIFT + it held, the CPU page */
 #define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- on or off; SHIFT +: a new one; held: TEMPO */
+#define KEY_DRM 20u              /* the 3rd from the right: the DRUMS -- their pages; SHIFT +: a new rhythm; held: on / off */
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
 
@@ -65,6 +70,7 @@ static uint16_t ch_col(uint32_t c) { return ch_out(c) ? C_MONO : LAYER_COL[c]; }
 enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2,   /* a channel's (OCT- / OCT+) */
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
        PG_TEMPO, PG_RHY2,                                    /* the RHYTHM's (its key held; OCT- / OCT+ between) */
+       PG_DRUM, PG_DRUM2, PG_DRUM3,                          /* the DRUMS' (their key; OCT- / OCT+ between) */
        PG_VIEW, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
 #define PG_CH_LAST PG_MTX2       /* (the chosen channel's pages; OCT reaches them up to FX, SEQ the rest) */
 /* SEQ's pages in turn: the output's, then the chosen channel's motion */
@@ -78,7 +84,8 @@ static int seq_ix(uint32_t pg)           /* (its place in SEQ's turn; -1: not on
     return -1;
 }
 static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
-                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "RHYTHM", "", "", "", "",
+                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "RHYTHM", "DRUMS", "DRUMS", "DRUMS",
+                                           "", "", "", "",
                                            ""};
 
 /* every parameter the panel reaches: on the chosen channel, its slot, or the output */
@@ -90,6 +97,9 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_FOLD,
        P_BPM, P_SWING, P_CHAOS, P_GSCALE,        /* (the TEMPO page's) */
        P_RMIX,                                   /* (the RHYTHM's second page) */
+       P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL, P_DSWEEP, P_DATTACK, P_DNOISE, P_DVERB,   /* (the DRUMS' voice chosen) */
+       P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN, P_DMETAL, P_DFILT,
+       P_DSWING, P_DMASTER,                      /* (the DRUMS' own) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
@@ -98,14 +108,16 @@ static const uint8_t PG_ROW[PG_N][4] = {
     {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES},
-    {P_BPM, P_SWING, P_CHAOS, P_GSCALE}, {P_RMIX, P_NONE, P_NONE, P_NONE}};
+    {P_BPM, P_SWING, P_CHAOS, P_GSCALE}, {P_RMIX, P_NONE, P_NONE, P_NONE},
+    {P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL}, {P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN}, {P_DSWING, P_DMASTER, P_NONE, P_NONE}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
-    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}};
+    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
+    {P_DSWEEP, P_DATTACK, P_DNOISE, P_DVERB}, {P_DMETAL, P_DFILT, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}};
 
 static struct {
     uint8_t sel, page, last_ch_page;
@@ -126,6 +138,9 @@ static struct {
     uint32_t home_t0;
     uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
     uint32_t rhy_t0, beat_seen, beat_at;
+    uint8_t dsel;                /* the DRUMS' voice chosen: KICK, SNARE, HATS */
+    uint8_t drm_down, drm_sh, drm_done;
+    uint32_t drm_t0;
     uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the channel's gesture loop emptied) */
     uint32_t rec_t0;
     int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
@@ -236,6 +251,22 @@ static int32_t p_get(uint32_t id)
     case P_LRATE: return c->mod.lfo[ui.page == PG_LFO2].rate;
     case P_LMODE: return c->mod.lfo[ui.page == PG_LFO2].mode;
     case P_LFADE: return c->mod.lfo[ui.page == PG_LFO2].fade;
+    case P_DTUNE: return drm.v[ui.dsel].tune;
+    case P_DDECAY: return drm.v[ui.dsel].decay;
+    case P_DDRIVE: return drm.v[ui.dsel].drive;
+    case P_DLEVEL: return drm.v[ui.dsel].level;
+    case P_DSWEEP: return drm.v[ui.dsel].sweep;
+    case P_DATTACK: return drm.v[ui.dsel].attack;
+    case P_DNOISE: return drm.v[ui.dsel].noise;
+    case P_DVERB: return drm.v[ui.dsel].verb;
+    case P_DBEND: return drm.v[ui.dsel].bend;
+    case P_DCOLOR: return drm.v[ui.dsel].color;
+    case P_DCLICK: return drm.v[ui.dsel].click;
+    case P_DPAN: return drm.v[ui.dsel].pan;
+    case P_DMETAL: return drm.v[ui.dsel].metal;
+    case P_DFILT: return drm.v[ui.dsel].filt;
+    case P_DSWING: return drm.swing;
+    case P_DMASTER: return drm.level;
     default: return 0;
     }
 }
@@ -259,7 +290,9 @@ static int32_t p_count(uint32_t id)
     case P_SPACE: return SP_N;
     case P_LSHAPE: return MS_N;
     case P_LMODE: return MM_N;
-    case P_PAN: return -1;                       /* (-PAN_MAX .. PAN_MAX) */
+    case P_PAN: case P_DPAN: return -1;          /* (-PAN_MAX .. PAN_MAX) */
+    case P_DMETAL: return DM_N;
+    case P_DFILT: return DN_N;
     default: return 0;
     }
 }
@@ -272,7 +305,7 @@ static void p_set(uint32_t id, int32_t v)
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
         : id == P_BPM ? clampi(v, 10, 500)
         : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
-                       : id == P_GSCALE || id == P_RMIX ? 100 : PMAX);
+                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -324,16 +357,34 @@ static void p_set(uint32_t id, int32_t v)
     case P_LRATE: c->mod.lfo[ui.page == PG_LFO2].rate = (uint8_t)v; break;
     case P_LMODE: c->mod.lfo[ui.page == PG_LFO2].mode = (uint8_t)v; break;
     case P_LFADE: c->mod.lfo[ui.page == PG_LFO2].fade = (uint8_t)v; break;
+    case P_DTUNE: drm.v[ui.dsel].tune = (int16_t)v; break;
+    case P_DDECAY: drm.v[ui.dsel].decay = (int16_t)v; break;
+    case P_DDRIVE: drm.v[ui.dsel].drive = (int16_t)v; break;
+    case P_DLEVEL: drm.v[ui.dsel].level = (int16_t)v; break;
+    case P_DSWEEP: drm.v[ui.dsel].sweep = (int16_t)v; break;
+    case P_DATTACK: drm.v[ui.dsel].attack = (int16_t)v; break;
+    case P_DNOISE: drm.v[ui.dsel].noise = (int16_t)v; break;
+    case P_DVERB: drm.v[ui.dsel].verb = (int16_t)v; break;
+    case P_DBEND: drm.v[ui.dsel].bend = (int16_t)v; break;
+    case P_DCOLOR: drm.v[ui.dsel].color = (int16_t)v; break;
+    case P_DCLICK: drm.v[ui.dsel].click = (int16_t)v; break;
+    case P_DPAN: drm.v[ui.dsel].pan = (int16_t)v; break;
+    case P_DMETAL: drm.v[ui.dsel].metal = (uint8_t)v; break;
+    case P_DFILT: drm.v[ui.dsel].filt = (uint8_t)v; break;
+    case P_DSWING: drm.swing = (uint8_t)v; break;
+    case P_DMASTER: drm.level = (int16_t)v; break;
     default: break;
     }
+    if (id >= P_DTUNE && id <= P_DMASTER)        /* (the DRUMS: what the values mean, worked out again) */
+        drm_coef_all();
 }
 static int32_t p_hi(uint32_t id)
 {
-    return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : id == P_BPM ? 500
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING ? 100
            : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE || id == P_RMIX ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
-static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : id == P_BPM ? 10 : 0; }
+static int32_t p_lo(uint32_t id) { return id == P_PAN || id == P_DPAN ? -PAN_MAX : id == P_BPM ? 10 : 0; }
 /* LEVEL, a detent: 1 dB a step up to -5 dB (on whole dBs), 0.1 dB a step above it; below -60 dB, off */
 static int32_t level_step(int32_t v, int up)
 {
@@ -425,6 +476,21 @@ static const char *p_name(uint32_t id)
     case P_LRATE: return "RATE";
     case P_LMODE: return "MODE";
     case P_LFADE: return "FADE";
+    case P_DTUNE: return "TUNE";
+    case P_DDECAY: return "DECAY";
+    case P_DDRIVE: return "DRIVE";
+    case P_DLEVEL: case P_DMASTER: return "LEVEL";
+    case P_DSWEEP: return "SWEEP";
+    case P_DATTACK: return "ATTACK";
+    case P_DNOISE: return "NOISE";
+    case P_DVERB: return "REVERB";
+    case P_DBEND: return "BEND";
+    case P_DCOLOR: return "COLOR";
+    case P_DCLICK: return "CLICK";
+    case P_DPAN: return "PAN";
+    case P_DMETAL: return "METAL";
+    case P_DFILT: return "FILTER";
+    case P_DSWING: return "SWING";
     default: return "";
     }
 }
@@ -453,6 +519,20 @@ static void hz_text(char *b, int32_t hz)
         fmt_fix(b, hz / 100, 1);
         str_cpy(b + str_len(b), " KHZ", 5);
     }
+}
+static void drm_ms_text(char *b, uint32_t samples)   /* the DRUMS' times, from samples: 2.5 MS, 36 MS, 1.2 S */
+{
+    uint32_t t10 = samples * 100u / 441u;        /* (tenths of a ms) */
+    if (t10 < 100u)
+        fmt_fix(b, (int32_t)t10, 1);
+    else if (t10 < 10000u)
+        fmt_int(b, (int32_t)((t10 + 5u) / 10u));
+    else {
+        fmt_fix(b, (int32_t)((t10 + 500u) / 1000u), 1);
+        str_cpy(b + str_len(b), " S", 3);
+        return;
+    }
+    str_cpy(b + str_len(b), " MS", 4);
 }
 static void ms_text(char *b, int32_t samples)    /* a time from samples: 0.4 MS, 36 MS, 1.2 S */
 {
@@ -520,7 +600,19 @@ static void p_text(uint32_t id, int32_t v, char *b)
             db_text(b, snd_db10(v));
         break;
     case P_OLEVEL: db_text(b, main_db10(v)); break;
-    case P_PAN:
+    case P_DTUNE: hz_text(b, (int32_t)((drm_hz8(v) + 128u) >> 8)); break;
+    case P_DDECAY: drm_ms_text(b, drm_dec_tau(v) * 7u); break;   /* (to -42 dB: about what is heard) */
+    case P_DATTACK:
+        if (!v)
+            str_cpy(b, "HARD", 12);
+        else
+            drm_ms_text(b, drm_att_len(v));
+        break;
+    case P_DCOLOR: hz_text(b, (int32_t)drm_log(v, 60, 528)); break;
+    case P_DMETAL: str_cpy(b, DM_NAME[clampi(v, 0, DM_N - 1)], 12); break;
+    case P_DFILT: str_cpy(b, DN_NAME[clampi(v, 0, DN_N - 1)], 12); break;
+    case P_DSWING: fmt_int(b, v); break;
+    case P_PAN: case P_DPAN:
         if (!v)
             str_cpy(b, "CENTRE", 12);
         else {
@@ -653,6 +745,21 @@ static void ch_fresh_all(void)                    /* (a new patch: what the ISR 
 static void gest_halt(void);
 static void goto_page(uint32_t pg);
 static int rhy_page(void) { return ui.page == PG_TEMPO || ui.page == PG_RHY2; }
+static int drm_page(void) { return ui.page >= PG_DRUM && ui.page <= PG_DRUM3; }
+/* a new drum rhythm, of style st (-1: another than the one drawn), playing */
+static void drm_new(int st)
+{
+    if (st < 0) {
+        st = (int)(next_seed() % (DS_N - 1u));
+        if (st >= (int)drm.style)
+            st++;
+    }
+    drm_draw_rhythm(next_seed(), st);
+    drm.on = 1;
+    drm_reset = 1;
+    say(DS_NAME[drm.style % DS_N], 1200);
+    ui.force = 1;
+}
 static void mtx_knob(uint32_t j, int32_t s, int sh);
 static void mtx_from(int32_t s);
 static void patch_set(const lil_par_t *q, const char *name)
@@ -878,6 +985,8 @@ static void ui_input(void)
             goto_page(SEQ_PG[up ? (k + 1 < (int)sizeof SEQ_PG ? k + 1 : k) : (k ? k - 1 : 0)]);
         else if (ui.page <= PG_FX)
             goto_page(up ? (ui.page < PG_FX ? ui.page + 1u : ui.page) : (ui.page ? ui.page - 1u : 0u));
+        else if (drm_page())                     /* the DRUMS': the voice's two pages, then the rhythm's */
+            goto_page(up ? (ui.page < PG_DRUM3 ? ui.page + 1u : ui.page) : (ui.page > PG_DRUM ? ui.page - 1u : ui.page));
         else if (rhy_page())                     /* the RHYTHM's: TEMPO .., then MIX */
             goto_page(up ? PG_RHY2 : PG_TEMPO);
     }
@@ -996,6 +1105,35 @@ static void ui_input(void)
                 goto_page(PG_TEMPO);
         }
     }
+    if ((down >> KEY_DRM) & 1u) {                /* the DRUMS' key */
+        ui.drm_down = 1;
+        ui.drm_sh = (uint8_t)sh;
+        ui.drm_done = 0;
+        ui.drm_t0 = fm1_ms;
+    }
+    if (ui.drm_down) {
+        if ((up >> KEY_DRM) & 1u) {
+            ui.drm_down = 0;
+            if (!ui.drm_done) {
+                if (ui.drm_sh)                   /* SHIFT + it: a new drum rhythm (another style), playing */
+                    drm_new(-1);
+                else if (drm_page())             /* short: their pages, or back */
+                    page_back();
+                else {
+                    if (ui.page <= PG_FX)
+                        ui.last_ch_page = ui.page;
+                    ui.set_page = 0;
+                    goto_page(PG_DRUM);
+                }
+            }
+        } else if (!ui.drm_done && !ui.drm_sh && (uint32_t)(fm1_ms - ui.drm_t0) >= 800u) {
+            ui.drm_done = 1;                     /* held: on, or off */
+            drm.on = (uint8_t)!drm.on;
+            drm_reset = 1;
+            say(drm.on ? "DRUMS ON" : "DRUMS OFF", 900);
+            ui.force = 1;
+        }
+    }
     if (ui.page == PG_SNAP && ui.snap_key >= 0) {   /* a snapshot's key: let go soon, recalled; held, stored */
         uint32_t kk = (uint32_t)ui.snap_key, sw = (uint32_t)white_ix(kk);
         if ((up >> kk) & 1u) {
@@ -1022,8 +1160,23 @@ static void ui_input(void)
             ui.force = 1;
             continue;
         }
-        if (k == KEY_RHY)
-            continue;                            /* (its own, above) */
+        if (k == KEY_RHY || k == KEY_DRM)
+            continue;                            /* (their own, above) */
+        if (drm_page() && w >= 0) {              /* the DRUMS' pages: white keys 1 .. 3 the voices; SHIFT + one, a new
+                                                  * sound for it; the rest nothing here */
+            if (w < (int32_t)NDV) {
+                ui.dsel = (uint8_t)w;
+                if (sh) {
+                    drm_draw_voice((uint32_t)w, next_seed(), -1);
+                    drm_coef_all();
+                    say(DKIT[drm.kit[w] % NDKIT].name, 1000);
+                }
+                if (ui.page == PG_DRUM3)
+                    goto_page(PG_DRUM);
+                ui.force = 1;
+            }
+            continue;
+        }
         if (k == KEY_MUTE[0] && sh) {            /* SHIFT + black key 1: the chosen channel, every parameter at random */
             patch_random_channel(&par, ui.sel, next_seed());
             say("CHANNEL RANDOM", 1000);
@@ -1057,6 +1210,8 @@ static void ui_input(void)
     if (s) {
         if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
             mtx_from(s);
+        else if (drm_page())                     /* the DRUMS' pages: through their rhythms, one of each, playing */
+            drm_new((int)((drm.style + DS_N + (s > 0 ? 1u : DS_N - 1u)) % DS_N));
         else if (rhy_page())                     /* the RHYTHM's pages: PRESETS through the styles, a rhythm of each */
             rhy_new((int)((par.rhy.style + RS_N + (s > 0 ? 1u : RS_N - 1u)) % RS_N));
         else if (ui.page == PG_SES)
@@ -1078,7 +1233,7 @@ static void ui_input(void)
             if (s)
                 mtx_knob(k, s, sh);
         }
-    } else if (ui.page <= PG_OFX || rhy_page()) {
+    } else if (ui.page <= PG_OFX || rhy_page() || drm_page()) {
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
@@ -1156,6 +1311,11 @@ static void ui_leds(void)
             led_dim_key(14u + k, snap_has((uint32_t)w));
             continue;
         }
+        if (drm_page() && w >= 0) {              /* the DRUMS' pages: the three voices, the one chosen lit */
+            fm1_led_key(14u + k, w == ui.dsel);
+            led_dim_key(14u + k, w < (int32_t)NDV);
+            continue;
+        }
         if (w >= 0 && w < SRC_N) {               /* the inputs: the one chosen lit, the others glowing */
             int self = w >= SRC_CH1 && (uint32_t)(w - SRC_CH1) == ui.sel;
             fm1_led_key(14u + k, p->src == w);
@@ -1179,6 +1339,8 @@ static void ui_leds(void)
     }
     fm1_led_key(14u + KEY_RHY, par.rhy.on && (uint32_t)(fm1_ms - ui.beat_at) >= 70u);
     led_dim_key(14u + KEY_RHY, 1);
+    fm1_led_key(14u + KEY_DRM, drm.on && (uint32_t)(fm1_ms - ui.beat_at) >= 70u);   /* (the DRUMS': lit playing) */
+    led_dim_key(14u + KEY_DRM, 1);
 }
 
 /* ------------------------------------------------------------ the screen --- */
@@ -1304,13 +1466,14 @@ static void draw_pan(void)
 
 /* a page: its title (and what its switches are), then four rows -- name, value, a bar under a value */
 #define C_RHY RGB(255, 120, 80)
-static uint16_t page_col(void) { return rhy_page() ? C_RHY : ui.page >= PG_OUT ? C_OUT : ch_col(ui.sel); }
+#define C_DRM RGB(255, 196, 40)
+static uint16_t page_col(void) { return rhy_page() ? C_RHY : drm_page() ? C_DRM : ui.page >= PG_OUT ? C_OUT : ch_col(ui.sel); }
 #define TITLE_H 36               /* a page's title band, then four rows of ROW_H */
 #define ROW_H 51
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
 {
     uint32_t j;
-    if (!((ui.keys >> KEY_SHIFT) & 1u) || ui.page > PG_OFX || (ui.page >= PG_LFO1 && ui.page <= PG_MTX2))
+    if (!((ui.keys >> KEY_SHIFT) & 1u) || (ui.page > PG_OFX && !drm_page()) || (ui.page >= PG_LFO1 && ui.page <= PG_MTX2))
         return 0;
     for (j = 0; j < 4u; j++)
         if (PG_SHROW[ui.page][j] != P_NONE)
@@ -1333,6 +1496,15 @@ static void draw_title(void)
     }
     if (rhy_page()) {                            /* the RHYTHM: its style, or OFF */
         str_cpy(t, par.rhy.on ? RS_NAME[par.rhy.style % RS_N] : "RHYTHM OFF", sizeof t);
+    }
+    if (ui.page == PG_DRUM3)                     /* the DRUMS' rhythm: its style, or OFF */
+        str_cpy(t, drm.on ? DS_NAME[drm.style % DS_N] : "DRUMS OFF", sizeof t);
+    else if (drm_page()) {                       /* a voice's: its name and its sound's (SHIFT held: the voice's) */
+        str_cpy(t, DV_NAME[ui.dsel % NDV], sizeof t);
+        if (!show_shift()) {
+            str_cpy(t + str_len(t), "  ", 3);
+            str_cpy(t + str_len(t), DKIT[drm.kit[ui.dsel % NDV] % NDKIT].name, sizeof t - str_len(t));
+        }
     }
     if (show_shift())                            /* (SHIFT held: the switches) */
         str_cpy(t + str_len(t), "  SHIFT", 8);
@@ -1845,6 +2017,7 @@ static void ui_init(void)
         ui.recipe = (uint8_t)f;
         patch_set(&q, FAM[f].name);
     }
+    drm_init(next_seed());                       /* the DRUMS: a kit and a rhythm drawn, stopped */
     ui.shown_sel = 0xFF;
     ui.force = 1;
 }

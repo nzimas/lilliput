@@ -360,7 +360,8 @@ typedef struct {
 typedef struct {
     uint16_t snap_used;
     uint8_t morph_hs, gfmt;      /* gfmt 1: a gesture loop a channel (build 12); 0: one loop for all (before) */
-    uint16_t gn, rsv2;           /* the gesture loops' changes, all together (0: none) */
+    uint16_t gn, dsz;            /* the gesture loops' changes, all together (0: none); the DRUMS' record's size, at the
+                                  * end (0: none -- before build 16) */
     uint32_t glen;               /* (gfmt 0: the loop's length, ms) */
 } ses_perf_t;
 typedef struct { uint16_t n, rsv; uint32_t len; } ses_gl_t;   /* (gfmt 1: a channel's loop, its changes, its length) */
@@ -380,6 +381,7 @@ static void ses_emit(void)
         pf.snap_used = snap_used;
         pf.morph_hs = morph_hs;
         pf.gfmt = 1;
+        pf.dsz = (uint16_t)sizeof drm;
         for (i = 0; i < NCH; i++)
             if (gl_state(i) != GS_REC)           /* (a loop being recorded is not kept) */
                 pf.gn = (uint16_t)(pf.gn + gl[i].n);
@@ -400,6 +402,7 @@ static void ses_emit(void)
                 ses_out(g_s0[i], sizeof g_s0[i]);
                 ses_out(&gev[gl[i].off], gl[i].n * (uint32_t)sizeof gev[0]);
             }
+        ses_out(&drm, sizeof drm);               /* the DRUMS (pf.dsz) */
     }
 }
 static int ses_save(uint32_t num)
@@ -446,6 +449,7 @@ static void par_tail(lil_par_t *q, uint32_t psz)
 }
 /* the loops read (gfmt 1): each channel's changes in turn from gev[0]; a change not the channel's: its loop dropped */
 static ses_gl_t ses_sgl[NCH];   /* (the loops' heads, as read) */
+static drm_par_t ses_drm;        /* (the DRUMS, as read) */
 static void ses_gl_take(void)
 {
     const ses_gl_t *t = ses_sgl;
@@ -557,6 +561,11 @@ static int ses_load(uint32_t num)
                 }
         } else
             return SES_FAIL;
+        if (pf.dsz) {                            /* the DRUMS: a record no longer than ours (newer: not ours) */
+            if (pf.dsz > sizeof ses_drm)
+                return SES_FAIL;
+            ses_in(pass ? &ses_drm : 0, pf.dsz);
+        }
         if (ss.pos != h.len || ss.crc != h.body_crc)
             return SES_FAIL;
     }
@@ -581,6 +590,12 @@ static int ses_load(uint32_t num)
     else
         ses_gl_take();
     patch_set(&q, g.patch);
+    if (pf.dsz) {                                /* the DRUMS as saved (a session before them: left as they are) */
+        memset((uint8_t *)&ses_drm + pf.dsz, 0, sizeof ses_drm - pf.dsz);
+        drm = ses_drm;
+        drm_coef_all();
+        drm_reset = 1;
+    }
     (void)ns;
     ses.current = (uint16_t)num;
     return SES_OK;

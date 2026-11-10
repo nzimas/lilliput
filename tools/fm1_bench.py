@@ -6,6 +6,8 @@
   tools/fm1_bench.py costs-of I        the same, with drawn patch I loaded (as patches draws it)
   tools/fm1_bench.py patches N [S]    N drawn patches (the host's check seeds: 0xC0FFEE + i x 7919), S s each:
                                       the load as they play (CSV in build/bench/patches.csv)
+  tools/fm1_bench.py patches-drums N [S]   the same with the DRUMS at their densest (BLAST, the three voices
+                                      on every sixteenth, long, with reverb): build/bench/patches-drums.csv
 
 The output is muted while it measures. Needs mido with python-rtmidi (as the installer).
 """
@@ -85,13 +87,13 @@ def costs(link):
         print(f"the same adds from the RAM: {clk[1] / 24:.0f} us ({clk[1] / clk[0]:.2f} x)")
 
 
-def patches(link, n, secs):
+def patches(link, n, secs, drums=False):
     out = Path(__file__).resolve().parent.parent / "build" / "bench"
     out.mkdir(parents=True, exist_ok=True)
     rows = []
     for i in range(n):
         seed = (0xC0FFEE + i * 7919) & 0xFFFFFFFF
-        link.send(frame(0x61, seed.to_bytes(4, "little") + bytes([255, secs])))
+        link.send(frame(0x61, seed.to_bytes(4, "little") + bytes([255, secs | (0x80 if drums else 0)])))
         b = reply(link, 0x61, secs + 10)
         fam, (mean, peak, late, m0, m0pk, m1pk) = b[0], u32s(b[1:25])
         rows.append(dict(i=i, seed=seed, fam=fam, load=mean / 10, peak=peak / 10, late=late,
@@ -102,7 +104,7 @@ def patches(link, n, secs):
         print(f"{i:3d} fam {fam:2d}  load {r['load']:5.1f}%  peak {r['peak']:5.1f}%  late {late:3d}  "
               f"CPU0 block {r['cpu0_block']:5.1f}% (peak {r['cpu0_peak']:5.1f}%)  CPU1 peak {r['cpu1_peak']:5.1f}%",
               flush=True)
-    with open(out / "patches.csv", "w", newline="") as f:
+    with open(out / ("patches-drums.csv" if drums else "patches.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
@@ -112,7 +114,7 @@ def patches(link, n, secs):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("costs", "patches", "costs-of"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("costs", "patches", "patches-drums", "costs-of"):
         raise SystemExit(__doc__)
     up = fi.Updater(fi.MidoBackend())
     dev = up.find(lambda i: not i.loader)
@@ -128,7 +130,7 @@ def main():
             costs(dev.link)
         else:
             patches(dev.link, int(sys.argv[2]) if len(sys.argv) > 2 else 40,
-                    int(sys.argv[3]) if len(sys.argv) > 3 else 3)
+                    int(sys.argv[3]) if len(sys.argv) > 3 else 3, drums=sys.argv[1] == "patches-drums")
     finally:
         dev.link.close()
 

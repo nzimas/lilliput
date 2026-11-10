@@ -90,6 +90,9 @@ going back to Tonitor erases Lilliput's sessions.)
 | **Black key 10** (2nd from the right) | the **RHYTHM** on or off (the first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
 | **SHIFT + black key 10** | a **new rhythm**, of another style, playing. |
 | **Black key 10** held 0.8 s | the **TEMPO** page (again: back). See [Rhythm](#rhythm). |
+| **Black key 9** (3rd from the right) | the **DRUMS** pages (again: back). See [Drums](#drums). |
+| **SHIFT + black key 9** | a **new drum rhythm**, of another style, playing. |
+| **Black key 9** held 0.8 s | the **drums** on or off. Its light: on while they play. |
 | **SHIFT + black key 7**, held | the CPU page. |
 | **Black key 11** (last) | **SHIFT**. |
 | **MASTER** knob | the level after everything. |
@@ -335,6 +338,43 @@ follow it too.
 
 A new patch keeps the rhythm playing (its lanes stay with the channels); snapshots and sessions keep their own. The
 rhythm's changes — on, off, a new one, the tempo — are gestures like any other: the gesture loop records them.
+
+## Drums
+
+A drum section beside the mixer, in the spirit of Bram Bos's Ruismaker Noir: synthesized, punchy and dirty, for
+rhythmic noise. Three voices — **KICK**, **SNARE**, **HATS** — of one engine, each with its own lane of steps, on the
+RHYTHM's tempo. Started while the RHYTHM plays, they come in on its next beat; the RHYTHM started anew restarts them
+with it.
+
+**Black key 9** (3rd from the right), short, opens their pages (again: back); held 0.8 s, they start or stop;
+**SHIFT +** it draws a new drum rhythm and plays it. On their pages:
+
+- **white keys 1–3** choose KICK, SNARE, HATS (lit: the one chosen); **SHIFT +** one draws a **new sound** for it,
+  from its recipes;
+- **PRESETS** goes through the drum rhythms, a new one of each, playing;
+- **OCT− / OCT+** through the three pages.
+
+| Page | Rows (KNOB 1–4) | With SHIFT |
+| --- | --- | --- |
+| a voice (its name and its sound's) | **TUNE** (Hz), **DECAY**, **DRIVE**, **LEVEL** | **SWEEP** (how far above the pitch it starts), **ATTACK** (HARD: the sharpest transient; up to 100 ms: a soft one), **NOISE** (tone or noise), **REVERB** (its send into SPACE) |
+| its second page | **BEND** (how fast the sweep falls), **COLOR** (the noise filter), **CLICK** (a burst on the hit), **PAN** | **METAL** (the tone made metallic: off or six ratios), **FILTER** (low-, band- or high-pass) |
+| the drums' (their rhythm's name) | **SWING**, **LEVEL** (the three together) | |
+
+**A voice**: a tone, swept down in pitch, and noise through a filter, mixed by NOISE; an envelope rising over ATTACK
+and falling over DECAY; a CLICK on top; then **DRIVE**, a tanh up to 32 times over: every voice has its own. The dry
+drums go to the output after the reverb, so SPACE never washes them away; each voice's **REVERB** sends it into
+SPACE's reverb, heard even when the mixer's SPACE MIX is down. Their level is their own: the trim that sets the
+mixer's main level never moves it.
+
+**Sounds** (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (a slow
+attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER,
+TICK, CYMBAL, DIRT.
+
+**Rhythms**: FOUR FLOOR, BREAKBEAT, GABBER, HALFTIME, JUNGLE, MARCH, POWER, EUCLID, AKSAK, DUB, BLAST, TRIBAL. As in
+Noir, a step can be more than a hit: accented, with a pitch of its own (POWER's bass line and TRIBAL's toms come out
+of one kick), or **ALT**, its decay cut to a fifth (closed hats among open ones, ghost snares).
+
+The drums are not part of a patch: HOME, the snapshots and the gesture loops leave them alone. A session keeps them.
 
 ## Gestures
 

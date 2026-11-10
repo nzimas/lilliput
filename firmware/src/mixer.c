@@ -1208,6 +1208,7 @@ static out_rt_t outr;
 static int32_t ost_l[CTL], ost_r[CTL], ost_r1[CTL], ost_r2[CTL];   /* (the last block's raw mix, for the stage) */
 static int32_t oout_l[CTL], oout_r[CTL];                            /* (the stage's output) */
 static int32_t rv_in[CTL], rv_l[CTL], rv_r[CTL];
+#include "drums.c"                       /* (the DRUMS' voices: rendered in out_stage) */
 
 static FAST void out_coef(void)
 {
@@ -1261,6 +1262,7 @@ static FAST void out_stage(void)
     out_rt_t *k = &outr;
     uint32_t i, j;
     int32_t pk = 0;
+    drums_render();                              /* (the DRUMS: added after the reverb and the meters, below) */
     for (i = 0; i < CTL; i++) {
         int32_t x[2], bp, lp, hp;
         x[0] = ost_l[i] + mulq15(ost_r1[i], k->g1) + mulq15(ost_r2[i], k->g2);
@@ -1292,7 +1294,17 @@ static FAST void out_stage(void)
         rv_in[i] = (x[0] + x[1]) >> 1;
         rv_l[i] = rv_r[i] = 0;
     }
-    if (k->rp) {                                 /* SPACE: the reverb crossfaded in (at the top, alone) */
+    if (drm_wet) {                               /* SPACE with the DRUMS' sends: the mix's share into it as the
+                                                  * crossfade would have it, the drums' sends whole; the dry mix
+                                                  * crossfaded out as before */
+        for (i = 0; i < CTL; i++)
+            rv_in[i] = mulq15(rv_in[i], k->rp) + drm_s[i];
+        rv_block(rv_in, rv_l, rv_r, CTL);
+        for (i = 0; i < CTL; i++) {
+            oout_l[i] += 2 * rv_l[i] - mulq15(oout_l[i], k->rp);
+            oout_r[i] += 2 * rv_r[i] - mulq15(oout_r[i], k->rp);
+        }
+    } else if (k->rp) {                          /* SPACE: the reverb crossfaded in (at the top, alone) */
         rv_block(rv_in, rv_l, rv_r, CTL);
         for (i = 0; i < CTL; i++) {
             oout_l[i] += mulq15(2 * rv_l[i] - oout_l[i], k->rp);
@@ -1312,6 +1324,12 @@ static FAST void out_stage(void)
         }
     }
     out_meter = pk > out_meter ? pk : out_meter - (out_meter >> 4);
+    if (drm_live || drm_wet)                     /* the DRUMS, dry: after the meters (the trim and the guard weigh
+                                                  * the mix alone; the drums keep their own level) */
+        for (i = 0; i < CTL; i++) {
+            oout_l[i] += drm_l[i];
+            oout_r[i] += drm_r[i];
+        }
 #if defined(FELUCCA_UAC) && FELUCCA_UAC && UAC_NBLK > 2u
     {   /* USB's channel lanes, the last block's channels as the output is the last block's mix: on CPU1 with the
          * stage, and in time with the output (before build 9 they came a block ahead of it) */
@@ -1398,6 +1416,8 @@ static FAST void rhythm_block(void)
             lrt[c].hold = 0;
         }
         rhy_bph = 0xFFFFFFFFu;
+        if (drm.on)
+            drm_reset = 2;                       /* (the DRUMS from the top with it) */
     }
     {   /* the beat, for the lights */
         uint32_t b0 = rhy_bph;
@@ -1535,6 +1555,7 @@ static uint32_t host_cost_clock;
 /* CPU0's block in parts, the last block's (bench.c): copies and RHYTHM, modulation, channel coefficients, gains,
  * slot and output coefficients, the samples, the tail (the copies, the meters, the output and USB's) */
 static uint32_t mb_ph[7];
+#include "drumseq.c"                     /* (the DRUMS' steps, beside the RHYTHM's) */
 static FAST void mix_block(int32_t *out)
 {
     uint32_t i, c, t0 = COST_NOW_(), t1, tp, tq, pm = 0, pc = 0, pg = 0;
@@ -1544,6 +1565,7 @@ static FAST void mix_block(int32_t *out)
     for (c = 0; c < NSLOT; c++)
         SCOPY(eff_slot[c], par.slot[c]);
     rhythm_block();
+    drums_block();
     tp = COST_NOW_();
     mb_ph[0] = tp - t0;
     for (c = 0; c < NCH; c++) {                  /* the modulation, then what it means */
@@ -1621,7 +1643,7 @@ static int mx_quiet(void)                         /* nothing heard: the flash ma
     for (c = 0; c < NCH; c++)
         if (ch_sounding(c))
             return 0;
-    return out_meter < 40;
+    return out_meter < 40 && !drm_live;         /* (the DRUMS sounding: not quiet) */
 }
 static void mx_init(void)
 {

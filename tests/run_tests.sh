@@ -15,6 +15,7 @@ clang -O2 -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-
     -Ifirmware/src -Ibuild/gen tests/host/host.c -o build/host
 build/host check
 build/host free
+build/host drums
 build/host fits
 build/host effects
 build/host rhythm

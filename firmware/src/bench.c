@@ -249,6 +249,22 @@ static void bench_handle(const uint8_t *m, uint32_t d)
     const uint8_t *b = m + 6;
     if (m[2] == 0x60u && d == 7u)
         bench_costs();
-    else if (m[2] == 0x61u && d == 7u + 6u)
-        bench_patch(bk_rd32(b), b[4] == 255u ? -1 : (int)b[4], b[5]);
+    else if (m[2] == 0x61u && d == 7u + 6u) {
+        bench_patch(bk_rd32(b), b[4] == 255u ? -1 : (int)b[4], b[5] & 0x7Fu);
+        if (b[5] & 0x80u) {                      /* (+ the DRUMS at their densest: BLAST, the three voices, long) */
+            uint32_t c;
+            drm_draw_rhythm(bk_rd32(b), DS_BLAST);
+            for (c = 0; c < NDV; c++) {
+                drm.l[c].hits = 0xFFFFu;
+                drm.l[c].len = 16;
+                drm.v[c].decay = 800;
+                drm.v[c].verb = 500;
+                drm.v[c].metal = 4;
+            }
+            drm_coef_all();
+            drm.on = 1;
+            drm_reset = 2;
+        } else
+            drm.on = 0;
+    }
 }

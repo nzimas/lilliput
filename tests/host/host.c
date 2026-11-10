@@ -121,6 +121,7 @@ static volatile uint32_t mi_w, mi_r;
 #include "mixer.c"
 #include "patch.c"
 #include "rhythm.c"
+#include "drumkit.c"
 
 /* the panel */
 #define FM1_NCOL 11u
@@ -505,6 +506,172 @@ static int cmd_check(void)
 }
 
 /* ------------------------------------------------------------- screens --- */
+/* the DRUMS (build 16): each sound recipe heard alone -- loud enough, not clipped, its transient and its length as
+ * its kind is; each rhythm recipe's hits counted against its lanes; started under the RHYTHM, on its beat; the reverb
+ * send's tail with SPACE off */
+static void drm_quiet_mixer(void)
+{
+    fresh_mixer();
+    patch_plain(&par);                           /* (every channel down: the drums alone) */
+    par.out.spres = 0;
+    drm_reset = 1;
+    memset(dvs, 0, sizeof dvs);
+}
+static void drm_one_hit(uint32_t c)              /* (one hit of voice c, at the start; the others silent) */
+{
+    uint32_t v;
+    for (v = 0; v < NDV; v++)
+        memset(&drm.l[v], 0, sizeof drm.l[v]), drm.l[v].len = 32, drm.l[v].div = DV_2, drm.l[v].prob = 100;
+    drm.l[c].hits = 1u;
+    drm.swing = 0;
+    drm.on = 1;
+    par.rhy.bpm = 60;
+}
+static int16_t drm_buf[2 * 44100 * 3];
+static int cmd_drums(void)
+{
+    uint32_t k, i, c, bad = 0;
+    printf("  sound          peak    rise   length   pitch\n");
+    for (k = 0; k < NDKIT; k++) {
+        double pk = 0, worst_rise = 0, longest = 0, hz = 0;
+        uint32_t clips = 0, seed;
+        for (seed = 0; seed < 4u; seed++) {
+            uint32_t n = 44100u * 3u, ipk = 0, irise = 0, iend = 0, zc = 0;
+            double p = 0;
+            drm_quiet_mixer();
+            drm_init(77u);
+            c = DKIT[k].dv;
+            drm_draw_voice(c, 1000u + k * 37u + seed * 7919u, (int)k);
+            drm_one_hit(c);
+            drm_coef_all();
+            memset(drm_buf, 0, sizeof drm_buf);
+            render(3.0, drm_buf, n);
+            for (i = 0; i < n; i++)
+                if (abs(drm_buf[2 * i]) > p) {
+                    p = abs(drm_buf[2 * i]);
+                    ipk = i;
+                }
+            for (i = 0; i < n; i++)
+                if (abs(drm_buf[2 * i]) >= p / 2) {
+                    irise = i;
+                    break;
+                }
+            for (i = 0; i < n; i++) {
+                if (abs(drm_buf[2 * i]) > p / 100)
+                    iend = i;
+                if (abs(drm_buf[2 * i]) >= 32767)
+                    clips++;
+            }
+            for (i = ipk + 441u; i < ipk + 3528u && i + 1u < n; i++)   /* (10 .. 80 ms after the peak) */
+                if ((drm_buf[2 * i] >= 0) != (drm_buf[2 * i + 2] >= 0))
+                    zc++;
+            (void)ipk;
+            if (p > pk)
+                pk = p;
+            /* (the hit lands within the first block or two: the rise from the start) */
+            if (irise / 44.1 > worst_rise)
+                worst_rise = irise / 44.1;
+            if (iend / 44.1 > longest)
+                longest = iend / 44.1;
+            hz += zc / 2.0 / 0.07 / 4.0;
+        }
+        printf("  %-5s %-7s %5.1f dB %5.1f ms %6.0f ms %6.0f Hz\n", DV_NAME[DKIT[k].dv], DKIT[k].name, db(pk / 32768.0),
+               worst_rise, longest, hz);
+        if (db(pk / 32768.0) < -24 || clips > 4410u || longest > 2900 || longest < 20) {
+            printf("FAIL drums: %s %s out of bounds (clipped samples %u)\n", DV_NAME[DKIT[k].dv], DKIT[k].name, clips);
+            bad++;
+        }
+        if (DKIT[k].dv == DV_KICK && (str_eq(DKIT[k].name, "SOFT") ? worst_rise < 3.0 : worst_rise > 3.0)) {
+            printf("FAIL drums: %s %s: rise %.1f ms (hard kicks under 3 ms, SOFT over)\n", DV_NAME[DKIT[k].dv], DKIT[k].name, worst_rise);
+            bad++;
+        }
+    }
+    /* each rhythm recipe: its hits over four rounds of its longest lane, against its lanes (chance 100 % ones) */
+    for (k = 0; k < DS_N; k++) {
+        uint32_t got[NDV] = {0}, want[NDV] = {0}, b, blocks, maxlen = 1;
+        int32_t out[2 * CTL];
+        drm_quiet_mixer();
+        drm_init(5u);
+        drm_draw_rhythm(900u + k, (int)k);
+        drm.on = 1;
+        drm.swing = 0;
+        par.rhy.bpm = 120;
+        for (c = 0; c < NDV; c++)
+            if (drm.l[c].len > maxlen)
+                maxlen = drm.l[c].len;
+        blocks = (uint32_t)((uint64_t)maxlen * 4u * FS / CTL / 8u);   /* (a sixteenth at 120: 1/8 s) */
+        for (b = 0; b < blocks; b++) {
+            mix_block(out);
+            for (c = 0; c < NDV; c++)
+                got[c] += dtrig[c].fire;
+        }
+        for (c = 0; c < NDV; c++) {
+            const dlane_t *L = &drm.l[c];
+            double steps = (double)blocks * CTL / FS * 120.0 / 60.0 * DIV2[L->div] / 2.0;
+            want[c] = (uint32_t)(steps / L->len) * (uint32_t)__builtin_popcount(L->hits & ((L->len >= 32u ? 0u : 1u << L->len) - 1u));
+            if (L->prob >= 100u && (got[c] + 1u < want[c] || got[c] > want[c] + __builtin_popcount(L->hits))) {
+                printf("FAIL drums: %s %s: %u hits, %u expected\n", DS_NAME[k], DV_NAME[c], got[c], want[c]);
+                bad++;
+            }
+        }
+        printf("  %-10s kick %3u snare %3u hats %3u\n", DS_NAME[k], got[0], got[1], got[2]);
+    }
+    /* under the RHYTHM: switched on mid-beat, the drums' first hit on its next beat */
+    {
+        uint32_t b, beat0, first = 0, beat_at = 0;
+        int32_t out[2 * CTL];
+        drm_quiet_mixer();
+        drm_init(9u);
+        rhythm_draw(&par, 4242u, 0);
+        par.rhy.on = 1;
+        par.rhy.bpm = 120;
+        rhy_reset = 1;
+        drm_draw_rhythm(1u, DS_FOUR);
+        drm.on = 0;
+        for (b = 0; b < 300u; b++)
+            mix_block(out);
+        beat0 = rhy_beat;
+        drm.on = 1;
+        drm_reset = 1;
+        for (b = 0; b < 3000u && !first; b++) {
+            mix_block(out);
+            if (!beat_at && rhy_beat != beat0)
+                beat_at = b + 1u;
+            if (dtrig[DV_KICK].fire)
+                first = b + 1u;
+        }
+        printf("  under the RHYTHM: its next beat at block %u, the drums' first kick at %u\n", beat_at, first);
+        if (!first || first != beat_at) {
+            printf("FAIL drums: not started on the RHYTHM's beat\n");
+            bad++;
+        }
+    }
+    /* the reverb send: its tail with SPACE off, after the dry hit has gone */
+    {
+        uint32_t n = 44100u * 3u;
+        double tail = 0, dry = 0;
+        drm_quiet_mixer();
+        drm_init(3u);
+        drm_draw_voice(DV_SNARE, 5u, -1);
+        drm.v[DV_SNARE].decay = 250;
+        drm.v[DV_SNARE].verb = 900;
+        drm_one_hit(DV_SNARE);
+        drm_coef_all();
+        memset(drm_buf, 0, sizeof drm_buf);
+        render(3.0, drm_buf, n);
+        for (i = 0; i < 4410u; i++)
+            dry += abs(drm_buf[2 * i]);
+        for (i = 44100u; i < 66150u; i++)        /* (1 .. 1.5 s on) */
+            tail += abs(drm_buf[2 * i]);
+        printf("  reverb send, SPACE off: the tail at 1 s %.1f dB under the hit\n", db((tail / 22050) / (dry / 4410) + 1e-9));
+        if (tail / 22050 < dry / 4410 * 0.003) {
+            printf("FAIL drums: no reverb tail from the send\n");
+            bad++;
+        }
+    }
+    printf("%sdrums: %u sounds, %u rhythms\n", bad ? "FAIL " : "", (unsigned)NDKIT, (unsigned)DS_N);
+    return bad ? 1 : 0;
+}
 /* FREE: anything goes, but never silence. 200 drawn, each heard 8 s: none quiet, none clipped */
 static int cmd_free(void)
 {
@@ -597,6 +764,28 @@ static int cmd_screens(const char *dir)
     press_btn(B_ARP);
     run_ms(300);
     SHOT("10_overview");
+    press_btn(B_ARP);
+    tap_key(KEY_DRM);
+    run_ms(100);
+    SHOT("10b_drums_kick");
+    key(KEY_SHIFT, 1);
+    run_ms(60);
+    SHOT("10c_drums_kick_shift");
+    key(KEY_SHIFT, 0);
+    press_btn(B_OCTUP);
+    run_ms(60);
+    SHOT("10d_drums_kick_2");
+    press_btn(B_OCTUP);
+    key(KEY_SHIFT, 1);
+    tap_key(KEY_DRM);
+    key(KEY_SHIFT, 0);
+    run_ms(1300);
+    SHOT("10e_drums_rhythm");
+    key(KEY_DRM, 1);
+    run_ms(900);
+    key(KEY_DRM, 0);
+    tap_key(KEY_DRM);
+    run_ms(60);
     press_btn(LAYER_BTN[2]);
     tap_key(KEY_MUTE[2]);
     run_ms(100);
@@ -1083,6 +1272,65 @@ static int cmd_flows(void)
     }
     EXPECT(ses_save(9) == SES_OK, "a save beside another firmware's data");
     EXPECT(!memcmp(host_flash + SES_LO + 5u * SES_SECT, "ACS1 TONITOR SESSION", 20), "another firmware's data kept");
+    /* the DRUMS: their key short opens their pages (again: back); white keys 1 .. 3 the voices, SHIFT + one a new
+     * sound; the knobs their values; OCT through the pages; PRESETS their rhythms; held, on and off; SHIFT + it, a new
+     * rhythm; kept with a session */
+    press_btn(LAYER_BTN[0]);
+    if (ui.page != PG_MAIN)
+        press_btn(LAYER_BTN[0]);
+    {
+        uint16_t src0 = (uint16_t)par.ch[0].src;
+        uint32_t st0, inc0;
+        drm_par_t keep;
+        tap_key(KEY_DRM);
+        EXPECT(ui.page == PG_DRUM && !drm.on, "the DRUMS' key, short: their page, nothing playing yet");
+        tap_key(white_key(1));
+        EXPECT(ui.dsel == DV_SNARE && par.ch[0].src == src0, "white key 2 there: the SNARE, no input changed");
+        keep = drm;
+        key(KEY_SHIFT, 1);
+        tap_key(white_key(1));
+        key(KEY_SHIFT, 0);
+        EXPECT(memcmp(&keep.v[DV_SNARE], &drm.v[DV_SNARE], sizeof(dvoice_t)) != 0 &&
+                   !memcmp(&keep.v[DV_KICK], &drm.v[DV_KICK], sizeof(dvoice_t)) && DKIT[drm.kit[DV_SNARE]].dv == DV_SNARE,
+               "SHIFT + it: a new snare sound, the kick kept");
+        inc0 = drc[DV_SNARE].inc0;
+        turn(EN_K1, 3);
+        EXPECT(drm.v[DV_SNARE].tune != keep.v[DV_SNARE].tune && drc[DV_SNARE].inc0 != inc0, "KNOB 1: its TUNE, heard at once");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_DRUM2, "OCT+: the voice's second page");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_DRUM3, "OCT+: the drums' own page");
+        turn(EN_K1, 10);
+        EXPECT(drm.swing == 10, "KNOB 1 there: SWING");
+        st0 = drm.style;
+        turn(EN_PRESET, 1);
+        EXPECT(drm.style == (st0 + 1u) % DS_N && drm.on, "PRESETS there: the next drum rhythm, playing");
+        run_ms(600);
+        key(KEY_DRM, 1);
+        run_ms(900);
+        key(KEY_DRM, 0);
+        run_ms(30);
+        EXPECT(!drm.on && ui.page == PG_DRUM3, "held: the drums off, the page kept");
+        st0 = drm.style;
+        key(KEY_SHIFT, 1);
+        tap_key(KEY_DRM);
+        key(KEY_SHIFT, 0);
+        EXPECT(drm.on && drm.style != st0, "SHIFT + the key: a new drum rhythm, another style, playing");
+        run_ms(1000);
+        EXPECT(drm_live, "the drums sound");
+        tap_key(KEY_DRM);
+        EXPECT(ui.page == PG_MAIN, "the key again: back to the channel");
+        tap_key(white_key(1));
+        EXPECT(par.ch[0].src == 1, "white key 2 off the DRUMS' pages: the channel's input again");
+        par.ch[0].src = (int16_t)src0;
+        /* kept with a session */
+        keep = drm;
+        EXPECT(ses_save(14) == SES_OK, "a session saved with the drums");
+        drm.v[DV_KICK].tune = (int16_t)(drm.v[DV_KICK].tune ^ 77);
+        drm.style = (uint8_t)((drm.style + 1u) % DS_N);
+        EXPECT(ses_load(14) == SES_OK && !memcmp(&keep, &drm, sizeof drm), "and loaded back: the drums as saved");
+        drm.on = 0;
+    }
     /* a channel not in the patch: its screens grey */
     press_btn(LAYER_BTN[2]);
     if (ui.page != PG_MAIN)
@@ -1322,6 +1570,34 @@ static int cmd_fits(void)
                 FIT(text_w(&FONT_XS, p_name(PG_ROW[pg][j])) <= 150, "a RHYTHM row's name", p_name(PG_ROW[pg][j]));
     for (f = 0; f < MD_N; f++)
         FIT(text_w(&FONT_S, MD_NAME[f]) <= 228, "a destination", MD_NAME[f]);
+    for (pg = PG_DRUM; pg <= PG_DRUM3; pg++)     /* (the DRUMS' pages: every row, every value) */
+        for (j = 0; j < 8u; j++) {
+            uint32_t id = j < 4u ? PG_ROW[pg][j] : PG_SHROW[pg][j - 4u];
+            int32_t v;
+            if (id == P_NONE)
+                continue;
+            FIT(text_w(&FONT_XS, p_name(id)) <= 150, "a DRUMS row's name", p_name(id));
+            for (v = p_lo(id); v <= p_hi(id); v++) {
+                p_text(id, v, t);
+                if (text_w(&FONT_S, t) > 228) {
+                    FIT(0, p_name(id), t);
+                    break;
+                }
+            }
+        }
+    for (f = 0; f < NDKIT; f++) {                /* (a voice page's title: the voice and its sound) */
+        str_cpy(t, DV_NAME[DKIT[f].dv], 32);
+        str_cpy(t + str_len(t), "  ", 3);
+        str_cpy(t + str_len(t), DKIT[f].name, 16);
+        FIT(text_w(fit_font(t, 236, &FONT_M), t) <= 236, "a DRUMS title (unsqueezed, at the size it falls to)", t);
+    }
+    for (f = 0; f < DS_N; f++)
+        FIT(text_w(fit_font(DS_NAME[f], 236, &FONT_M), DS_NAME[f]) <= 236, "a drum rhythm (unsqueezed)", DS_NAME[f]);
+    for (f = 0; f < NDV; f++) {                  /* (SHIFT held: the voice and SHIFT) */
+        str_cpy(t, DV_NAME[f], 16);
+        str_cpy(t + str_len(t), "  SHIFT", 8);
+        FIT(text_w(fit_font(t, 236, &FONT_M), t) <= 236, "a DRUMS title with SHIFT", t);
+    }
     printf("fits: %s\n", bad ? "FAILED" : "every word in its place");
     return bad ? 1 : 0;
 #undef FIT
@@ -1346,6 +1622,8 @@ static int cmd_cores(int n)
 
 int main(int argc, char **argv)
 {
+    if (argc >= 2 && str_eq(argv[1], "drums"))
+        return cmd_drums();
     if (argc >= 2 && str_eq(argv[1], "free"))
         return cmd_free();
     if (argc >= 2 && str_eq(argv[1], "check"))
