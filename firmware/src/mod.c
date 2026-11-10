@@ -18,10 +18,10 @@ static const char *const MM_NAME[MM_N] = {"FREE", "ONSET", "ONCE"};
 static const char *const MSRC_NAME[MSRC_N] = {"OFF", "LFO 1", "LFO 2", "LEVEL", "OUTPUT", "RANDOM"};
 static const char *const MD_NAME[MD_N] = {"GAIN", "NOISE", "FREQ", "MID", "HIGH", "LOW", "LIMIT", "PROTECT", "LEVEL",
                                           "PAN", "SEND 1", "SEND 2", "FX 1", "FX 2", "FX MIX", "LFO 1 RATE",
-                                          "LFO 2 RATE"};
+                                          "LFO 2 RATE", "FOLD"};
 /* each destination's whole swing (amount 100), in its own units: half a parameter's range; LEVEL 12 dB; PAN the
  * whole way; an LFO's rate half its range */
-static const int16_t MD_SPAN[MD_N] = {500, 500, 500, 500, 500, 500, 500, 500, 120, 50, 500, 500, 500, 500, 500, 50, 50};
+static const int16_t MD_SPAN[MD_N] = {500, 500, 500, 500, 500, 500, 500, 500, 120, 50, 500, 500, 500, 500, 500, 50, 50, 500};
 
 static struct {
     uint32_t ph[2];
@@ -164,9 +164,14 @@ static void mod_apply(uint32_t c, ch_par_t *e, slot_par_t *sl)
         MV(e->send1, MD_SEND1, 1, PMAX);
     if (e->send2)
         MV(e->send2, MD_SEND2, 1, PMAX);
-    if (sl) {
-        MV(sl->p1, MD_FX1, 0, PMAX);
-        MV(sl->p2, MD_FX2, 0, PMAX);
+    if (e->fold)
+        MV(e->fold, MD_FOLD, 1, PMAX);
+    if (sl) {                                    /* (an effect's choices -- a RESONATOR's root and chord, XMOD's mode,
+                                                  * the KEY -- are steps: never moved) */
+        if (!fx_pcount(sl->fx, 0))
+            MV(sl->p1, MD_FX1, 0, PMAX);
+        if (!fx_pcount(sl->fx, 1))
+            MV(sl->p2, MD_FX2, 0, PMAX);
         MV(sl->pres, MD_FXMIX, 0, PMAX);
     }
 #undef MV
@@ -186,7 +191,7 @@ static void mod_check(mod_t *m)                  /* (as read from a session: eac
  * destination, by amounts that may go far (Tonitor's) */
 static void mod_random(mod_t *mo, uint32_t seed)
 {
-    static const uint8_t DW[MD_N] = {6, 4, 14, 8, 5, 5, 12, 6, 5, 9, 5, 5, 6, 5, 4, 3, 3};   /* (the destinations' odds) */
+    static const uint8_t DW[MD_N] = {6, 4, 14, 8, 5, 5, 12, 6, 5, 9, 5, 5, 6, 5, 4, 3, 3, 8};   /* (the destinations' odds) */
     static const uint8_t SW[MSRC_N] = {0, 35, 30, 15, 8, 12};
     rnd_t r;
     mod_t m;

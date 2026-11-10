@@ -1,5 +1,19 @@
 # Changelog
 
+## Build 4 (2026-11-10)
+
+- FOLD in every channel, after the tube: a wavefolder (x 1.2 .. x 16), more harmonics as it is driven, never more
+  level. On the AMP page (TUBE, GAIN, FOLD, OP-AMP; SHIFT: MODE), a modulation destination, in the families.
+- Four effects in the rack: RESONATOR (six tuned resonators, a root and a chord, fixed: no modulation reaches its
+  tuning), XMOD (ring, XOR, fold, compare with another channel or bus), DUCK and GATE (keyed by another channel or
+  bus). The families use them.
+- DELAY's and FLANGER's feedback keep their rounding error (after ChoralRoot's FM-1 delay): repeats fade as they
+  should.
+- No pitch shifting or frequency shifting added, on purpose.
+- Build numbers only: the release option gone; each build tagged build-N in git and kept as
+  build/lilliput-build-N.fwsc.
+- Sessions saved by build 3 are not read.
+
 ## Build 3 (2026-11-10)
 
 - The modulation on pages of its own, the channel's last: LFO 1, LFO 2, and the matrix -- now eight slots -- on

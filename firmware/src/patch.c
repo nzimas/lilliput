@@ -197,6 +197,16 @@ static const family_t FAM[] = {
       {40, MD_FREQ, SH_DRIFT, 5, 20, 5, 20, 0}}, 1},
 };
 #define NFAM NELEM(FAM)
+/* (build 4) each family's FOLD -- how often, how hard -- and its weights for the newer effects: RESONATOR, XMOD,
+ * DUCK, GATE */
+static const struct { uint8_t p; int16_t lo, hi; } FAM_FOLD[] = {
+    {20, 50, 250}, {5, 30, 120}, {15, 50, 300}, {30, 100, 500}, {50, 200, 800}, {20, 100, 400}, {40, 100, 500},
+    {10, 30, 150}, {30, 100, 500}, {15, 50, 250}, {20, 50, 300}, {30, 100, 450}, {25, 50, 350}, {80, 300, 1000},
+    {60, 200, 900}, {20, 50, 300}};
+static const uint8_t FAM_FX2[][4] = {
+    {4, 1, 0, 1}, {3, 0, 0, 0}, {1, 1, 0, 0}, {1, 2, 1, 2}, {1, 4, 1, 2}, {3, 1, 1, 2}, {1, 3, 2, 1}, {5, 1, 0, 0},
+    {1, 1, 4, 4}, {3, 0, 1, 1}, {2, 1, 0, 1}, {1, 3, 1, 2}, {3, 1, 1, 0}, {1, 4, 1, 1}, {1, 4, 2, 3}, {2, 0, 3, 2}};
+typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM ? 1 : -1];
 
 /* ------------------------------------------------------------ drawing --- */
 static int32_t pr_in(rnd_t *r, int32_t a, int32_t b) { return b <= a ? a : a + rnd_below(r, b - a + 1); }
@@ -214,6 +224,8 @@ static int32_t loop_db10(const ch_par_t *p)
         g += peak_db10(p->mgain) * 8 / 10;
     if (p->ftype == FT_SHELF)
         g += maxi(0, maxi(shelf_db10(p->high), shelf_db10(p->low))) / 2;
+    if (p->fold > 0)                             /* (the fold's drive: x 1 .. x 16, 0 .. 24 dB) */
+        g += p->fold * 240 / PMAX;
     if (p->mtype == MT_BAND)
         g -= 45;                                 /* (measured: a band-pass's peak seldom where the loop's phase lets it ring) */
     return g;
@@ -242,13 +254,27 @@ static void draw_voice(rnd_t *r, const family_t *f, ch_par_t *p, int32_t mf_base
     p->mute = 0;
     p->mainmix = 1;
     p->send1 = p->send2 = 0;
+    {
+        uint32_t fi = (uint32_t)(f - FAM);
+        p->fold = (int16_t)(rnd_chance(r, FAM_FOLD[fi].p) ? pr_in(r, FAM_FOLD[fi].lo, FAM_FOLD[fi].hi) : 0);
+    }
     memset(&p->mod, 0, sizeof p->mod);
 }
 static void draw_slot(rnd_t *r, const family_t *f, slot_par_t *s, uint32_t in, uint32_t out)
 {
-    s->fx = (int16_t)rnd_weighted(r, f->fx, FX_N);
-    s->p1 = (int16_t)pr_in(r, 100, 900);
-    s->p2 = (int16_t)pr_in(r, 100, 850);
+    {
+        uint8_t w[FX_N];
+        uint32_t i, fi = (uint32_t)(f - FAM);
+        for (i = 0; i < FX_N; i++)
+            w[i] = i < FX_RESON ? f->fx[i] : FAM_FX2[fi][i - FX_RESON];
+        s->fx = (int16_t)rnd_weighted(r, w, FX_N);
+    }
+    s->p1 = (int16_t)(fx_pcount(s->fx, 0) ? rnd_below(r, fx_pcount(s->fx, 0)) : pr_in(r, 100, 900));
+    s->p2 = (int16_t)(fx_pcount(s->fx, 1) ? rnd_below(r, s->fx == FX_RESON ? NCHORD : NCH) : pr_in(r, 100, 850));
+    if (s->fx == FX_RESON)                       /* (its root where loops sing: C2 .. B4) */
+        s->p1 = (int16_t)rnd_below(r, 36);
+    if (s->fx == FX_DUCK || s->fx == FX_GATE)
+        s->p1 = (int16_t)pr_in(r, 500, 1000);
     s->pres = (int16_t)(in == FI_INS ? pr_in(r, 300, 850) : PMAX);
     s->lofi = (uint8_t)rnd_chance(r, f->lofi);
     s->bypass = 0;
@@ -617,8 +643,11 @@ static void trim_poll(void)
             trim.woke_at = fm1_ms;
             for (c = 0; c < NCH; c++) {
                 ch_par_t *p = &par.ch[c];
-                if (p->level && !p->mute && ch_meter[c] < 600 && p->gain < PMAX)
+                if (p->level && !p->mute && ch_meter[c] < 600) {
                     p->gain = (int16_t)clampi(p->gain + 63, 0, PMAX);   /* (+3 dB) */
+                    p->over = (int16_t)clampi(p->over + 60, 0, PMAX);   /* (and the protection a step higher: a loop
+                                                                         * held silent by its own trips comes back) */
+                }
             }
         }
         out_pw = 0;

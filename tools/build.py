@@ -4,7 +4,7 @@
 # same update loader, the same checks and the same package format.
 """Build LILLIPUT: the app, the update loader and an installable .fwsc package.
 
-  tools/build.py [--release X.Y]
+  tools/build.py   (the build number: VERSION below; the package also copied to build/lilliput-build-N.fwsc)
 
 Outputs in build/: lilliput.bin (app), loader/ota.bin (update loader), lilliput.fwsc (package).
 The JieLi toolchain is Linux x86-64 only: JIELI_TOOLCHAIN points at it; on macOS each tool runs in a
@@ -37,8 +37,8 @@ DOCKER_IMAGE = os.environ.get("JIELI_DOCKER_IMAGE", "debian:bookworm-slim")
 CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
-PRODUCT = "FM-1_800"                # package identity; release builds are FM-1_8XY
-VERSION = "3"
+PRODUCT = "FM-1_800"                # package identity (the same for every build)
+VERSION = "4"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
 
 
 def toolchain():
@@ -254,17 +254,9 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_8XY, version string X.Y")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "lilliput.fwsc"
-    if a.release:
-        m = re.fullmatch(r"(\d)\.(\d)", a.release)
-        if not m:
-            raise SystemExit(f"--release {a.release}: use X.Y, one digit each")
-        PRODUCT = "FM-1_8" + m[1] + m[2]
-        VERSION = a.release
-        name = f"lilliput-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk or os.environ.get("AC79_SDK", str(Path.home() / "fw-AC79_AIoT_SDK"))
     fm1pkg_make.sdk_file("uboot.boot")          # fail early without the SDK
     OUT.mkdir(parents=True, exist_ok=True)
@@ -284,6 +276,7 @@ def main():
         raise SystemExit("build: checks failed")
     pkg = fm1pkg_make.ufw(fm1pkg_make.flash_image(img, fm1pkg_make.KEY), ota, PRODUCT)
     (OUT / name).write_bytes(pkg)
+    (OUT / f"lilliput-build-{VERSION}.fwsc").write_bytes(pkg)   # (each build's package kept by its number)
     print(f"app      {OUT / 'lilliput.bin'}  {len(img)} B")
     print(f"package  {OUT / name}  {len(pkg)} B, identity {PRODUCT}, version {VERSION}")
     return 0

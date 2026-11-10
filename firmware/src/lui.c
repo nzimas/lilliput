@@ -64,16 +64,17 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_FX, P_P1, P_P2, P_PRES, P_LOFI, P_BYP, P_FIN, P_FOUT,
        P_RET1, P_RET2, P_OFTYPE, P_OHIGH, P_OLOW, P_OWIDE, P_OMGAIN, P_OMFREQ, P_SPACE, P_SPRES, P_OLEVEL,
        P_LSHAPE, P_LRATE, P_LMODE, P_LFADE,      /* (the LFO pages': LFO 1 or 2 as the page is) */
+       P_FOLD,
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
-    {P_GAIN, P_MFREQ, P_LIM, P_SEND1}, {P_TUBE, P_TMODE, P_GAIN, P_OPAMP}, {P_NOISE, P_NTYPE, P_LIM, P_OVER},
+    {P_GAIN, P_MFREQ, P_LIM, P_SEND1}, {P_TUBE, P_GAIN, P_FOLD, P_OPAMP}, {P_NOISE, P_NTYPE, P_LIM, P_OVER},
     {P_HIGH, P_LOW, P_MGAIN, P_MFREQ}, {P_SRC, P_SEND1, P_SEND2, P_MAINMIX}, {P_FX, P_P1, P_P2, P_PRES},
     {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES}};
 static const uint8_t PG_SHROW[PG_N][4] = {
-    {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
+    {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
@@ -161,6 +162,7 @@ static int32_t p_get(uint32_t id)
     case P_TUBE: return c->tube;
     case P_TMODE: return c->tmode;
     case P_OPAMP: return c->opamp;
+    case P_FOLD: return c->fold;
     case P_OVER: return c->over;
     case P_LIM: return c->lim;
     case P_FTYPE: return c->ftype;
@@ -215,6 +217,8 @@ static int32_t p_count(uint32_t id)
     case P_SRC: return SRC_N;
     case P_MAINMIX: case P_MUTE: case P_LOFI: case P_BYP: case P_OWIDE: return 2;
     case P_FX: return FX_N;
+    case P_P1: return fx_pcount(par.slot[pslot()].fx, 0);
+    case P_P2: return fx_pcount(par.slot[pslot()].fx, 1);
     case P_FIN: return FI_N;
     case P_FOUT: return FO_N;
     case P_SPACE: return SP_N;
@@ -239,6 +243,7 @@ static void p_set(uint32_t id, int32_t v)
     case P_TUBE: c->tube = (int16_t)v; break;
     case P_TMODE: c->tmode = (int16_t)v; break;
     case P_OPAMP: c->opamp = (int16_t)v; break;
+    case P_FOLD: c->fold = (int16_t)v; break;
     case P_OVER: c->over = (int16_t)v; break;
     case P_LIM: c->lim = (int16_t)v; break;
     case P_FTYPE: c->ftype = (int16_t)v; break;
@@ -333,6 +338,7 @@ static const char *p_name(uint32_t id)
     case P_TUBE: return "TUBE";
     case P_TMODE: return "MODE";
     case P_OPAMP: return "OP-AMP";
+    case P_FOLD: return "FOLD";
     case P_OVER: return "PROTECT";
     case P_LIM: return "LIMIT";
     case P_FTYPE: case P_OFTYPE: return "FILTER";
@@ -505,7 +511,43 @@ static void p_text(uint32_t id, int32_t v, char *b)
             str_cpy(b + 3, " S", 3);
         }
         break;
+    case P_FOLD:
+        if (!v)
+            str_cpy(b, "OFF", 12);
+        else {                                   /* the drive into the fold: X 1.2 .. X 16 */
+            int32_t d10 = 10 + v * 150 / PMAX;
+            b[0] = 'X';
+            b[1] = ' ';
+            fmt_int(b + 2, d10 / 10);
+            if (d10 < 100) {
+                uint32_t n = str_len(b);
+                b[n] = '.';
+                b[n + 1] = (char)('0' + d10 % 10);
+                b[n + 2] = 0;
+            }
+        }
+        break;
     case P_P1:
+    case P_P2:
+        if (fx_pcount(s->fx, id == P_P2)) {      /* a choice: its name */
+            int32_t n = clampi(v, 0, fx_pcount(s->fx, id == P_P2) - 1);
+            static const char *const NOTE[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+            if (s->fx == FX_RESON && id == P_P1) {   /* ROOT: C2 .. B5 */
+                str_cpy(b, NOTE[n % 12], 4);
+                b[str_len(b) + 1] = 0;
+                b[str_len(b)] = (char)('2' + n / 12);
+            } else if (s->fx == FX_RESON)
+                str_cpy(b, CHORD_NAME[n], 12);
+            else if (s->fx == FX_XMOD && id == P_P1)
+                str_cpy(b, XM_NAME[n], 12);
+            else
+                str_cpy(b, XSRC_NAME[n], 12);
+            break;
+        }
+        if (id == P_P2) {
+            fmt_int(b, (v + 5) / 10);
+            break;
+        }
         if (s->fx == FX_DELAY) {
             ms_text(b, hz_log(v, 44, 2183) * (s->lofi ? 2 : 1));
             break;

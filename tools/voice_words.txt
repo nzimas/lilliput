@@ -529,3 +529,12 @@ gestures	JH EH1 S CH ER0 Z
 morphing	M AO1 R F IH0 NG
 recalled	R IY0 K AO1 L D
 recording	R AH0 K AO1 R D IH0 NG
+compare	K AH0 M P EH1 R
+duck	D AH1 K
+fifths	F IH1 F TH S
+fold	F OW1 L D
+harmonics	HH AA0 R M AA1 N IH0 K S
+octaves	AA1 K T IH0 V Z
+root	R UW1 T
+with	W IH1 DH
+xmod	K R AO1 S M AA2 D

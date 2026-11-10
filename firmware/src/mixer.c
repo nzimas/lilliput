@@ -5,7 +5,7 @@
  *
  * A channel, left to right (as the app's block diagram):
  *
- *   input selector -> + noise -> (AC coupling) -> GAIN -> tube -> op-amp (with its overload protection) ->
+ *   input selector -> + noise -> (AC coupling) -> GAIN -> tube -> FOLD -> op-amp (with its overload protection) ->
  *   HIGH and LOW shelf / cut -> peak / notch / band-pass -> brickwall limiter -> mute ->
  *     SEND 1, SEND 2 (before the level) -> LEVEL -> [insert effect: its slot] -> PAN -> main mix on / off
  *
@@ -26,7 +26,9 @@
  *
  * The rack: slots 1..6, each its channel's insert (IN INS) or fed from a send bus (SEN 1 / SEN 2) or from the slot
  * before it (PREV); its output to a return bus (RET 1 / RET 2) or nowhere. Slot 7 is the output's insert. Effects:
- * DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, two parameters each, a presence, HI-RES or LO-FI.
+ * DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, and (build 4) RESONATOR, XMOD, DUCK, GATE -- two
+ * parameters each, a presence, HI-RES or LO-FI. The new four's tunings and choices are steps, never glided: no
+ * modulation reaches them (no pitch instability added).
  *
  * The output: the mix bus and the two returns, an equaliser, slot 7 as insert, the SPACE reverb (six spaces,
  * Dattorro's plate set for each: reverb.c), the MASTER knob, a ceiling. It runs a block late, on CPU1 if it is
@@ -48,7 +50,11 @@ enum { TM_LIN, TM_SAT, TM_N };
 enum { OA_TL072, OA_NE5532, OA_4558, OA_741, OA_OP07, OA_3140, OA_N };
 enum { FT_SHELF, FT_CUT, FT_N };
 enum { MT_PEAK, MT_NOTCH, MT_BAND, MT_N };
-enum { FX_DELAY, FX_FLANGER, FX_CHORUS, FX_TREMOLO, FX_FORMANT, FX_BITCRUSH, FX_GLITCH, FX_N };
+enum { FX_DELAY, FX_FLANGER, FX_CHORUS, FX_TREMOLO, FX_FORMANT, FX_BITCRUSH, FX_GLITCH,
+       FX_RESON, FX_XMOD, FX_DUCK, FX_GATE, FX_N };
+#define NCHORD 8                 /* RESONATOR's chords */
+#define NXSRC 10                 /* XMOD's, DUCK's and GATE's other signal: CH 1 .. 6, MIX L, MIX R, SEND 1, SEND 2 */
+enum { XM_RING, XM_XOR, XM_FOLD, XM_COMP, XM_N };
 enum { FI_NON, FI_INS, FI_SEN1, FI_SEN2, FI_PREV, FI_N };
 enum { FO_NON, FO_RET1, FO_RET2, FO_N };
 enum { SP_ROOM, SP_HALL, SP_PLATE, SP_CAVE, SP_ABYSS, SP_VOID, SP_N };
@@ -66,7 +72,7 @@ enum { MS_SINE, MS_TRI, MS_SAWU, MS_SAWD, MS_SQR, MS_STEPS, MS_DRIFT, MS_N };
 enum { MM_FREE, MM_ONSET, MM_ONCE, MM_N };
 enum { MSRC_OFF, MSRC_L1, MSRC_L2, MSRC_LEVEL, MSRC_OUT, MSRC_RAND, MSRC_N };
 enum { MD_GAIN, MD_NOISE, MD_FREQ, MD_MID, MD_HIGH, MD_LOW, MD_LIM, MD_OVER, MD_LEVEL, MD_PAN, MD_SEND1, MD_SEND2,
-       MD_FX1, MD_FX2, MD_FXMIX, MD_RATE1, MD_RATE2, MD_N };
+       MD_FX1, MD_FX2, MD_FXMIX, MD_RATE1, MD_RATE2, MD_FOLD, MD_N };
 typedef struct { uint8_t shape, rate, mode, fade; } mlfo_t;
 typedef struct { uint8_t src, dst; int8_t amt; } mslot_t;
 #define NMSLOT 8u
@@ -82,6 +88,7 @@ typedef struct {
     int16_t ntype;               /* NZ_* */
     int16_t tube, tmode;         /* TB_*, TM_* */
     int16_t opamp;               /* OA_* */
+    int16_t fold;                /* the wavefolder after the tube: 0 off, then x 1 .. x 16 into the fold */
     int16_t over;                /* the overload protection's threshold: 0.5 .. 16 x full scale */
     int16_t lim;                 /* the limiter's speed: fast (short look-ahead, a high loop) .. slow */
     int16_t ftype;               /* FT_*: HIGH and LOW as shelves or as cuts */
@@ -132,6 +139,7 @@ typedef struct {
     int32_t drive, bias, kpos, kneg, tb0;   /* the tube (Q12, Q15) */
     int32_t opg, rail, railn, slew, oplp;   /* the op-amp (Q12, Q15) */
     int32_t irail, irailn;       /* .. 1 / its rails (Q15 out of Q15) */
+    int32_t fgain;               /* the fold's drive (Q12), 0: no fold */
     int32_t thr;                 /* the overload's threshold (Q15) */
     uint32_t lahead;             /* the limiter's look-ahead, samples */
     int32_t rel;                 /* .. its release a sample (Q15) */
@@ -168,10 +176,16 @@ typedef struct {
     int32_t k1, k2;              /* .. their k (Q24), for the band-passes at unity */
     int32_t sh, hold_n, xm, off; /* BITCRUSH: the bits cut, the hold, the XOR's shift, the offset */
     uint32_t glen, greps;        /* GLITCH: the stuck part, how many times */
+    int32_t rc[6], rs[6];        /* RESONATOR: each band's rotation, r cos and r sin (Q30) */
+    int32_t r1, r2[6];           /* .. 1 - r (Q30); the bands' states (r2: the second) */
+    uint8_t xmode, xsrc, rbands, rsv2;   /* XMOD's mode; the other signal (XMOD, DUCK, GATE); RESONATOR's bands sounding */
+    int32_t env, gg;             /* DUCK, GATE: the key's envelope, the gain gliding */
+    int32_t ferr;                /* the feedback's rounding error, kept for the next sample (DELAY, FLANGER) */
     /* state */
     uint32_t w, lfo, gpos, gleft, gstart, hcnt;
     int32_t last, held;
     svf_t s1, s2;
+    int32_t r1s[6];              /* RESONATOR: the bands' first states */
     rnd_t r;
     slot_par_t seen;
     uint8_t fresh;
@@ -206,13 +220,37 @@ static const char *const TB_NAME[TB_N] = {"12AX7", "12AT7", "6C16", "EF86", "6L6
 static const char *const TM_NAME[TM_N] = {"LINEAR", "SATURATED"};
 static const char *const OA_NAME[OA_N] = {"TL072", "NE5532", "4558", "741", "OP07", "CA3140"};
 static const char *const MT_NAME[MT_N] = {"PEAK", "NOTCH", "BAND"};
-static const char *const FX_NAME[FX_N] = {"DELAY", "FLANGER", "CHORUS", "TREMOLO", "FORMANT", "BITCRUSH", "GLITCH"};
+static const char *const FX_NAME[FX_N] = {"DELAY", "FLANGER", "CHORUS", "TREMOLO", "FORMANT", "BITCRUSH", "GLITCH",
+                                          "RESONATOR", "XMOD", "DUCK", "GATE"};
+static const char *const CHORD_NAME[NCHORD] = {"OCTAVES", "FIFTHS", "MAJOR", "MINOR", "SUS", "CLUSTER", "PELOG",
+                                              "HARMONICS"};
+static const char *const XSRC_NAME[NXSRC] = {"CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "MIX L", "MIX R", "SEND 1",
+                                            "SEND 2"};
+static const char *const XM_NAME[XM_N] = {"RING", "XOR", "FOLD", "COMPARE"};
+/* RESONATOR's chords: six bands, cents above the root (PELOG: a gamelan's, approximate; HARMONICS: partials 1 .. 6) */
+static const int16_t CHORD_CENTS[NCHORD][6] = {
+    {0, 1200, 2400, 3600, 4800, 6000}, {0, 700, 1200, 1900, 2400, 3100}, {0, 400, 700, 1200, 1600, 1900},
+    {0, 300, 700, 1200, 1500, 1900},   {0, 500, 700, 1200, 1700, 1900},  {0, 100, 200, 300, 1200, 1300},
+    {0, 120, 270, 540, 670, 785},       {0, 1200, 1902, 2400, 2786, 3102}};
+/* a choice among the slot's parameters (its count), or 0: a value 0 .. PMAX. The choices are steps -- and out of the
+ * modulation's reach */
+static int32_t fx_pcount(int32_t fx, int which)
+{
+    switch (fx) {
+    case FX_RESON: return which ? NCHORD : 48;   /* ROOT: C2 .. B5, a semitone a step; CHORD */
+    case FX_XMOD: return which ? NXSRC : XM_N;   /* MODE; WITH */
+    case FX_DUCK: case FX_GATE: return which ? NXSRC : 0;   /* DEPTH; KEY */
+    default: return 0;
+    }
+}
 static const char *const FI_NAME[FI_N] = {"OFF", "INSERT", "SEND 1", "SEND 2", "PREV"};
 static const char *const FO_NAME[FO_N] = {"NONE", "RET 1", "RET 2"};
 static const char *const SP_NAME[SP_N] = {"ROOM", "HALL", "PLATE", "CAVE", "ABYSS", "VOID"};
 /* each effect's two parameters, by name */
-static const char *const FX_P1[FX_N] = {"TIME", "DEPTH", "INTENSITY", "RATE", "VOWEL", "ALGORITHM", "LENGTH"};
-static const char *const FX_P2[FX_N] = {"FEEDBACK", "RATE", "RATE", "VIBRATO", "WIDTH", "OFFSET", "REPEATS"};
+static const char *const FX_P1[FX_N] = {"TIME", "DEPTH", "INTENSITY", "RATE", "VOWEL", "ALGORITHM", "LENGTH", "ROOT",
+                                        "MODE", "DEPTH", "DEPTH"};
+static const char *const FX_P2[FX_N] = {"FEEDBACK", "RATE", "RATE", "VIBRATO", "WIDTH", "OFFSET", "REPEATS", "CHORD",
+                                        "WITH", "KEY", "KEY"};
 
 /* the tubes: drive when saturated (Q12), bias (Q15: the even harmonics), the halves' gains (Q12: grid current
  * squashes the positive half), as heard: 12AX7 bright and quick to break up, 12AT7 cleaner, 6C16 (a Soviet triode)
@@ -312,6 +350,7 @@ static void ch_coef(uint32_t c)
         }
         k->tb0 = tanh_q15(k->bias);
     }
+    k->fgain = now.fold > 0 ? 4096 + clampi(now.fold, 0, PMAX) * 15 * 4096 / PMAX : 0;
     k->opg = OPAMP[k->opamp].g;
     k->rail = OPAMP[k->opamp].rp;
     k->railn = OPAMP[k->opamp].rn;
@@ -367,6 +406,10 @@ static void slot_coef(uint32_t s)
             slot_mem[s][i] = 0;
         memset(&k->s1, 0, sizeof k->s1);
         memset(&k->s2, 0, sizeof k->s2);
+        memset(k->r1s, 0, sizeof k->r1s);
+        memset(k->r2, 0, sizeof k->r2);
+        k->env = 0;
+        k->gg = Q15;
         k->gleft = 0;
         k->d = 0;
     }
@@ -435,6 +478,36 @@ static void slot_coef(uint32_t s)
         }
         k->off = (p2 - 500) * 16384 / 500;
         break;
+    case FX_RESON: {                             /* six bands at the chord's pitches on the root, ringing ~1.2 s */
+        int32_t root = clampi(p1, 0, 47), ch = clampi(p2, 0, NCHORD - 1), b;
+        k->r1 = 140000;                          /* 1 - r: 6.9 / (1.2 s x FS), Q30 */
+        k->rbands = 0;
+        for (b = 0; b < 6; b++) {
+            int32_t c100 = (36 + root - 69) * 100 + CHORD_CENTS[ch][b];   /* cents from A4 */
+            int32_t hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16(c100 * 4096 / 75)) >> 16);   /* (x 65536 / 1200) */
+            uint32_t inc = hz8_inc(hz8), sh, chh;
+            int64_t cq, sq, r = (1 << 30) - k->r1;
+            if (hz8 > 15000 * 256)               /* (too high: the band off) */
+                break;
+            sh = (uint32_t)sin_ph(inc >> 1);     /* sin and cos of half the angle: the rotation exactly unit */
+            chh = (uint32_t)sin_ph((inc >> 1) + 0x40000000u);
+            cq = (1LL << 30) - 2LL * (int64_t)(int32_t)sh * (int32_t)sh;   /* cos = 1 - 2 sin^2(w/2), Q30 */
+            sq = 2LL * (int64_t)(int32_t)sh * (int32_t)chh;                /* sin = 2 sin cos (w/2), Q30 */
+            k->rc[b] = (int32_t)((cq * r) >> 30);
+            k->rs[b] = (int32_t)((sq * r) >> 30);
+            k->rbands = (uint8_t)(b + 1);
+        }
+        break;
+    }
+    case FX_XMOD:
+        k->xmode = (uint8_t)clampi(p1, 0, XM_N - 1);
+        k->xsrc = (uint8_t)clampi(p2, 0, NXSRC - 1);
+        break;
+    case FX_DUCK:
+    case FX_GATE:
+        k->depth = p1 * Q15 / PMAX;
+        k->xsrc = (uint8_t)clampi(p2, 0, NXSRC - 1);
+        break;
     default:                                     /* GLITCH: 10 .. 300 ms stuck, 1 .. 16 times */
         k->glen = (uint32_t)hz_log(p1, 441, 1258);   /* (4.9 octaves: 441 .. 13230) */
         if (k->glen > SLOT_LEN / 2u)
@@ -446,6 +519,39 @@ static void slot_coef(uint32_t s)
 }
 
 /* ------------------------------------------------ the effects, a sample --- */
+AINL int32_t mulr30(int32_t a, int32_t b) { return (int32_t)(((int64_t)a * b + (1 << 29)) >> 30); }
+AINL int32_t tri_fold(int32_t y)                 /* a triangle fold into full scale (FOLD's) */
+{
+    uint32_t m = ((uint32_t)(y + 32768)) & 0x1FFFFu;
+    return m < 65536u ? (int32_t)m - 32768 : 98304 - (int32_t)m;
+}
+AINL int32_t diode(int32_t v)                    /* a diode's dead zone, squared beyond it */
+{
+    int32_t a = absi(v) - 21845, q;
+    if (a <= 0)
+        return 0;
+    q = (int32_t)(((int64_t)a * a) >> 15);
+    return v < 0 ? -q : q;
+}
+AINL int32_t xsig(uint32_t s)                    /* XMOD's, DUCK's, GATE's other signal, as it last was */
+{
+    switch (s) {
+    case 6: return b_mixl;
+    case 7: return b_mixr;
+    case 8: return b_s1;
+    case 9: return b_s2;
+    default: return ch_post[s < NCH ? s : 0];
+    }
+}
+/* a feedback product, its rounding error carried to the next sample: tails and repeats die as they should, not in
+ * a straight line to silence (after ChoralRoot's FM-1 delay, Quixotic7/ChoralRootFM1 cr_fx.c, GPL-3.0) */
+AINL int32_t fb_round(slot_rt_t *k, int32_t v)
+{
+    int64_t acc = (int64_t)v * k->fb + k->ferr;
+    int32_t o = (int32_t)(acc >> 15);
+    k->ferr = (int32_t)(acc - ((int64_t)o << 15));
+    return o;
+}
 static FAST int32_t fx_tick(uint32_t s, int32_t x)
 {
     slot_rt_t *k = &slr[s];
@@ -462,12 +568,12 @@ static FAST int32_t fx_tick(uint32_t s, int32_t x)
     case FX_DELAY:
         k->d += (k->dt - k->d) >> 11;            /* (a new time glides: the pitch bends, as a tape's) */
         wet = line_rd(b, k->w, k->d);
-        b[k->w] = (int16_t)sat16(xi + mulq15(wet, k->fb));
+        b[k->w] = (int16_t)sat16(xi + fb_round(k, wet));
         break;
     case FX_FLANGER:
         k->lfo += k->inc;
         wet = line_rd(b, k->w, k->base + mulq15(k->depth, (sin_ph(k->lfo) + 32768) >> 1));
-        b[k->w] = (int16_t)sat16(xi + mulq15(wet, k->fb));
+        b[k->w] = (int16_t)sat16(xi + fb_round(k, wet));
         break;
     case FX_CHORUS: {
         int32_t sn;
@@ -504,6 +610,51 @@ static FAST int32_t fx_tick(uint32_t s, int32_t x)
         }
         wet = k->held;
         break;
+    case FX_RESON: {                             /* coupled-form resonators: a rotation scaled by r, a band */
+        uint32_t i;
+        int32_t acc = 0;
+        for (i = 0; i < k->rbands; i++) {
+            int32_t a = k->r1s[i], c = k->r2[i];
+            int32_t na = mulr30(k->rc[i], a) - mulr30(k->rs[i], c) + x;
+            int32_t nc = mulr30(k->rs[i], a) + mulr30(k->rc[i], c);
+            k->r1s[i] = clampi(na, -0x60000000, 0x60000000);
+            k->r2[i] = clampi(nc, -0x60000000, 0x60000000);
+            acc += mulr30(k->r1s[i], k->r1) * 2; /* (the in-phase state, x 2 (1 - r): unity and no phase turn at a
+                                                  * band's pitch -- a loop through it rings there) */
+        }
+        wet = acc;                               /* (each band whole at its pitch: a loop through it rings there) */
+        break;
+    }
+    case FX_XMOD: {                              /* two loops, one sound (Mutable Instruments Warps' modulations) */
+        int32_t m = xsig(k->xsrc);
+        switch (k->xmode) {
+        case XM_RING:                            /* a diode ring: dead zones squared, the two halves against each
+                                                  * other, softly limited */
+            wet = tanh_q15(diode((x + m) * 4) - diode((x - m) * 4));   /* (driven into the diodes, as Warps
+                                                                         * drives its inputs) */
+            break;
+        case XM_XOR:                             /* the two as 16-bit words, their bits exclusive-ored */
+            wet = (int16_t)(sat16(x) ^ sat16(m));
+            break;
+        case XM_FOLD:                            /* their sum and a quarter of their product, folded */
+            wet = tri_fold(x + m + (mulq15(x, m) >> 2));
+            break;
+        default:                                 /* the louder of the two, the other turned over */
+            wet = absi(x) >= absi(m) ? x : -m;
+            break;
+        }
+        break;
+    }
+    case FX_DUCK:
+    case FX_GATE: {                              /* the KEY's loudness turns this down (DUCK) or opens it (GATE) */
+        int32_t a = absi(xsig(k->xsrc)), e, gt;
+        k->env += a > k->env ? (a - k->env) >> 5 : -(k->env >> 12);   /* (attack ~1 ms, release ~90 ms) */
+        e = k->env > 16383 ? Q15 : k->env * 2;  /* (a channel at its ceiling: fully) */
+        gt = k->fx == FX_DUCK ? Q15 - mulq15(k->depth, e) : Q15 - k->depth + mulq15(k->depth, e);
+        k->gg += (gt - k->gg) >> 6;              /* (no clicks: ~1.5 ms) */
+        wet = mulq15(x, k->gg);
+        break;
+    }
     default:                                     /* GLITCH */
         b[k->w] = (int16_t)xi;
         if (!k->gleft) {
@@ -587,6 +738,13 @@ static FAST int32_t ch_tick(uint32_t c, int32_t x)
         u = tanh_q15(t + k->bias) - k->tb0;
         if (k->tmode == TM_LIN)
             u <<= 1;
+    }
+    /* FOLD: driven into a triangle fold -- never past full scale, more harmonics the harder it is driven (Vital's
+     * linear fold, in integers: the drive's wraparound is the fold) */
+    if (k->fgain) {
+        int32_t y = mulq12(u, k->fgain);
+        uint32_t m = ((uint32_t)(y + 32768)) & 0x1FFFFu;
+        u = m < 65536u ? (int32_t)m - 32768 : 98304 - (int32_t)m;
     }
     /* the op-amp, and the overload protection over it */
     u = mulq12(u, k->opg);

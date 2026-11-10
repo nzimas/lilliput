@@ -16,6 +16,7 @@ clang -O2 -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-
     -Ifirmware/src -Ibuild/gen tests/host/host.c -o build/host
 build/host check
 build/host fits
+build/host effects
 build/host flows
 build/host screens build/screens
 c2=$(build/host cores 2)                              # the two cores: the same sound

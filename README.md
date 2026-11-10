@@ -104,12 +104,12 @@ The chosen channel's number, very large, in its colour; under it its **input**; 
 
 Left to right, as the app's block diagram:
 
-**input selector → + noise → GAIN → tube → op-amp (and its overload protection) → HIGH, LOW → middle filter →
+**input selector → + noise → GAIN → tube → FOLD → op-amp (and its overload protection) → HIGH, LOW → middle filter →
 brickwall limiter → mute → SEND 1, SEND 2 → LEVEL → insert effect → PAN → main mix**
 
 | Page | Rows (KNOB 1–4) | With SHIFT |
 | --- | --- | --- |
-| **AMP** | TUBE, MODE (LINEAR, SATURATED), GAIN (0 … +48 dB), OP-AMP | |
+| **AMP** | TUBE, GAIN (0 … +48 dB), FOLD (off, ×1.2 … ×16), OP-AMP | KNOB 1: MODE (LINEAR, SATURATED) |
 | **NOISE** | NOISE (off, −90 … −18 dB; GEIGER: its clicks' rate), TYPE (WHITE, PINK, RED, CRACKLE, GEIGER, HUM), LIMIT, PROTECT | |
 | **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), the middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
 | **SEND** | INPUT, SEND 1, SEND 2, MAIN MIX | |
@@ -139,6 +139,10 @@ protection: when the op-amp's signal goes over it, the protection breaks the sig
 the loop starts again from the noise, with the crackle no-input players know. Higher, it lets more through and
 the op-amp saturates more.
 
+**FOLD** drives the signal after the tube into a wavefolder: past full scale it folds back instead of clipping, so
+the harder it is driven — by FOLD, by GAIN, by a loop growing — the more harmonics, never more level. It changes the
+timbre only, never the pitch.
+
 **LIMIT** is the brickwall limiter's speed. Its look-ahead is the delay that sets the base pitch of a loop: fast
 (a fraction of a millisecond) gives high tones, slow (tens of milliseconds) low ones. The page shows it in
 milliseconds.
@@ -162,6 +166,16 @@ or RET 2. An insert's output goes on through its channel, and to a return too if
 | FORMANT | VOWEL (A E I O U) | WIDTH |
 | BITCRUSH | ALGORITHM (fewer bits; a lower rate; the bits folded on themselves) | OFFSET |
 | GLITCH | LENGTH of the part that sticks | REPEATS |
+| RESONATOR | ROOT, C2 … B5, a semitone a step | CHORD: OCTAVES, FIFTHS, MAJOR, MINOR, SUS, CLUSTER, PELOG, HARMONICS |
+| XMOD | MODE: RING (a diode ring), XOR (the two signals' bits), FOLD (their sum and product, folded), COMPARE (the louder of the two) | WITH: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 |
+| DUCK | DEPTH | KEY: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 — the louder it is, the quieter this |
+| GATE | DEPTH | KEY: as DUCK's — the louder it is, the more this opens |
+
+**RESONATOR** is six tuned resonators on the root, in the chord's intervals, ringing about 1.2 s (after 4ms's SMR).
+In a loop it pulls the feedback onto those notes and holds it there. Its ROOT and CHORD are steps and no LFO can
+move them: it steadies pitch, never glides it. **XMOD** (after Mutable Instruments' Warps) and **DUCK / GATE**
+(after its Streams) take a second signal, so one loop can shape another: ring-modulate it, mangle its bits, duck it
+or open it in time with it.
 
 **PRESENCE** is how much of the effect is heard; **LO-FI** halves its rate and its bits.
 
@@ -286,8 +300,12 @@ macOS or Linux:
 tests/run_tests.sh  # the tests, on the computer
 ```
 
-On macOS the toolchain runs in Docker: Docker Desktop must be running to build. `./build.sh --release X.Y`
-builds a release (identity FM-1_8XY).
+On macOS the toolchain runs in Docker: Docker Desktop must be running to build.
+
+**Builds.** Lilliput has build numbers only — build 1, 2, 3 … — never version numbers. The number is `VERSION` in
+`tools/build.py`; the splash screen shows it; each build's package is also kept as `build/lilliput-build-N.fwsc`.
+Every build is a git commit tagged `build-N`. To go back to a build: `git checkout build-N`, then `./install.sh`
+(or install its kept package: `./install.sh build/lilliput-build-N.fwsc`).
 
 ## Testing without the FM-1
 

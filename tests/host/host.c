@@ -900,6 +900,98 @@ static int cmd_flows(void)
     return 0;
 }
 
+/* --------------------------------------------------------------- effects --- *
+ * build 4's: FOLD in a channel, and RESONATOR, XMOD, DUCK, GATE in a loop (an insert, POST) and on a send/return --
+ * each bounded, heard, without DC; the RESONATOR's tuning out of the modulation's reach */
+static stats_t fx_run(int fx, int p1, int p2, int as_send)
+{
+    fresh_mixer();
+    patch_plain(&par);
+    par.out.spres = 0;
+    par.ch[0].level = LVL_0DB - 80;              /* a loop of its own, singing */
+    par.ch[1].level = fx == FX_RESON ? 0 : LVL_0DB - 80;   /* (a second loop: XMOD's, DUCK's, GATE's other signal;
+                                                         * the RESONATOR heard alone) */
+    par.ch[1].src = SRC_PRE;
+    par.ch[1].mfreq = 300;
+    par.slot[0].fx = (int16_t)fx;
+    par.slot[0].p1 = (int16_t)p1;
+    par.slot[0].p2 = (int16_t)p2;
+    par.slot[0].pres = PMAX;
+    if (as_send) {
+        par.slot[0].in = FI_SEN1;
+        par.slot[0].out = FO_RET1;
+        par.ch[0].src = SRC_RET1;
+        par.ch[0].send1 = 700;
+    } else {
+        par.slot[0].in = FI_INS;
+        par.ch[0].src = SRC_POST;
+    }
+    return render(6.0, 0, 0);
+}
+static int cmd_effects(void)
+{
+    static const struct { const char *n; int fx, p1, p2; } T[] = {
+        {"RESONATOR C3 MAJOR", FX_RESON, 12, 2}, {"RESONATOR A2 PELOG", FX_RESON, 9, 6},
+        {"XMOD RING", FX_XMOD, XM_RING, 1}, {"XMOD XOR", FX_XMOD, XM_XOR, 1}, {"XMOD FOLD", FX_XMOD, XM_FOLD, 1},
+        {"XMOD COMPARE", FX_XMOD, XM_COMP, 1}, {"DUCK BY CH 2", FX_DUCK, 900, 1}, {"GATE BY CH 2", FX_GATE, 900, 1}};
+    uint32_t i, bad = 0, a;
+    for (i = 0; i < NELEM(T); i++)
+        for (a = 0; a < 2u; a++) {
+            stats_t st = fx_run(T[i].fx, T[i].p1, T[i].p2, (int)a);
+            int ok = db(st.late_rms) > -50 && st.clip < 0.02 && fabs(st.dc) < 0.02;
+            printf("  %-20s %-6s rms %6.1f dB  zc %6.0f Hz  clip %.2f%%  %s\n", T[i].n, a ? "SEND" : "INSERT",
+                   db(st.late_rms), st.zc_hz, st.clip * 100, ok ? "ok" : "BAD");
+            bad += !ok;
+        }
+    {   /* FOLD: harmonics up (the zero crossings), never louder past full scale */
+        stats_t s0, s1;
+        fresh_mixer();
+        patch_plain(&par);
+        par.out.spres = 0;
+        par.ch[0].level = LVL_0DB - 80;
+        s0 = render(4.0, 0, 0);
+        fresh_mixer();
+        patch_plain(&par);
+        par.out.spres = 0;
+        par.ch[0].level = LVL_0DB - 80;
+        par.ch[0].fold = 800;
+        s1 = render(4.0, 0, 0);
+        printf("  FOLD 0 -> 800         zc %6.0f -> %6.0f Hz, peak %.2f -> %.2f\n", s0.zc_hz, s1.zc_hz, s0.peak, s1.peak);
+        if (!(s1.zc_hz > s0.zc_hz * 1.3) || s1.clip > 0.02) {
+            printf("  FOLD: BAD\n");
+            bad++;
+        }
+    }
+    {   /* the RESONATOR's root and chord: an LFO aimed at them moves nothing */
+        int32_t b;
+        fresh_mixer();
+        patch_plain(&par);
+        par.slot[0].fx = FX_RESON;
+        par.slot[0].p1 = 12;
+        par.slot[0].p2 = 2;
+        par.slot[0].in = FI_INS;
+        par.ch[0].level = LVL_0DB - 80;
+        par.ch[0].mod.lfo[0].rate = 80;
+        par.ch[0].mod.s[0].src = MSRC_L1;
+        par.ch[0].mod.s[0].dst = MD_FX1;
+        par.ch[0].mod.s[0].amt = 100;
+        par.ch[0].mod.s[1].src = MSRC_L1;
+        par.ch[0].mod.s[1].dst = MD_FX2;
+        par.ch[0].mod.s[1].amt = 100;
+        for (b = 0; b < 3000; b++) {
+            int32_t out[2 * CTL];
+            mix_block(out);
+            if (eff_slot[0].p1 != 12 || eff_slot[0].p2 != 2) {
+                printf("  RESONATOR: its tuning moved by an LFO -- BAD\n");
+                bad++;
+                break;
+            }
+        }
+    }
+    printf("effects: %s\n", bad ? "FAILED" : "all bounded, heard, tuning fixed");
+    return bad ? 1 : 0;
+}
+
 /* ---------------------------------------------------------------- fits --- *
  * no words over other words: every page's title, every row's name and every value any parameter can take, every
  * patch's name -- each must fit where it is drawn, whole, without being squeezed */
@@ -1007,6 +1099,8 @@ int main(int argc, char **argv)
         }
         return 0;
     }
+    if (argc >= 2 && str_eq(argv[1], "effects"))
+        return cmd_effects();
     if (argc >= 2 && str_eq(argv[1], "fits"))
         return cmd_fits();
     if (argc >= 2 && str_eq(argv[1], "flows"))
