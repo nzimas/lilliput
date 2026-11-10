@@ -25,8 +25,8 @@ fixed point.
 - **A rack of seven effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
   on its channel, or fed from a send bus, or from the slot before it, into a return bus.
 - **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with six spaces.
-- **Twenty-five recipes**: archetypes, not presets. **HOME draws a new patch** — from any recipe, or from the one
-  PRESETS chose — new connections, new settings and new motion for the whole mixer, different every time but always
+- **Twenty-five recipes**: archetypes, not presets. **HOME draws a new patch** from any recipe, **SHIFT + HOME**
+  from the one named on the screen — new connections, new settings and new motion for the whole mixer, different every time but always
   in the recipe's direction. Every patch drawn sounds at once, and moves. Each start is a new patch too.
 - **Each channel has two LFOs and four modulation slots** (Tonitor's matrix), so its parameters move by
   themselves.
@@ -73,10 +73,10 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SEQ** | OUT, OUT EQ, OUT FX, then the chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to the channel's page. On LFO and MOD pages a channel's button shows the same page for that channel. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
-| **HOME** | a **new patch**: from any recipe, or from the one PRESETS chose (see [New patches](#new-patches)). |
-| **SHIFT + HOME** | a new patch from **another recipe** than the one playing, drawn at random. |
+| **HOME** | a **new patch** from **any recipe** (see [New patches](#new-patches)). |
+| **SHIFT + HOME** | a new patch from **the recipe named** in the main view: the one playing, or the one PRESETS turned to. |
 | **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | choose a **recipe**, or **ANY** (none chosen): its name in place of the patch's, in the main view; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
+| **PRESETS** knob | the **recipe**, from the one playing: its name in place of the patch's, in the main view; nothing else changes until SHIFT + HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
 | **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
@@ -211,11 +211,10 @@ At the top, SPACE MIX leaves the reverb alone.
 
 ## New patches
 
-**HOME** draws a new patch. Until a recipe is chosen it draws from any of them, so each press can be anything.
-**PRESETS** chooses one: the main view's name becomes the recipe's, in place, and HOME then draws from it. Turned back
-to **ANY** (before the first recipe, after the last), none is chosen again. Lilliput starts with a patch drawn from
-any recipe and a tempo drawn between 91 and 299 BPM, otherwise each time; a session loaded keeps its own, with no
-recipe chosen. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
+As on Tonitor: **HOME** draws a new patch from any recipe, so each press can be anything; **SHIFT + HOME** draws one
+from the recipe named in the main view. That is the playing patch's recipe, or another: **PRESETS** turns through
+them from it, the name changing in place. Lilliput starts with a patch drawn from any recipe and a tempo drawn
+between 91 and 299 BPM, otherwise each time; a session loaded names its patch's recipe. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
 channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
 the parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
 recipe's direction:
@@ -248,8 +247,8 @@ recipe's direction:
 | SONAR | one to three pings into long delays, deep spaces | in step: pings that swell and fade; the delays jump |
 | FREE | no direction: any connection, voice, effect and space, each as likely as the next, over the widest ranges the recipes use — as Lilliput drew before it had recipes. Only what makes it sound is kept: two channels heard at least, the faders past where the loops sing | each gesture to a destination drawn for each channel |
 
-**HOME** draws from the recipe chosen, or from any; **SHIFT + HOME** from another than the one playing, drawn at
-random. The patch's name, on the main view, is its recipe's.
+**HOME** draws from any recipe; **SHIFT + HOME** from the one named. The patch's name, on the main view, is its
+recipe's.
 
 The faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
 where the playing is. Some channels come with their fader down: brought up, they join in. For its first two

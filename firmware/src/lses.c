@@ -563,7 +563,7 @@ static int ses_load(uint32_t num)
     g.patch[sizeof g.patch - 1u] = 0;
     ui.sel = (uint8_t)(g.sel < NCH ? g.sel : 0u);
     ui.fam = (uint8_t)(g.rsv[0] < NFAM ? g.rsv[0] : 0u);
-    ui.recipe = ANY_RECIPE;                      /* (nothing chosen: HOME draws from any) */
+    ui.recipe = ui.fam;                          /* (named: SHIFT + HOME draws from it) */
     for (i = 0; i < NCH; i++)
         mod_check(&q.ch[i].mod);
     for (i = 0; i < NSNAP; i++)

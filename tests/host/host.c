@@ -664,8 +664,8 @@ static int cmd_flows(void)
     fresh_mixer();
     ui_init();
     run_ms(3600);
-    EXPECT(ui.fam < NFAM && str_eq(ui.patch, FAM[ui.fam].name) && ui.recipe == ANY_RECIPE,
-           "the start: a patch drawn, named after its recipe; no recipe chosen");
+    EXPECT(ui.fam < NFAM && str_eq(ui.patch, FAM[ui.fam].name) && ui.recipe == ui.fam,
+           "the start: a patch drawn from any recipe, named after it");
     EXPECT(par.rhy.bpm > 90 && par.rhy.bpm < 300, "the start's tempo: drawn, 91 .. 299 BPM");
     EXPECT(out_meter > 300, "the start sounds");
     /* channels and pages */
@@ -729,53 +729,52 @@ static int cmd_flows(void)
     turn(EN_K1, 1);
     key(KEY_SHIFT, 0);
     EXPECT(par.slot[1].in != FI_NON || par.slot[1].in == FI_INS, "SHIFT + KNOB 1: the slot's input");
-    /* PRESETS: a recipe chosen, its name in place (nothing else); ANY: none chosen. HOME: a new patch from the recipe
-     * chosen, or from any; SHIFT + HOME: from another than the one playing; held: nudged */
+    /* as on Tonitor: HOME a new patch from any recipe; SHIFT + HOME from the recipe named in the main view; PRESETS
+     * names another, in place (nothing else changes); HOME held: nudged */
     press_btn(LAYER_BTN[0]);
     keep_src = par.ch[0].src;
     {
-        uint32_t i, seen = 0, pg = ui.page;
+        uint32_t i, seen = 0, pg = ui.page, f0, fp;
         for (i = 0; i < 12u; i++) {
             press_btn(B_HOME);
             seen |= 1u << ui.fam;
         }
-        EXPECT(ui.recipe == ANY_RECIPE && __builtin_popcount(seen) > 3, "no recipe chosen: HOME draws from any");
+        EXPECT(__builtin_popcount(seen) > 3 && ui.recipe == ui.fam && str_eq(ui.patch, FAM[ui.fam].name),
+               "HOME: a new patch from any recipe, each time; named after its recipe");
         run_ms(1300);                            /* (NEW PATCH said and gone) */
+        f0 = ui.fam;
         before = par;
         turn(EN_PRESET, 1);
         run_ms(60);
-        EXPECT(ui.recipe == 0 && !memcmp(&before, &par, sizeof par) && ui.page == PG_MAIN,
-               "PRESETS: the first recipe chosen, the patch left as it was, the main view");
-        EXPECT(!ui.flash_on && str_eq(ui.shown_text, FAM[0].name), "PRESETS: its name in the main view, in place, no flash");
+        fp = (f0 + 1u) % NFAM;
+        EXPECT(ui.recipe == fp && !memcmp(&before, &par, sizeof par) && ui.page == PG_MAIN,
+               "PRESETS: the next recipe named, the patch left as it was, the main view");
+        EXPECT(!ui.flash_on && str_eq(ui.shown_text, FAM[fp].name), "PRESETS: its name in the main view, in place, no flash");
         turn(EN_PRESET, -1);
         run_ms(60);
-        EXPECT(ui.recipe == ANY_RECIPE && str_eq(ui.shown_text, "ANY"), "PRESETS back: ANY, none chosen");
+        EXPECT(ui.recipe == f0 && str_eq(ui.shown_text, ui.patch), "PRESETS back to the patch's own: its name again");
         turn(EN_PRESET, -1);
         run_ms(60);
-        EXPECT(ui.recipe == NFAM - 1u && str_eq(ui.shown_text, FAM[NFAM - 1u].name), "and back again: the last recipe");
-        turn(EN_PRESET, 1);
-        turn(EN_PRESET, 1);
-        turn(EN_PRESET, 1);
-        EXPECT(ui.recipe == 1, "and on: the second");
-        press_btn(B_HOME);
-        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam == 1 && ui.recipe == 1,
-               "HOME draws a new patch from the recipe chosen");
-        EXPECT(str_eq(ui.patch, FAM[1].name), "the patch named after its recipe");
+        fp = (f0 + NFAM - 1u) % NFAM;
+        EXPECT(ui.recipe == fp && str_eq(ui.shown_text, FAM[fp].name), "PRESETS back: the one before, named");
+        for (i = 0; i < 4u; i++) {
+            before = par;
+            key(KEY_SHIFT, 1);
+            press_btn(B_HOME);
+            key(KEY_SHIFT, 0);
+            EXPECT(ui.fam == fp && ui.recipe == fp && memcmp(&before, &par, sizeof par) != 0,
+                   "SHIFT + HOME: a new patch from the recipe named, each time");
+        }
+        EXPECT(str_eq(ui.patch, FAM[fp].name), "the patch named after its recipe");
+        for (i = 0, seen = 0; i < 12u; i++) {
+            press_btn(B_HOME);
+            seen |= 1u << ui.fam;
+        }
+        EXPECT(__builtin_popcount(seen) > 3, "HOME after: any recipe again");
         goto_page(pg);                           /* (the page the tests below expect) */
     }
     run_ms(3600);
     EXPECT(out_meter > 300, "the new patch sounds");
-    {
-        before = par;
-        key(KEY_SHIFT, 1);
-        press_btn(B_HOME);
-        key(KEY_SHIFT, 0);
-        EXPECT(ui.fam != 1 && ui.recipe == 1 && memcmp(&before, &par, sizeof par) != 0,
-               "SHIFT + HOME: a new patch from another recipe; the choice kept");
-        before = par;
-        press_btn(B_HOME);
-        EXPECT(ui.fam == 1 && memcmp(&before, &par, sizeof par) != 0, "HOME again: from the recipe chosen");
-    }
     before = par;
     hold_btn(B_HOME, 900);
     {

@@ -10,8 +10,8 @@
  *
  * A family is a RECIPE (PRESETS chooses one): an archetype, never a fixed patch -- each draw from it comes out
  * otherwise, in its direction. The last, FREE, has none: anything goes, as long as it sounds.
- *   HOME            a new patch from the recipe shown
- *   SHIFT + HOME    a new patch from a recipe drawn at random (another than the one shown)
+ *   HOME            a new patch from any recipe
+ *   SHIFT + HOME    a new patch from the recipe named in the main view (the one playing, or PRESETS')
  *   HOME held       the patch nudged (the app's SHIFT): every channel's tone a little elsewhere, the rest kept
  *
  * Every patch's faders are set a little past where its loops start to sing -- worked out from the gains round each

@@ -16,9 +16,9 @@
  *                             then back to the channel's page
  *   ARP                       the OVERVIEW: the six channels, their inputs and levels, at once
  *   PRESETS (knob)            the recipe: its name replaces the patch's in the main view (nothing else changes)
- *   HOME                      a NEW PATCH from the recipe shown: the whole mixer drawn again -- its connections and
- *                             its settings, each time otherwise (patch.c)
- *   SHIFT + HOME              a new patch from a recipe drawn at random (another than the one shown)
+ *   HOME                      a NEW PATCH from any recipe: the whole mixer drawn again -- its connections and its
+ *                             settings, each time otherwise (patch.c). As on Tonitor
+ *   SHIFT + HOME              a new patch from the recipe named in the main view (the one playing, or PRESETS')
  *   HOME held                 the patch nudged: every channel's tone a little elsewhere, the connections kept
  *   SAVE held                 save the session: over the one loaded at once, else a new one (asked)
  *   SHIFT + SAVE              the SESSIONS page (PRESETS chooses, SAVE loads); held 0.8 s: GLOBAL SETUP
@@ -120,8 +120,7 @@ static struct {
     uint32_t seed;
     char patch[16];              /* the patch's name: the recipe it was drawn from, or the session's */
     uint8_t fam;                 /* the recipe (family) of the patch playing */
-    uint8_t recipe;              /* the recipe chosen (PRESETS): HOME's next patch is drawn from it; ANY_RECIPE: none
-                                  * chosen, HOME draws from any */
+    uint8_t recipe;              /* the recipe named in the main view (PRESETS; a new patch: its own): SHIFT + HOME's */
     uint8_t browse;              /* PRESETS turned since the patch came: the main view names the recipe, not the patch */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
@@ -164,8 +163,6 @@ static void say(const char *s, uint32_t ms)
     str_cpy(ui.msg, s, sizeof ui.msg);
     ui.msg_until = fm1_ms + ms;
 }
-#define ANY_RECIPE ((uint8_t)NFAM)               /* (PRESETS' position before the first: no recipe chosen) */
-static const char *recipe_name(uint32_t r) { return r < NFAM ? FAM[r].name : "ANY"; }
 static void flash(const char *l1, const char *l2, uint16_t c)
 {
     str_cpy(ui.flash_l1, l1, sizeof ui.flash_l1);
@@ -690,23 +687,17 @@ static void rhy_new(int st)
     ui.force = 1;
 }
 
-/* a new patch: from recipe fam; NP_ANY from any recipe; NP_OTHER from another than the one playing. The choice
- * (ui.recipe) stays as it was */
-enum { NP_OTHER = -1, NP_ANY = -2 };
+/* a new patch: from recipe fam, or (NP_ANY) from any; the main view then names its recipe */
+enum { NP_ANY = -1 };
 static void new_patch(int fam)
 {
     static lil_par_t q;
     uint32_t f;
-    if (fam == NP_ANY || fam >= (int)NFAM)
+    if (fam < 0 || fam >= (int)NFAM)
         fam = (int)(next_seed() % NFAM);
-    else if (fam < 0) {
-        fam = (int)(next_seed() % (NFAM - 1u));
-        if (fam >= (int)ui.fam)
-            fam++;
-    }
     f = patch_draw(&q, next_seed(), fam);
     q.rhy = par.rhy;                             /* (the RHYTHM plays on over a new patch) */
-    ui.fam = (uint8_t)f;
+    ui.fam = ui.recipe = (uint8_t)f;             /* (the main view names it: PRESETS goes on from it) */
     patch_set(&q, FAM[f].name);
     say("NEW PATCH", 1200);
     ui.home_until = fm1_ms + 400u;
@@ -860,7 +851,7 @@ static void ui_input(void)
         (void)enc_take(EN_K4);
         goto knobs_lp;
     }
-    /* HOME: a new patch from the RECIPE shown; SHIFT + HOME: from another, at random; held 0.8 s: the patch nudged */
+    /* HOME: a new patch from any recipe; SHIFT + HOME: from the recipe named; held 0.8 s: the patch nudged */
     if (btn_bit(press, B_HOME)) {
         ui.home_down = 1;
         ui.home_sh = (uint8_t)sh;
@@ -871,7 +862,7 @@ static void ui_input(void)
         if (!btn_bit(fm1_in.buttons, B_HOME)) {
             ui.home_down = 0;
             if (!ui.home_done)
-                new_patch(ui.home_sh ? NP_OTHER : ui.recipe == ANY_RECIPE ? NP_ANY : (int)ui.recipe);
+                new_patch(ui.home_sh ? (int)ui.recipe : NP_ANY);
         } else if (!ui.home_done && (uint32_t)(fm1_ms - ui.home_t0) >= 800u) {
             ui.home_done = 1;
             patch_shift(&par, next_seed());
@@ -1075,9 +1066,9 @@ static void ui_input(void)
         else {                                   /* the recipe: its name in the main view, in place; HOME draws from it */
             if (ui.page != PG_MAIN)
                 goto_page(PG_MAIN);
-            ui.recipe = (uint8_t)((ui.recipe + (s > 0 ? 1u : NFAM)) % (NFAM + 1u));   /* (ANY, then each) */
+            ui.recipe = (uint8_t)((ui.recipe + (s > 0 ? 1u : NFAM - 1u)) % NFAM);
             ui.msg_until = fm1_ms;               /* (a message showing gives way to the name) */
-            ui.browse = ui.recipe != ui.fam || !str_eq(ui.patch, FAM[ui.fam].name);   /* (ANY: always) */
+            ui.browse = ui.recipe != ui.fam || !str_eq(ui.patch, FAM[ui.fam].name);
         }
     }
     /* KNOB 1 .. 4 */
@@ -1811,7 +1802,7 @@ static void ui_draw(void)
         uint32_t st = gl_state(ui.sel);
         int rec = st != GS_IDLE;
         int kind = msg ? 1 : rec || par.out.mute || par.ch[ui.sel].mute ? 2 : 0;
-        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.browse ? recipe_name(ui.recipe) : ui.patch;
+        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.browse ? FAM[ui.recipe].name : ui.patch;
         if (st == GS_ARMED)
             str_cpy(rs, (fm1_ms / 250u) & 1u ? "ARMED" : "", sizeof rs);
         else if (st == GS_REC) {                 /* REC and the seconds so far */
@@ -1851,7 +1842,7 @@ static void ui_init(void)
         uint32_t f = patch_draw(&q, next_seed(), (int)(next_seed() % NFAM));
         q.rhy.bpm = (uint16_t)(91u + next_seed() % 209u);
         ui.fam = (uint8_t)f;
-        ui.recipe = ANY_RECIPE;
+        ui.recipe = (uint8_t)f;
         patch_set(&q, FAM[f].name);
     }
     ui.shown_sel = 0xFF;

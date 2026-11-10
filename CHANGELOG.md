@@ -1,5 +1,11 @@
 # Changelog
 
+## Build 15 (2026-11-10)
+
+- HOME and SHIFT + HOME as on Tonitor: **HOME** a new patch from any recipe, always; **SHIFT + HOME** a new patch from
+  the recipe named in the main view (the playing patch's, or the one PRESETS turned to). PRESETS turns through the
+  recipes from the one playing. ANY is gone.
+
 ## Build 14 (2026-11-10)
 
 - No more silence under the RHYTHM: in the host's test every recipe with every style (400 pairs) now sounds, the
