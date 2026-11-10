@@ -250,7 +250,8 @@ static volatile uint32_t out_pw, out_pw_n;       /* (the output's power, summed 
 static volatile uint8_t shed_req;                /* (main.c sets it on an overload: nothing here to shed) */
 static volatile uint8_t load_pct;
 static volatile uint8_t load_pk;
-static int32_t master_q12 = 2048;                /* the MASTER knob (main loop), Q12 */
+static int32_t master_q12 = 0;                   /* the MASTER knob (main loop), Q12 -- 0 until it is read (build 16: at
+                                                  * 2048, the splash sounded at half volume whatever the knob) */
 static uint32_t blk_clock;
 static int32_t out_mute_g = Q15;                 /* PLAY's mute, gliding */
 static volatile uint32_t mx_ticks, out_ticks;    /* (the CPU page's) */

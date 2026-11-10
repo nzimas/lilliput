@@ -336,6 +336,20 @@ static void fm1_main(void)
     if (!audio_worker_online)                        /* (CPU1 held: until power-off after a fault, or a failed boot --
                                                       * half the room for voices. Said, not silent) */
         say("1 CORE", 4000);
+    {                                                /* the MASTER knob read before any sound (build 16): the
+                                                      * splash played at half volume, the knob down or not */
+        int32_t i, a, s = 0, n = 0;
+        for (i = 0; i < 8; i++)
+            if ((a = fm1_adc_read(FM1_ADC_MASTER)) >= 0) {
+                s += a;
+                n++;
+            }
+        if (n) {
+            uint32_t k10 = (uint32_t)(s / n);
+            knob = (int32_t)k10 * 16;
+            master_q12 = (int32_t)((k10 * k10) >> 8);
+        }
+    }
     audio_init();
     usb_start();
     uart_midi_init();                                /* the TRS MIDI IN jack (before TIMER5: PORTH) */
