@@ -121,6 +121,7 @@ static volatile uint32_t mi_w, mi_r;
 #undef NLAYER
 #include "mixer.c"
 #include "patch.c"
+#include "rhythm.c"
 
 /* the panel */
 #define FM1_NCOL 11u
@@ -600,6 +601,17 @@ static int cmd_screens(const char *dir)
     run_ms(2200);
     SHOT("17_rec");
     press_btn(B_REC);
+    press_btn(B_PLAY);
+    tap_key(KEY_RHY);
+    key(KEY_RHY, 1);
+    run_ms(900);
+    key(KEY_RHY, 0);
+    run_ms(100);
+    SHOT("18_tempo");
+    key(KEY_RHY, 1);
+    run_ms(900);
+    key(KEY_RHY, 0);
+    press_btn(B_REC);
     hold_btn(B_SAVE, 900);
     run_ms(60);
     SHOT("15_save_ask");
@@ -845,13 +857,58 @@ static int cmd_flows(void)
         press_btn(B_SAVE);
         EXPECT(ui.page != PG_SNAP, "SAVE again: back");
     }
+    /* the RHYTHM: its key on and off; SHIFT + it a new one; held, the TEMPO page */
+    press_btn(LAYER_BTN[0]);
+    if (ui.page != PG_MAIN)
+        press_btn(LAYER_BTN[0]);
+    tap_key(KEY_RHY);
+    EXPECT(par.rhy.on, "the RHYTHM's key: on (a rhythm drawn)");
+    {
+        uint8_t st = par.rhy.style;
+        key(KEY_SHIFT, 1);
+        tap_key(KEY_RHY);
+        key(KEY_SHIFT, 0);
+        EXPECT(par.rhy.on && par.rhy.style != st, "SHIFT + it: a new rhythm, of another style");
+    }
+    tap_key(KEY_RHY);
+    EXPECT(!par.rhy.on, "and off");
+    key(KEY_RHY, 1);
+    run_ms(900);
+    key(KEY_RHY, 0);
+    EXPECT(ui.page == PG_TEMPO && !par.rhy.on, "held: the TEMPO page (the rhythm left as it was)");
+    {
+        uint16_t b0 = par.rhy.bpm;
+        turn(EN_K1, 1);
+        EXPECT(par.rhy.bpm == b0 + 1, "KNOB 1 there: a BPM a detent");
+        par.rhy.bpm = 12;
+        turn(EN_K1, -5);
+        EXPECT(par.rhy.bpm == 10, "10 BPM at the least");
+        par.rhy.bpm = 498;
+        turn(EN_K1, 5);
+        EXPECT(par.rhy.bpm == 500, "500 BPM at the most");
+        par.rhy.bpm = 120;
+        turn(EN_PRESET, 1);
+        EXPECT(par.rhy.on, "PRESETS there: a rhythm of the next style, playing");
+    }
+    key(KEY_RHY, 1);
+    run_ms(900);
+    key(KEY_RHY, 0);
+    EXPECT(ui.page != PG_TEMPO, "held again: back");
+    {
+        rhy_par_t keep = par.rhy;
+        press_btn(B_HOME);
+        EXPECT(!memcmp(&keep, &par.rhy, sizeof keep), "a new patch: the rhythm plays on");
+    }
     /* sessions: save as a new one (asked), load it back */
     hold_btn(B_SAVE, 900);
+    if (ui.page != PG_ASK)                       /* (SAVE held: over the session loaded, if there is one) */
+        printf("  (note: saved over a session)\n");
     EXPECT(ui.page == PG_ASK && ui.ses_new == 1, "SAVE held: a new session, asked");
+    trim.on = 0;                                 /* (the patch settled: nothing moves it between the save and now) */
     press_btn(B_SAVE);
+    before = par;
     run_ms(1600);
     EXPECT(ses_has(1) && ses_current() == 1, "saved as session 1");
-    before = par;
     press_btn(B_HOME);
     run_ms(200);
     EXPECT(memcmp(&before, &par, sizeof par) != 0, "another patch");
@@ -864,6 +921,13 @@ static int cmd_flows(void)
     {   /* (the trim may move the main level after loading: the rest as saved) */
         lil_par_t a = before, b = par;
         a.out.level = b.out.level = 0;
+        if (memcmp(&a, &b, sizeof a)) {
+            uint32_t i;
+            for (i = 0; i < sizeof a; i++)
+                if (((uint8_t *)&a)[i] != ((uint8_t *)&b)[i])
+                    printf("  differs at byte %u (ch size %u, rhy at %u): %u vs %u\n", i, (unsigned)sizeof(ch_par_t),
+                           (unsigned)__builtin_offsetof(lil_par_t, rhy), ((uint8_t *)&a)[i], ((uint8_t *)&b)[i]);
+        }
         EXPECT(memcmp(&a, &b, sizeof a) == 0, "session 1 loaded back as it was");
         EXPECT(snap_has(2) && gs.n >= 3, "with its snapshots and its gesture loop");
     }
@@ -997,6 +1061,62 @@ static int cmd_effects(void)
     return bad ? 1 : 0;
 }
 
+/* ---------------------------------------------------------------- rhythm --- *
+ * every style over patches of several families: the output moves (in 50 ms windows) more with the rhythm than
+ * without, and is neither silent nor clipped */
+static int cmd_rhythm(void)
+{
+    uint32_t st, f, bad = 0;
+    for (st = 0; st < RS_N; st++) {
+        double m0 = 0, m1 = 0, lo = 0;
+        uint32_t n = 0;
+        for (f = 0; f < NFAM; f += 3) {
+            stats_t a, b;
+            fresh_mixer();
+            patch_draw(&par, 777u + f * 31u + st, (int)f);
+            a = render(6.0, 0, 0);
+            fresh_mixer();
+            patch_draw(&par, 777u + f * 31u + st, (int)f);
+            rhythm_draw(&par, 4242u + st * 17u + f, (int)st);
+            par.rhy.on = 1;
+            par.rhy.bpm = 132;
+            rhy_reset = 1;
+            b = render(6.0, 0, 0);
+            m0 += a.move;
+            m1 += b.move;
+            if (n == 0 || db(b.rms) < lo)        /* (over the run: a sparse style may rest a whole second) */
+                lo = db(b.rms);
+            if (b.clip > 0.02)
+                bad++;
+            n++;
+        }
+        printf("  %-12s movement %4.1f -> %4.1f dB   quietest %6.1f dB\n", RS_NAME[st], m0 / n, m1 / n, lo);
+        if (m1 / n < m0 / n + 1.5 || lo < -50)
+            bad++;
+    }
+    {   /* the clock: beats in 10 s at 10, 120, 500 BPM */
+        static const uint16_t BP[3] = {10, 120, 500};
+        for (st = 0; st < 3u; st++) {
+            uint32_t b0, want = BP[st] * 10u / 60u, got;
+            fresh_mixer();
+            patch_draw(&par, 5u, 0);
+            rhythm_draw(&par, 9u, RS_INDUSTRIAL);
+            par.rhy.on = 1;
+            par.rhy.bpm = BP[st];
+            rhy_reset = 1;
+            render(0.1, 0, 0);
+            b0 = rhy_beat;
+            render(10.0, 0, 0);
+            got = rhy_beat - b0;
+            printf("  clock %3u BPM: %u beats in 10 s (%u expected)\n", BP[st], got, want);
+            if (got + 1u < want || got > want + 1u)
+                bad++;
+        }
+    }
+    printf("rhythm: %s\n", bad ? "FAILED" : "every style moves the sound, none silent or clipped; the clock in time");
+    return bad ? 1 : 0;
+}
+
 /* ---------------------------------------------------------------- fits --- *
  * no words over other words: every page's title, every row's name and every value any parameter can take, every
  * patch's name -- each must fit where it is drawn, whole, without being squeezed */
@@ -1104,6 +1224,8 @@ int main(int argc, char **argv)
         }
         return 0;
     }
+    if (argc >= 2 && str_eq(argv[1], "rhythm"))
+        return cmd_rhythm();
     if (argc >= 2 && str_eq(argv[1], "effects"))
         return cmd_effects();
     if (argc >= 2 && str_eq(argv[1], "fits"))

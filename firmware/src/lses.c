@@ -423,13 +423,22 @@ static int ses_save(uint32_t num)
     }
 }
 /* session num into the mixer: read whole, checked (its CRC, its parameters' size), only then used */
+/* a mixer read from an older record (psz bytes): the rest as a fresh one has it -- the RHYTHM off, at 120 BPM */
+static void par_tail(lil_par_t *q, uint32_t psz)
+{
+    if (psz < sizeof *q) {
+        memset((uint8_t *)q + psz, 0, sizeof *q - psz);
+        q->rhy.bpm = 120;
+        q->rhy.gscale = 50;
+    }
+}
 static int ses_load(uint32_t num)
 {
     static lil_par_t q;
     ses_head_t h;
     ses_glob_t g;
     ses_perf_t pf;
-    uint32_t i, ns = 0, pass, base;
+    uint32_t i, ns = 0, pass, base, psz = sizeof(lil_par_t);
     int at = ses_find(num);
     if (!ses.ok)
         return SES_NOFLASH;
@@ -439,20 +448,27 @@ static int ses_load(uint32_t num)
     for (pass = 0; pass < 2u; pass++) {          /* the whole record checked first (its CRC), only then taken */
         ss_begin(SS_READ, base);
         ses_in(&h, sizeof h);
-        if (!ses_head_ok(&h) || h.format != SES_FORMAT || h.par_size != sizeof(lil_par_t))
+        if (!ses_head_ok(&h) || h.format != SES_FORMAT || h.par_size > sizeof(lil_par_t) ||
+            h.par_size < __builtin_offsetof(lil_par_t, rhy))
             return SES_FAIL;
+        psz = h.par_size;                        /* (build 5's and before: without the RHYTHM, shorter) */
         ses_in(&g, sizeof g);
-        ses_in(&q, sizeof q);
+        ses_in(&q, psz);
+        par_tail(&q, psz);
         ses_in(&pf, sizeof pf);
         if (pf.gn > GEV_MAX)
             return SES_FAIL;
         for (i = 0, ns = 0; i < NSNAP; i++)
             if (pf.snap_used >> i & 1u) {
-                ses_in(pass ? &snap[i] : 0, sizeof snap[i]);
+                ses_in(pass ? &snap[i] : 0, psz);
+                if (pass)
+                    par_tail(&snap[i], psz);
                 ns++;
             }
         if (pf.gn) {
-            ses_in(pass ? &g_s0 : 0, sizeof g_s0);
+            ses_in(pass ? &g_s0 : 0, psz);
+            if (pass)
+                par_tail(&g_s0, psz);
             ses_in(pass ? gev : 0, pf.gn * (uint32_t)sizeof gev[0]);
         }
         if (ss.pos != h.len || ss.crc != h.body_crc)

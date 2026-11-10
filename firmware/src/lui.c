@@ -35,6 +35,7 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 #define KEY_SHIFT 25u            /* the rightmost black key */
 #define KEY_CPU 15u              /* the 7th black key: SHIFT + it held, the CPU page */
 #define KEY_READER 17u           /* the 8th: SHIFT + it, the SCREEN READER on or off */
+#define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- on or off; SHIFT +: a new one; held: TEMPO */
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
 
@@ -52,10 +53,11 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
 /* the pages */
 enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2,   /* a channel's (OCT- / OCT+) */
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
+       PG_TEMPO,                                             /* the RHYTHM's (its key held) */
        PG_VIEW, PG_PRESET, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
 #define PG_CH_LAST PG_MTX2
 static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
-                                           "OUT", "OUT EQ", "OUT FX", "", "", "", "", "",
+                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "", "", "", "", "",
                                            ""};
 
 /* every parameter the panel reaches: on the chosen channel, its slot, or the output */
@@ -65,6 +67,7 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_RET1, P_RET2, P_OFTYPE, P_OHIGH, P_OLOW, P_OWIDE, P_OMGAIN, P_OMFREQ, P_SPACE, P_SPRES, P_OLEVEL,
        P_LSHAPE, P_LRATE, P_LMODE, P_LFADE,      /* (the LFO pages': LFO 1 or 2 as the page is) */
        P_FOLD,
+       P_BPM, P_SWING, P_CHAOS, P_GSCALE,        /* (the TEMPO page's) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
@@ -72,13 +75,15 @@ static const uint8_t PG_ROW[PG_N][4] = {
     {P_HIGH, P_LOW, P_MGAIN, P_MFREQ}, {P_SRC, P_SEND1, P_SEND2, P_MAINMIX}, {P_FX, P_P1, P_P2, P_PRES},
     {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
-    {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES}};
+    {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES},
+    {P_BPM, P_SWING, P_CHAOS, P_GSCALE}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
-    {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP}};
+    {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
+    {P_NONE, P_NONE, P_NONE, P_NONE}};
 
 static struct {
     uint8_t sel, page, last_ch_page;
@@ -95,6 +100,8 @@ static struct {
     uint8_t fam;                 /* the family of the patch playing (HOME, SHIFT + HOME, SHIFT + PRESETS) */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
+    uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
+    uint32_t rhy_t0, beat_seen, beat_at;
     uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the gesture loop emptied) */
     uint32_t rec_t0;
     int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
@@ -197,6 +204,10 @@ static int32_t p_get(uint32_t id)
     case P_SPACE: return o->space;
     case P_SPRES: return o->spres;
     case P_OLEVEL: return o->level;
+    case P_BPM: return par.rhy.bpm;
+    case P_SWING: return par.rhy.swing;
+    case P_CHAOS: return par.rhy.chaos;
+    case P_GSCALE: return par.rhy.gscale;
     case P_LSHAPE: return c->mod.lfo[ui.page == PG_LFO2].shape;
     case P_LRATE: return c->mod.lfo[ui.page == PG_LFO2].rate;
     case P_LMODE: return c->mod.lfo[ui.page == PG_LFO2].mode;
@@ -235,7 +246,9 @@ static void p_set(uint32_t id, int32_t v)
     out_par_t *o = &par.out;
     int32_t n = p_count(id);
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
-        : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE ? 100 : PMAX);
+        : id == P_BPM ? clampi(v, 10, 500)
+        : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
+                       : id == P_GSCALE ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -278,6 +291,10 @@ static void p_set(uint32_t id, int32_t v)
     case P_SPACE: o->space = (int16_t)v; break;
     case P_SPRES: o->spres = (int16_t)v; break;
     case P_OLEVEL: o->level = (int16_t)v; break;
+    case P_BPM: par.rhy.bpm = (uint16_t)v; break;
+    case P_SWING: par.rhy.swing = (uint8_t)v; break;
+    case P_CHAOS: par.rhy.chaos = (uint8_t)v; break;
+    case P_GSCALE: par.rhy.gscale = (uint8_t)(v < 5 ? 5 : v); break;
     case P_LSHAPE: c->mod.lfo[ui.page == PG_LFO2].shape = (uint8_t)v; break;
     case P_LRATE: c->mod.lfo[ui.page == PG_LFO2].rate = (uint8_t)v; break;
     case P_LMODE: c->mod.lfo[ui.page == PG_LFO2].mode = (uint8_t)v; break;
@@ -287,10 +304,11 @@ static void p_set(uint32_t id, int32_t v)
 }
 static int32_t p_hi(uint32_t id)
 {
-    return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : id == P_LRATE || id == P_LFADE ? 100
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : id == P_BPM ? 500
+           : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
-static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : 0; }
+static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : id == P_BPM ? 10 : 0; }
 /* LEVEL, a detent: 1 dB a step up to -5 dB (on whole dBs), 0.1 dB a step above it; below -60 dB, off */
 static int32_t level_step(int32_t v, int up)
 {
@@ -320,6 +338,8 @@ static void p_turn(uint32_t id, int32_t s)
         p_set(id, v);
     } else if (id == P_PAN || p_hi(id) <= 100)   /* (PAN, an LFO's RATE and FADE: a step a detent) */
         p_set(id, p_get(id) + s);
+    else if (id == P_BPM)                        /* (the tempo: a BPM a detent, faster turned: five) */
+        p_set(id, p_get(id) + s * (a >= 2 ? 5 : 1));
     else if (n > 0)
         p_set(id, p_get(id) + (s > 0 ? 1 : -1));
     else
@@ -371,6 +391,10 @@ static const char *p_name(uint32_t id)
     case P_SPACE: return "SPACE";
     case P_SPRES: return "SPACE MIX";
     case P_OLEVEL: return "LEVEL";
+    case P_BPM: return "TEMPO";
+    case P_SWING: return "SWING";
+    case P_CHAOS: return "CHAOS";
+    case P_GSCALE: return "GATES";
     case P_LSHAPE: return "SHAPE";
     case P_LRATE: return "RATE";
     case P_LMODE: return "MODE";
@@ -486,6 +510,18 @@ static void p_text(uint32_t id, int32_t v, char *b)
     case P_FIN: str_cpy(b, FI_NAME[v], 12); break;
     case P_FOUT: str_cpy(b, FO_NAME[v], 12); break;
     case P_SPACE: str_cpy(b, SP_NAME[v], 12); break;
+    case P_BPM:
+        fmt_int(b, v);
+        str_cpy(b + str_len(b), " BPM", 5);
+        break;
+    case P_GSCALE:                               /* (as drawn: 100 %) */
+        fmt_int(b, v * 2);
+        str_cpy(b + str_len(b), " %", 3);
+        break;
+    case P_SWING:
+    case P_CHAOS:
+        fmt_int(b, v);
+        break;
     case P_LSHAPE: str_cpy(b, MS_NAME[v], 12); break;
     case P_LMODE: str_cpy(b, MM_NAME[v], 12); break;
     case P_LRATE: {                              /* 0.01 Hz x 2000^(rate / 100) */
@@ -599,6 +635,26 @@ static void patch_set(const lil_par_t *q, const char *name)
 }
 #include "perform.c"                     /* (the GESTURE loop and the SNAPSHOTS) */
 
+/* a new rhythm of style st (-1: another than the one playing), for the patch as it is, and playing from the top */
+static void rhy_new(int st)
+{
+    uint32_t got;
+    if (st < 0) {
+        st = (int)(next_seed() % (RS_N - 1u));
+        if (st >= (int)par.rhy.style)
+            st++;
+    }
+    got = rhythm_draw(&par, next_seed(), st);
+    if (!par.rhy.bpm)
+        par.rhy.bpm = 120;
+    if (!par.rhy.gscale)
+        par.rhy.gscale = 50;
+    par.rhy.on = 1;
+    rhy_reset = 1;
+    say(RS_NAME[got % RS_N], 1200);
+    ui.force = 1;
+}
+
 /* a new patch: of family fam, or (-1) of another family than the one playing */
 static void new_patch(int fam)
 {
@@ -610,6 +666,7 @@ static void new_patch(int fam)
             fam++;
     }
     f = patch_draw(&q, next_seed(), fam);
+    q.rhy = par.rhy;                             /* (the RHYTHM plays on over a new patch) */
     ui.fam = (uint8_t)f;
     patch_set(&q, FAM[f].name);
     say("NEW PATCH", 1200);
@@ -670,6 +727,7 @@ static void save_short(void)
     if (ui.page == PG_PRESET) {                  /* the factory patch shown: loaded */
         static lil_par_t q;
         factory_load(&q, ui.pre_ix);
+        q.rhy = par.rhy;
         ui.fam = FACTORY[ui.pre_ix].fam;
         patch_set(&q, FACTORY[ui.pre_ix].name);
         flash("PRESET", FACTORY[ui.pre_ix].name, C_PRE);
@@ -881,6 +939,39 @@ static void ui_input(void)
         }
     }
     /* the keys */
+    if ((down >> KEY_RHY) & 1u) {                /* the RHYTHM's key */
+        ui.rhy_down = 1;
+        ui.rhy_sh = (uint8_t)sh;
+        ui.rhy_done = 0;
+        ui.rhy_t0 = fm1_ms;
+    }
+    if (ui.rhy_down) {
+        if ((up >> KEY_RHY) & 1u) {
+            ui.rhy_down = 0;
+            if (!ui.rhy_done) {
+                if (ui.rhy_sh)                   /* SHIFT + it: a new rhythm (another style), playing */
+                    rhy_new(-1);
+                else {                           /* on, or off */
+                    uint32_t c, any = 0;
+                    for (c = 0; c < NCH; c++)
+                        any |= par.rhy.lane[c].mode != RM_OFF;
+                    if (!par.rhy.on && !any)
+                        rhy_new(-1);             /* (none drawn yet: one) */
+                    else {
+                        par.rhy.on = (uint8_t)!par.rhy.on;
+                        rhy_reset = 1;
+                        say(par.rhy.on ? "RHYTHM ON" : "RHYTHM OFF", 900);
+                    }
+                }
+            }
+        } else if (!ui.rhy_done && !ui.rhy_sh && (uint32_t)(fm1_ms - ui.rhy_t0) >= 800u) {
+            ui.rhy_done = 1;                     /* held: the TEMPO page, or back */
+            if (ui.page == PG_TEMPO)
+                page_back();
+            else
+                goto_page(PG_TEMPO);
+        }
+    }
     if (ui.page == PG_SNAP && ui.snap_key >= 0) {   /* a snapshot's key: let go soon, recalled; held, stored */
         uint32_t kk = (uint32_t)ui.snap_key, sw = (uint32_t)white_ix(kk);
         if ((up >> kk) & 1u) {
@@ -907,6 +998,8 @@ static void ui_input(void)
             ui.force = 1;
             continue;
         }
+        if (k == KEY_RHY)
+            continue;                            /* (its own, above) */
         if (k == KEY_MUTE[0] && sh) {            /* SHIFT + black key 1: the chosen channel, every parameter at random */
             patch_random_channel(&par, ui.sel, next_seed());
             say("CHANNEL RANDOM", 1000);
@@ -946,6 +1039,8 @@ static void ui_input(void)
     if (s) {
         if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
             mtx_from(s);
+        else if (ui.page == PG_TEMPO)            /* the TEMPO page: PRESETS through the styles, a rhythm of each */
+            rhy_new((int)((par.rhy.style + RS_N + (s > 0 ? 1u : RS_N - 1u)) % RS_N));
         else if (ui.page == PG_SES)
             ui.ses_ix = (uint8_t)clampi(ui.ses_ix + (s > 0 ? 1 : -1), 1, (int32_t)SES_SLOTS);
         else if (ui.page == PG_ASK)
@@ -962,7 +1057,7 @@ static void ui_input(void)
             if (s)
                 mtx_knob(k, s, sh);
         }
-    } else if (ui.page <= PG_OFX) {
+    } else if (ui.page <= PG_OFX || ui.page == PG_TEMPO) {
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
@@ -1057,6 +1152,12 @@ static void ui_leds(void)
         led_dim_key(14u + KEY_MUTE[c], 1);
     }
     fm1_led_key(14u + KEY_SHIFT, (ui.keys >> KEY_SHIFT) & 1u);
+    if (ui.beat_seen != rhy_beat) {              /* the RHYTHM's key: lit while it plays, dark a moment on each beat */
+        ui.beat_seen = rhy_beat;
+        ui.beat_at = fm1_ms;
+    }
+    fm1_led_key(14u + KEY_RHY, par.rhy.on && (uint32_t)(fm1_ms - ui.beat_at) >= 70u);
+    led_dim_key(14u + KEY_RHY, 1);
 }
 
 /* ------------------------------------------------------------ the screen --- */
@@ -1183,7 +1284,8 @@ static void draw_pan(void)
 }
 
 /* a page: its title (and what its switches are), then four rows -- name, value, a bar under a value */
-static uint16_t page_col(void) { return ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
+#define C_RHY RGB(255, 120, 80)
+static uint16_t page_col(void) { return ui.page == PG_TEMPO ? C_RHY : ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
 #define TITLE_H 36               /* a page's title band, then four rows of ROW_H */
 #define ROW_H 51
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
@@ -1209,6 +1311,9 @@ static void draw_title(void)
         str_cpy(t + n, "  CH ", 6);
         t[n + 5] = (char)('1' + ui.sel);
         t[n + 6] = 0;
+    }
+    if (ui.page == PG_TEMPO) {                   /* the RHYTHM: its style, or OFF */
+        str_cpy(t, par.rhy.on ? RS_NAME[par.rhy.style % RS_N] : "RHYTHM OFF", sizeof t);
     }
     if (show_shift())                            /* (SHIFT held: the switches) */
         str_cpy(t + str_len(t), "  SHIFT", 8);
@@ -1647,6 +1752,10 @@ static void ui_draw(void)
         return;
     }
     if (ui.page != PG_MAIN) {
+        if (ui.page == PG_TEMPO && ui.shown_page == PG_TEMPO && (int32_t)ui.shown_snap != par.rhy.on * 256 + par.rhy.style) {
+            ui.shown_snap = par.rhy.on * 256 + par.rhy.style;   /* (the style or OFF changed: the title anew) */
+            ui.force = 1;
+        }
         draw_page();
         ui.shown_page = ui.page;
         ui.shown_sel = ui.sel;

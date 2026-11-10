@@ -120,10 +120,27 @@ typedef struct {
     int16_t level;               /* the main level: -30 .. +30 dB (500: 0 dB), before the MASTER knob */
     uint8_t mute, rsv;
 } out_par_t;
+/* the RHYTHM (build 6): a lane a channel -- its steps, played on a clock, gating, choking, kicking or accenting it */
+enum { RM_OFF, RM_CHOP, RM_CHOKE, RM_KICK, RM_ACCENT, RM_N };
+#define NDIV 8                   /* a lane's step: 1/2, 1/4, 1/8, 1/8 T, 1/16, 1/16 Q (5), 1/16 T, 1/32 */
+typedef struct {
+    uint32_t hits, acc;          /* its steps (a bit each, 32 at most): a hit; an accent */
+    uint8_t mode, len, div, gate;   /* RM_*; 1 .. 32 steps; NDIV's; how long a hit holds, % of a step (1 .. 100) */
+    uint8_t depth, prob, ratchet, mut;   /* how far the gate closes, %; a hit's chance, %; a roll's chance, %; the
+                                          * steps' chance to flip each round, % (a Turing machine's) */
+} lane_t;
+typedef struct {
+    lane_t lane[NCH];
+    uint16_t bpm;                /* 10 .. 500 */
+    uint8_t on, style;           /* playing; the style it was drawn in */
+    uint8_t swing, chaos, gscale, rsv;   /* 0 .. 100: the off steps late; hits skipped and ghosts added; the gates'
+                                          * length (50: as drawn) */
+} rhy_par_t;
 typedef struct {
     ch_par_t ch[NCH];
     slot_par_t slot[NSLOT];
     out_par_t out;
+    rhy_par_t rhy;               /* (build 6: at the end -- an older record, shorter, reads with the rhythm off) */
 } lil_par_t;
 static lil_par_t par;
 
@@ -145,6 +162,7 @@ typedef struct {
     int32_t opg, rail, railn, slew, oplp;   /* the op-amp (Q12, Q15) */
     int32_t irail, irailn;       /* .. 1 / its rails (Q15 out of Q15) */
     int32_t fgain;               /* the fold's drive (Q12), 0: no fold */
+    int32_t kick;                /* the RHYTHM's KICK: a burst of noise into the input, decaying (Q15) */
     int32_t thr;                 /* the overload's threshold (Q15) */
     uint32_t lahead;             /* the limiter's look-ahead, samples */
     int32_t rel;                 /* .. its release a sample (Q15) */
@@ -900,6 +918,12 @@ static FAST int32_t ch_tick(uint32_t c, int32_t x)
 {
     ch_rt_t *k = &chr[c];
     int32_t u, bp, lp, hp, a;
+    if (k->kick) {                               /* (the RHYTHM's KICK: a burst into the loop) */
+        x += mulq15(rnd_bi(&k->r), k->kick);
+        k->kick -= (k->kick >> 7) + 1;
+        if (k->kick < 0)
+            k->kick = 0;
+    }
     /* the noise, before the gain */
     if (k->namp) {
         int32_t w = rnd_bi(&k->r), n;
@@ -1219,6 +1243,135 @@ static void out_job(void *ctx)
 
 /* ---------------------------------------------- a block, from the ISR --- */
 /* the gains a channel glides to this block, and their steps */
+/* -------------------------------------------------------------- the RHYTHM, a block at a time (the ISR) --- *
+ * Each lane's clock is a phase: a step a wrap. A step with a hit (its chance, CHAOS's ghosts) triggers it -- late if
+ * SWING says so, sometimes rolled (ratchets: 2 .. 4 hits in the step). A hit opens its gate for its length, accented
+ * or not, then closes it over a few ms; CHOP gates what is heard, CHOKE the loop, KICK the loop with a burst into it,
+ * ACCENT pushes GAIN and FOLD up a moment instead. A lane with mutation flips its steps now and then each round */
+static const uint8_t DIV2[NDIV] = {1, 2, 4, 6, 8, 10, 12, 16};   /* steps a beat, x 2 */
+static struct {
+    uint32_t ph, hits_src, hits, rph;            /* the phase; the steps as the panel has them, as playing (mutated) */
+    uint8_t step, pend, ratch, rk;               /* the step; a swung hit waiting; the roll's hits, the next */
+    uint8_t pacc, rsv[3];
+    int32_t env, lvl;                            /* the gate's opening (Q15); the level it opens to */
+    uint32_t hold;                               /* blocks it stays open */
+} lrt[NCH];
+static int32_t rhy_g[NCH] = {Q15, Q15, Q15, Q15, Q15, Q15};   /* each channel's gate this block (Q15) */
+static uint8_t rhy_gmode[NCH];                   /* .. how it is applied (RM_*) */
+static int32_t rhy_acc[NCH];                     /* ACCENT's push, decaying (Q15) */
+static volatile uint8_t rhy_reset = 1;           /* (the main loop: from the top -- every lane on its first step) */
+static volatile uint32_t rhy_beat;               /* the beats counted (the lights) */
+static uint32_t rhy_bph;
+static rnd_t rhy_r = {0x2468ACE1u};
+static void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t inc)
+{
+    uint32_t sb = inc ? 0xFFFFFFFFu / inc : 1000u, g = L->gate * (uint32_t)(par.rhy.gscale ? par.rhy.gscale : 50) / 50u;
+    lrt[c].env = lrt[c].lvl = accent ? Q15 : 21000;
+    lrt[c].hold = sb * (g > 100u ? 100u : g) / 100u;   /* (the step's blocks, the gate's share) */
+    if (L->mode == RM_CHOKE || L->mode == RM_KICK) {   /* (open at least as long as the loop takes to come round its
+                                                        * limiter's look-ahead, and ~20 ms: else the struck loop is
+                                                        * heard only after its gate has shut) */
+        uint32_t mn = chr[c].lahead / CTL + 28u;
+        if (lrt[c].hold < mn)
+            lrt[c].hold = mn;
+    }
+    if (L->mode == RM_KICK)
+        chr[c].kick = accent ? 30000 : 20000;
+    else if (L->mode == RM_ACCENT)
+        rhy_acc[c] = accent ? Q15 : 20000;
+}
+static void rhythm_block(void)
+{
+    uint32_t c, bpm = (uint32_t)clampi(par.rhy.bpm, 10, 500);
+    if (!par.rhy.on) {
+        for (c = 0; c < NCH; c++) {
+            rhy_gmode[c] = RM_OFF;
+            rhy_g[c] = Q15;
+            rhy_acc[c] = 0;
+        }
+        rhy_reset = 1;
+        return;
+    }
+    if (rhy_reset) {                             /* (from the top: each lane's first step on the next block) */
+        rhy_reset = 0;
+        for (c = 0; c < NCH; c++) {
+            lrt[c].ph = 0xFFFFFFFFu;
+            lrt[c].step = 0xFF;
+            lrt[c].pend = lrt[c].ratch = 0;
+            lrt[c].env = 0;
+            lrt[c].hold = 0;
+        }
+        rhy_bph = 0xFFFFFFFFu;
+    }
+    {   /* the beat, for the lights */
+        uint32_t b0 = rhy_bph;
+        rhy_bph += bpm * 2u * 25971u;
+        if (rhy_bph < b0)
+            rhy_beat++;
+    }
+    for (c = 0; c < NCH; c++) {
+        const lane_t *L = &par.rhy.lane[c];
+        uint32_t inc, p0, len = (uint32_t)clampi(L->len, 1, 32);
+        int32_t floor;
+        rhy_gmode[c] = L->mode < RM_N ? L->mode : RM_OFF;
+        if (L->mode == RM_OFF || L->mode >= RM_N) {
+            rhy_g[c] = Q15;
+            continue;
+        }
+        if (lrt[c].hits_src != L->hits) {        /* (the panel's steps, anew: played from now) */
+            lrt[c].hits_src = L->hits;
+            lrt[c].hits = L->hits;
+        }
+        inc = bpm * DIV2[L->div < NDIV ? L->div : 4] * 25971u;   /* (2^32 x CTL / (120 FS) a BPM a half-step) */
+        p0 = lrt[c].ph;
+        lrt[c].ph += inc;
+        if (lrt[c].ph < p0 || lrt[c].step == 0xFF) {   /* a new step */
+            uint32_t bit, rn = rnd_next(&rhy_r);
+            int fire;
+            if (lrt[c].step == 0xFF)
+                lrt[c].ph = 0;
+            lrt[c].step = (uint8_t)(lrt[c].step == 0xFF ? 0u : (lrt[c].step + 1u) % len);
+            if (!lrt[c].step && L->mut) {        /* (a round done: the steps mutate) */
+                uint32_t i;
+                for (i = 0; i < len; i++)
+                    if ((rnd_next(&rhy_r) >> 25) < (uint32_t)L->mut * 128u / 100u)
+                        lrt[c].hits ^= 1u << i;
+            }
+            bit = lrt[c].hits >> lrt[c].step & 1u;
+            fire = bit && (rn >> 25) < (uint32_t)(L->prob ? L->prob : 100) * 128u / 100u * (100u - par.rhy.chaos / 2u) / 100u;
+            if (!bit && (rn & 0x7Fu) < (uint32_t)par.rhy.chaos / 4u)
+                fire = 2;                        /* (CHAOS: a ghost) */
+            if (fire) {
+                int acc = fire == 1 && (L->acc >> lrt[c].step & 1u);
+                lrt[c].ratch = (uint8_t)(((rn >> 8) & 0x7Fu) < (uint32_t)L->ratchet * 128u / 100u ? 2u + ((rn >> 16) % 3u) : 0u);
+                lrt[c].rk = 1;
+                if (par.rhy.swing && (lrt[c].step & 1u)) {   /* (an off step: late) */
+                    lrt[c].pend = 1;
+                    lrt[c].pacc = (uint8_t)acc;
+                } else
+                    rhy_trigger(c, L, acc, inc);
+            }
+        }
+        if (lrt[c].pend && lrt[c].ph >= (uint32_t)par.rhy.swing * 14316557u) {   /* (up to a third of a step late) */
+            lrt[c].pend = 0;
+            rhy_trigger(c, L, lrt[c].pacc, inc);
+        }
+        if (lrt[c].ratch && lrt[c].rk < lrt[c].ratch && lrt[c].ph >= lrt[c].rk * (0xFFFFFFFFu / lrt[c].ratch)) {
+            lrt[c].rk++;                         /* (a roll: its next hit, softer) */
+            rhy_trigger(c, L, 0, inc * lrt[c].ratch);
+        }
+        if (lrt[c].hold)
+            lrt[c].hold--;
+        else
+            lrt[c].env -= lrt[c].env >> 2;      /* (closing: ~3 ms) */
+        floor = Q15 - L->depth * Q15 / 100;
+        rhy_g[c] = floor + mulq15((L->mode == RM_KICK ? 2 * Q15 : Q15) - floor, lrt[c].env);   /* (KICK: a +6 dB punch
+                                                  * while open -- the struck loop past its edge, at full strength) */
+    }
+    for (c = 0; c < NCH; c++)                    /* ACCENT's push dies away (~25 ms) */
+        rhy_acc[c] -= rhy_acc[c] >> 5;
+}
+
 static void ch_gains(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
@@ -1229,6 +1382,11 @@ static void ch_gains(uint32_t c)
     tl = on ? lvl_q15(p->level) : 0;
     tpl = p->mainmix ? sin_ph(ph + 0x40000000u) : 0;
     tpr = p->mainmix ? sin_ph(ph) : 0;
+    if (rhy_gmode[c] == RM_CHOP) {               /* the RHYTHM: what is heard gated, the loop running on .. */
+        tpl = mulq15(tpl, rhy_g[c]);
+        tpr = mulq15(tpr, rhy_g[c]);
+    } else if (rhy_gmode[c] == RM_CHOKE || rhy_gmode[c] == RM_KICK)
+        tl = mulq15(tl, rhy_g[c]);               /* .. or the loop itself choked */
     t1 = on ? snd_q15(p->send1) : 0;
     t2 = on ? snd_q15(p->send2) : 0;
 #define GLIDE(cur, d, t) do { (d) = ((t) - (cur)) / (int32_t)CTL; } while (0)
@@ -1269,10 +1427,15 @@ static void mix_block(int32_t *out)
     midi_main_drain();
     for (c = 0; c < NSLOT; c++)
         eff_slot[c] = par.slot[c];
+    rhythm_block();
     for (c = 0; c < NCH; c++) {                  /* the modulation, then what it means */
         mod_block(c);
         eff_ch[c] = par.ch[c];
         mod_apply(c, &eff_ch[c], &eff_slot[c]);
+        if (rhy_acc[c] > 64) {                   /* (the RHYTHM's ACCENT: GAIN and FOLD pushed, never the pitch) */
+            eff_ch[c].gain = (int16_t)clampi(eff_ch[c].gain + mulq15(rhy_acc[c], 250), 0, PMAX);
+            eff_ch[c].fold = (int16_t)clampi(eff_ch[c].fold + mulq15(rhy_acc[c], 400), 0, PMAX);
+        }
         ch_coef(c);
         ch_gains(c);
     }

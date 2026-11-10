@@ -1,5 +1,15 @@
 # Changelog
 
+## Build 6 (2026-11-10)
+
+- The RHYTHM, stage one: a lane a channel (up to 32 steps, eight step lengths, accents, gate, depth, chance, rolls,
+  mutation), played CHOP, CHOKE, KICK or ACCENT; sixteen styles (INDUSTRIAL, POWER NOISE, BROKEN, AKSAK, POLYMETER,
+  POLYRHYTHM, MARCH, HALFTIME, GABBER, ROLLS, CHOP, TRIBAL, TURING, ERRATIC, SPARSE, CLOCKWORK) drawn for the patch
+  as it sounds. The 2nd black key from the right: on and off; SHIFT +: a new rhythm; held: the TEMPO page (10 .. 500
+  BPM, SWING, CHAOS, GATES; PRESETS through the styles).
+- Kept with snapshots and sessions; a new patch keeps it playing. Sessions saved by builds 4 and 5 load, the rhythm
+  off.
+
 ## Build 5 (2026-11-10)
 
 - Six effects in the rack, none moving pitch: CYCLES (WAVELOSS, SPUTTER, WAVESET), REED (a clarinet's bore, its

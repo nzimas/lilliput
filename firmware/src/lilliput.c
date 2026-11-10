@@ -61,6 +61,7 @@ bootguard_t bootguard __attribute__((section(".noinit")));
 #undef NLAYER
 #include "mixer.c"
 #include "patch.c"
+#include "rhythm.c"
 #include "lui.c"
 #include "lses.c"
 #include "setup.c"

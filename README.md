@@ -88,6 +88,9 @@ going back to Tonitor erases Lilliput's sessions.)
 | **White key 16** | its **MAIN MIX** on or off. |
 | **Black keys 1–6** | mute channels 1–6 (lit: muted). |
 | **SHIFT + black key 1** | the chosen channel **at random**: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept. |
+| **Black key 10** (2nd from the right) | the **RHYTHM** on or off (the first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
+| **SHIFT + black key 10** | a **new rhythm**, of another style, playing. |
+| **Black key 10** held 0.8 s | the **TEMPO** page (again: back). See [Rhythm](#rhythm). |
 | **SHIFT + black key 7**, held | the CPU page. |
 | **SHIFT + black key 8** | the screen reader on or off. |
 | **Black key 11** (last) | **SHIFT**. |
@@ -256,6 +259,60 @@ GAIN, NOISE, FREQ, MID, HIGH, LOW, LIMIT, PROTECT, LEVEL, PAN, SEND 1, SEND 2, t
 and its mix, or either LFO's rate — by an amount, −100 … +100. The panel's values stay where you set them; the
 sound moves round them. Every new patch comes with its family's motion; **SHIFT + SEQ** throws the chosen channel's
 modulation anew.
+
+## Rhythm
+
+The RHYTHM turns the mixer into a rhythmic noise machine: it plays the channels in time — gating them, choking them,
+striking them, pushing them — in structures drawn from a wide palette of styles.
+
+**Each channel gets a lane**: its steps (up to 32), its step's length (1/2, 1/4, 1/8, 1/8 triplets, 1/16, 1/16
+quintuplets, 1/16 triplets, 1/32), its hits and accents, how long a hit holds, how far the gate closes, each hit's
+chance, its chance of a roll (2 to 4 hits in a step) and its mutation (its steps flipping now and then, each
+round). Lanes of different lengths drift against each other (polymeter); lanes of different step lengths run in
+different time (polyrhythm). A lane plays its channel one of four ways:
+
+- **CHOP** — what you hear is gated: mutes and unmutes in time. The loop rings on behind the gate.
+- **CHOKE** — the loop itself is gated: it dies between the hits and grows back on each, a swell.
+- **KICK** — the loop is choked, and struck at each hit by a burst of noise, pushed past its edge (+6 dB) while it
+  is open: the loop's own sound made a drum.
+- **ACCENT** — no gate: each hit pushes GAIN and FOLD up for a moment. A drone pulses in timbre, never in pitch.
+
+**SHIFT + the 2nd black key from the right** draws a new rhythm for the patch as it is: the darkest loop gets the
+kick's part, the brightest the hats', those between the snare's and the percussion's; a channel with its fader down
+is left out, and now and then a drone is left free under it all. A loop slow to grow (a slow limiter, a narrow
+band-pass, a loop through the sends) is chopped rather than choked. The styles:
+
+| Style | |
+| --- | --- |
+| INDUSTRIAL | four on the floor, the backbeat, off-beat hats |
+| POWER NOISE | 4/4 kicks, a drone chopped in sixteenths, accents |
+| BROKEN | syncopated Euclidean kicks and snares (Toussaint's evenly spread hits), swung |
+| AKSAK | odd meters as groups: 5 (3+2), 7 (2+2+3), 9 (2+2+2+3), 11 (3+3+3+2), 13 (3+3+3+2+2) |
+| POLYMETER | lanes of 16, 12, 10, 9, 7, 5, 3 steps against each other |
+| POLYRHYTHM | quarters against triplets against quintuplets against eighths |
+| MARCH | snare rolls, ratchets, a military kick |
+| HALFTIME | slow and heavy, long gates |
+| GABBER | a kick on every beat, noise bursts between |
+| ROLLS | sparse hits rolled into bursts |
+| CHOP | drones chopped in sixteenths and thirty-seconds, holes by chance |
+| TRIBAL | tresillo, cinquillo, clave, the 12/8 bell |
+| TURING | random steps that repeat and slowly mutate |
+| ERRATIC | uneven lengths, steps and chances, swung, ghosts |
+| SPARSE | few hits, long choked swells |
+| CLOCKWORK | dividers — every 2, 3, 4, 6, 8 steps — gated hard |
+
+**The TEMPO page** (the key held 0.8 s): its title is the style playing (or RHYTHM OFF).
+
+| KNOB | |
+| --- | --- |
+| 1 | **TEMPO**, 10 … 500 BPM: a BPM a detent, five when turned fast |
+| 2 | **SWING**: the off steps late, up to a third of a step |
+| 3 | **CHAOS**: hits skipped, ghost hits added |
+| 4 | **GATES**: every gate shorter or longer (100 %: as drawn) |
+| PRESETS | the styles: a new rhythm of each, playing |
+
+A new patch keeps the rhythm playing (its lanes stay with the channels); snapshots and sessions keep their own. The
+rhythm's changes — on, off, a new one, the tempo — are gestures like any other: the gesture loop records them.
 
 ## Gestures
 

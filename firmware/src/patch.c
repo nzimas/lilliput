@@ -66,6 +66,8 @@ static void patch_plain(lil_par_t *q)
     q->out.space = SP_HALL;
     q->out.spres = 250;
     q->out.level = 500;
+    q->rhy.bpm = 120;                            /* (the RHYTHM: off, 120 BPM, its gates as drawn) */
+    q->rhy.gscale = 50;
 }
 
 /* ----------------------------------------------------------- families --- */
@@ -675,7 +677,10 @@ static void trim_poll(void)
             trim.woke_at = fm1_ms;
             for (c = 0; c < NCH; c++) {
                 ch_par_t *p = &par.ch[c];
-                if (p->level && !p->mute && ch_meter[c] < 600) {
+                if (p->level && !p->mute && ch_meter[c] < 600 &&
+                    !(par.rhy.on && (par.rhy.lane[c].mode == RM_CHOKE || par.rhy.lane[c].mode == RM_KICK))) {
+                    /* (a loop the RHYTHM chokes is quiet on purpose between its hits: left alone; one it CHOPs rings
+                     * on behind its gate, as heard here) */
                     p->gain = (int16_t)clampi(p->gain + 63, 0, PMAX);   /* (+3 dB) */
                     p->over = (int16_t)clampi(p->over + 60, 0, PMAX);   /* (and the protection a step higher: a loop
                                                                          * held silent by its own trips comes back) */

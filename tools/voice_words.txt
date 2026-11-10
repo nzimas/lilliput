@@ -549,3 +549,26 @@ sputter	S P AH1 T ER0
 unit	Y UW1 N AH0 T
 waveloss	W EY1 V L AO2 S
 waveset	W EY1 V S EH2 T
+accent	AE1 K S EH0 N T
+aksak	AA1 K S AA0 K
+bpm	B IY1 T S P ER0 M IH1 N AH0 T
+chaos	K EY1 AA0 S
+choke	CH OW1 K
+chop	CH AA1 P
+clockwork	K L AA1 K W ER2 K
+erratic	IH0 R AE1 T IH0 K
+gabber	G AE1 B ER0
+halftime	HH AE1 F T AY2 M
+industrial	IH0 N D AH1 S T R IY0 AH0 L
+kick	K IH1 K
+march	M AA1 R CH
+polymeter	P AA1 L IY0 M IY2 T ER0
+polyrhythm	P AA1 L IY0 R IH2 DH AH0 M
+power	P AW1 ER0
+rhythm	R IH1 DH AH0 M
+rolls	R OW1 L Z
+sparse	S P AA1 R S
+swing	S W IH1 NG
+tempo	T EH1 M P OW2
+tribal	T R AY1 B AH0 L
+turing	T UH1 R IH0 NG
