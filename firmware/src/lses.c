@@ -359,10 +359,11 @@ typedef struct {
 } ses_glob_t;
 typedef struct {
     uint16_t snap_used;
-    uint8_t morph_hs, rsv;
-    uint16_t gn, rsv2;           /* the gesture loop's changes (0: none) */
-    uint32_t glen;               /* .. its length, ms */
+    uint8_t morph_hs, gfmt;      /* gfmt 1: a gesture loop a channel (build 12); 0: one loop for all (before) */
+    uint16_t gn, rsv2;           /* the gesture loops' changes, all together (0: none) */
+    uint32_t glen;               /* (gfmt 0: the loop's length, ms) */
 } ses_perf_t;
+typedef struct { uint16_t n, rsv; uint32_t len; } ses_gl_t;   /* (gfmt 1: a channel's loop, its changes, its length) */
 static void ses_emit(void)
 {
     ses_glob_t g;
@@ -378,16 +379,27 @@ static void ses_emit(void)
         memset(&pf, 0, sizeof pf);
         pf.snap_used = snap_used;
         pf.morph_hs = morph_hs;
-        pf.gn = gs.st == GS_REC ? 0u : gs.n;     /* (a loop being recorded is not kept) */
-        pf.glen = gs.len;
+        pf.gfmt = 1;
+        for (i = 0; i < NCH; i++)
+            if (gl_state(i) != GS_REC)           /* (a loop being recorded is not kept) */
+                pf.gn = (uint16_t)(pf.gn + gl[i].n);
         ses_out(&pf, sizeof pf);
         for (i = 0; i < NSNAP; i++)
             if (snap_has(i))
                 ses_out(&snap[i], sizeof snap[i]);
-        if (pf.gn) {
-            ses_out(&g_s0, sizeof g_s0);
-            ses_out(gev, pf.gn * (uint32_t)sizeof gev[0]);
+        for (i = 0; i < NCH; i++) {
+            ses_gl_t e;
+            int keep = gl_state(i) != GS_REC && gl[i].n;
+            memset(&e, 0, sizeof e);
+            e.n = keep ? gl[i].n : 0u;
+            e.len = keep ? gl[i].len : 0u;
+            ses_out(&e, sizeof e);
         }
+        for (i = 0; i < NCH; i++)
+            if (gl_state(i) != GS_REC && gl[i].n) {
+                ses_out(g_s0[i], sizeof g_s0[i]);
+                ses_out(&gev[gl[i].off], gl[i].n * (uint32_t)sizeof gev[0]);
+            }
     }
 }
 static int ses_save(uint32_t num)
@@ -432,6 +444,65 @@ static void par_tail(lil_par_t *q, uint32_t psz)
         q->rhy.gscale = 50;
     }
 }
+/* the loops read (gfmt 1): each channel's changes in turn from gev[0]; a change not the channel's: its loop dropped */
+static ses_gl_t ses_sgl[NCH];   /* (the loops' heads, as read) */
+static void ses_gl_take(void)
+{
+    const ses_gl_t *t = ses_sgl;
+    uint32_t c, i, li, at = 0;
+    g_used = 0;
+    for (c = 0; c < NCH; c++) {
+        uint32_t n = t[c].n, ok = 1;
+        for (i = 0; i < n; i++)
+            ok &= g_owner(gev[at + i].w, &li) == (int)c;
+        if (ok && n) {
+            for (i = 0; i < n; i++)              /* (down, or in place: a forward copy is safe) */
+                gev[g_used + i] = gev[at + i];
+            gl[c].off = g_used;
+            gl[c].n = (uint16_t)n;
+            gl[c].len = t[c].len >= 200u ? t[c].len : 200u;
+            g_used = (uint16_t)(g_used + n);
+        } else {
+            gl[c].off = g_used;
+            gl[c].n = 0;
+            gl[c].len = 0;
+        }
+        gl[c].play = 0;
+        gl_touch(c);
+        at += n;
+    }
+}
+/* an older session's one loop (n changes, len ms; its start in g_prev): each channel's changes its own loop, as long;
+ * the rest (the output's, the RHYTHM's) left out */
+static void ses_gl_split(uint32_t n, uint32_t len)
+{
+    uint32_t c, i, j, li;
+    for (i = j = 0; i < n; i++)                  /* (what is no channel's: out) */
+        if (g_owner(gev[i].w, &li) >= 0)
+            gev[j++] = gev[i];
+    n = j;
+    for (i = 1; i < n; i++) {                    /* (by channel, each in time: a stable insertion sort, at load only) */
+        gev_t e = gev[i];
+        int ce = g_owner(e.w, &li);
+        for (j = i; j > 0 && g_owner(gev[j - 1u].w, &li) > ce; j--)
+            gev[j] = gev[j - 1u];
+        gev[j] = e;
+    }
+    g_used = 0;
+    for (c = 0; c < NCH; c++) {
+        gl[c].off = g_used;
+        gl[c].n = 0;
+        while (g_used < n && g_owner(gev[g_used].w, &li) == (int)c) {
+            g_used++;
+            gl[c].n++;
+        }
+        gl[c].len = gl[c].n ? (len >= 200u ? len : 200u) : 0u;
+        gl[c].play = 0;
+        for (li = 0; li < LW; li++)
+            g_s0[c][li] = ((const uint16_t *)&g_prev)[g_word(c, li)];
+        gl_touch(c);
+    }
+}
 static int ses_load(uint32_t num)
 {
     static lil_par_t q;
@@ -465,18 +536,34 @@ static int ses_load(uint32_t num)
                     par_tail(&snap[i], psz);
                 ns++;
             }
-        if (pf.gn) {
-            ses_in(pass ? &g_s0 : 0, psz);
+        if (pf.gfmt == 0 && pf.gn) {             /* (one loop for all: its start into g_prev, sorted out below) */
+            ses_in(pass ? &g_prev : 0, psz);
             if (pass)
-                par_tail(&g_s0, psz);
+                par_tail(&g_prev, psz);
             ses_in(pass ? gev : 0, pf.gn * (uint32_t)sizeof gev[0]);
-        }
+        } else if (pf.gfmt == 1) {
+            uint32_t c, at = 0;
+            for (c = 0; c < NCH; c++) {
+                ses_in(&ses_sgl[c], sizeof ses_sgl[c]);
+                at += ses_sgl[c].n;
+            }
+            if (at != pf.gn)
+                return SES_FAIL;
+            for (c = 0, at = 0; c < NCH; c++)
+                if (ses_sgl[c].n) {
+                    ses_in(pass ? g_s0[c] : 0, sizeof g_s0[c]);
+                    ses_in(pass ? &gev[at] : 0, ses_sgl[c].n * (uint32_t)sizeof gev[0]);
+                    at += ses_sgl[c].n;
+                }
+        } else
+            return SES_FAIL;
         if (ss.pos != h.len || ss.crc != h.body_crc)
             return SES_FAIL;
     }
     g.patch[sizeof g.patch - 1u] = 0;
     ui.sel = (uint8_t)(g.sel < NCH ? g.sel : 0u);
-    ui.fam = ui.recipe = (uint8_t)(g.rsv[0] < NFAM ? g.rsv[0] : 0u);
+    ui.fam = (uint8_t)(g.rsv[0] < NFAM ? g.rsv[0] : 0u);
+    ui.recipe = ANY_RECIPE;                      /* (nothing chosen: HOME draws from any) */
     for (i = 0; i < NCH; i++)
         mod_check(&q.ch[i].mod);
     for (i = 0; i < NSNAP; i++)
@@ -488,17 +575,12 @@ static int ses_load(uint32_t num)
     snap_used = pf.snap_used;
     snap_cur = -1;
     morph_hs = (uint8_t)(pf.morph_hs <= 60u ? pf.morph_hs : 0u);
+    g_rec = -1;                                  /* the session's gesture loops, stopped (PLAY plays each) */
+    if (pf.gfmt == 0)
+        ses_gl_split(pf.gn, pf.glen);
+    else
+        ses_gl_take();
     patch_set(&q, g.patch);
-    gs.st = GS_IDLE;                             /* the session's gesture loop, stopped (PLAY plays it) */
-    gs.play = 0;
-    gs.n = pf.gn;
-    gs.len = pf.glen ? pf.glen : 200u;
-    memset(g_touched, 0, sizeof g_touched);
-    for (i = 0; i < gs.n; i++)
-        if (gev[i].w < NWORD)
-            g_touched[gev[i].w >> 3] |= (uint8_t)(1u << (gev[i].w & 7u));
-        else
-            gs.n = 0;                            /* (a change beyond the mixer: the loop not trusted) */
     (void)ns;
     ses.current = (uint16_t)num;
     return SES_OK;

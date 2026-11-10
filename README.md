@@ -25,9 +25,9 @@ fixed point.
 - **A rack of seven effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
   on its channel, or fed from a send bus, or from the slot before it, into a return bus.
 - **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with six spaces.
-- **Twenty-four recipes**: archetypes, not presets. PRESETS shows one, and **HOME draws a new patch from it** — new
-  connections, new settings and new motion for the whole mixer, different every time but always in the recipe's
-  direction. Every patch drawn sounds at once, and moves.
+- **Twenty-four recipes**: archetypes, not presets. **HOME draws a new patch** — from any recipe, or from the one
+  PRESETS chose — new connections, new settings and new motion for the whole mixer, different every time but always
+  in the recipe's direction. Every patch drawn sounds at once, and moves. Each start is a new patch too.
 - **Each channel has two LFOs and four modulation slots** (Tonitor's matrix), so its parameters move by
   themselves.
 - Sixty-four sessions, MIDI CCs, USB audio (the output, or the six channels).
@@ -73,15 +73,15 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SEQ** | the output's pages: OUT, OUT EQ, OUT FX, then back. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
-| **HOME** | a **new patch** from the recipe shown (see [New patches](#new-patches)). |
-| **SHIFT + HOME** | a new patch from **another recipe**, drawn at random. |
+| **HOME** | a **new patch**: from any recipe, or from the one PRESETS chose (see [New patches](#new-patches)). |
+| **SHIFT + HOME** | a new patch from **another recipe** than the one playing, drawn at random. |
 | **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | the **recipe**: its name in place of the patch's, in the main view; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
+| **PRESETS** knob | choose a **recipe**, or **ANY** (none chosen): its name in place of the patch's, in the main view; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
 | **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
-| **REC** | arm the **gesture loop**; REC again ends it and it plays. Held 1 s: empty it. See [Gestures](#gestures). |
-| **PLAY** | the gesture loop played, or stopped (lit while it plays). |
+| **REC** | arm the chosen channel's **gesture loop**; REC again ends it and it plays. Held 1 s: empty it. See [Gestures](#gestures). |
+| **PLAY** | the chosen channel's gesture loop played, or stopped (lit while it plays). |
 | **SHIFT + PLAY** | the output muted, or back (OUT MUTED on the screen). The loops keep going, unheard. |
 | **White keys 1–15** | the chosen channel's **INPUT**: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has). |
 | **White key 16** | its **MAIN MIX** on or off. |
@@ -97,7 +97,8 @@ going back to Tonitor erases Lilliput's sessions.)
 
 ## The main view
 
-The chosen channel's number, very large, in its colour; under it its **input**; under that the **patch's name**
+The chosen channel's number, very large, in its colour — in grey when the channel is not in the patch (muted, or
+its LEVEL and SENDs off with no RHYTHM: nothing of it reaches anything); under it its **input**; under that the **patch's name**
 (or a message, black on white; or MUTED, white on red); its **meter**, with a white bar where its fader is
 (red at the left when the fader is down); its **pan** along the bottom.
 
@@ -210,8 +211,11 @@ At the top, SPACE MIX leaves the reverb alone.
 
 ## New patches
 
-**PRESETS** turns through the **recipes**: the main view's name becomes each one's, in place; **HOME** then draws a new patch from the one
-shown. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
+**HOME** draws a new patch. Until a recipe is chosen it draws from any of them, so each press can be anything.
+**PRESETS** chooses one: the main view's name becomes the recipe's, in place, and HOME then draws from it. Turned back
+to **ANY** (before the first recipe, after the last), none is chosen again. Lilliput starts with a patch drawn from
+any recipe and a tempo drawn between 91 and 299 BPM, otherwise each time; a session loaded keeps its own, with no
+recipe chosen. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
 channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
 the parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
 recipe's direction:
@@ -243,8 +247,8 @@ recipe's direction:
 | AURORA | high shimmering loops, chorus, flanger and diffusion, vast spaces | slow sweeps; the pans and the effects drift |
 | SONAR | one to three pings into long delays, deep spaces | in step: pings that swell and fade; the delays jump |
 
-**HOME** draws from the recipe shown; **SHIFT + HOME** from another, drawn at random. The patch's name, on the main
-view, is its recipe's.
+**HOME** draws from the recipe chosen, or from any; **SHIFT + HOME** from another than the one playing, drawn at
+random. The patch's name, on the main view, is its recipe's.
 
 The faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
 where the playing is. Some channels come with their fader down: brought up, they join in. For its first two
@@ -329,19 +333,24 @@ rhythm's changes — on, off, a new one, the tempo — are gestures like any oth
 
 ## Gestures
 
-The gesture loop records what your hands do — on any channel, at once: a knob, an input key, a mute, a channel
-thrown at random, a new patch, a MIDI CC — and plays it back, round and round, while you go on playing over it.
+Each channel has its own gesture loop. It records what your hands do to that channel — its knobs, its input key,
+its mute, its effect slot, the channel thrown at random, a MIDI CC to it — and plays it back, round and round, while
+you go on playing over it. The loops are independent: each its own length, each started and stopped on its own.
+REC and PLAY act on the chosen channel, and their lights show its loop.
 
-- **REC** arms it (the screen says ARMED, REC blinks; a loop playing stops). Nothing is recorded until something
-  changes: the first change starts the recording (REC on the screen, white on red, with the seconds; REC lit).
+- **REC** arms the channel's loop (the screen says ARMED, REC blinks; its loop, if it plays, stops). Nothing is
+  recorded until the channel changes: its first change starts the recording (REC on the screen, white on red, with
+  the seconds; REC lit). A loop it had is replaced: there are no overdubs, one loop a channel.
 - **REC** again ends it: the loop is as long as from that first change to now, and plays at once (PLAY lit).
-- **PLAY** stops it, or plays it again from its start. Stopped, everything stays where the loop left it.
+- **PLAY** stops it, or plays it again from its start. Stopped, the channel stays where the loop left it.
 - **REC** held 1 s empties it.
 
-Each round begins from the mixer as it was when the recording began — only what the loop touches — so it plays the
-same way every time; what you change that the loop does not touch stays yours. A new patch or a session
-stops the loop (PLAY plays it again, over the new mixer). Up to 2048 changes and ten minutes. The output's mute
-(SHIFT + PLAY) is never recorded. The loop is kept with the session.
+One channel records at a time: REC on another channel ends the recording (it plays) and arms that one. Each round
+begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way
+every time; what you change that the loop does not touch stays yours. A new patch or a session stops the loops
+(PLAY plays each again, over the new mixer). Up to 2048 changes among all the loops, ten minutes each. The output's,
+the output slot's and the RHYTHM's settings belong to no channel and are never recorded. The loops are kept with
+the session; a session saved before build 12, with one loop for all, loads as a loop for each channel it touched.
 
 ## Snapshots
 

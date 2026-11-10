@@ -1,5 +1,20 @@
 # Changelog
 
+## Build 12 (2026-11-10)
+
+- A gesture loop for each channel, each on its own (as Tonitor's looper is a layer's): REC and PLAY act on the
+  chosen channel; a channel's loop records only that channel (its parameters and its effect slot) and replaces the
+  loop it had (no overdubs). The loops play together, each its own length. One records at a time: REC on another
+  channel ends the recording and arms that one. Sessions keep each channel's loop; a session saved before, with one
+  loop for all, loads as a loop for each channel it touched (the output's and the RHYTHM's changes left out).
+- HOME draws from **any** recipe until PRESETS chooses one (as on Tonitor). PRESETS has a position for that, **ANY**,
+  before the first recipe and after the last. SHIFT + HOME: another recipe than the one playing. A session loaded:
+  none chosen.
+- Each start is a new patch, from any recipe, and its tempo is drawn between 91 and 299 BPM (before: always the same
+  DRONE at 120). The randomness comes from the ADCs' noise and the clock at power-on.
+- A channel not in the patch (muted, or its LEVEL and SENDs off with no RHYTHM) is drawn in grey: its number, its
+  name, its meter, its pages; in the OVERVIEW too.
+
 ## Build 11 (2026-11-10)
 
 - PRESETS no longer flashes "RECIPE": turning it changes the name in the main view, in place, to the recipe's (from

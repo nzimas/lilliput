@@ -318,7 +318,16 @@ static void fm1_main(void)
     fm1_input_init();
     fm1_adc_init();
     mx_init();                                       /* the mixer (mixer.c) */
-    ui_init();                                       /* the panel, and the first patch, a DRONE (lui.c) */
+    {                                                /* the start's patch differs each time: the ADCs' last bits
+                                                      * (noise) and the clock between reads, mixed */
+        uint32_t i, h = 0x811C9DC5u;
+        for (i = 0; i < 64u; i++) {
+            h = (h ^ (uint32_t)fm1_adc_read(i & 1u ? FM1_ADC_BATT : FM1_ADC_MASTER)) * 0x01000193u;
+            h = (h ^ fm1_ticks()) * 0x01000193u;
+        }
+        boot_seed = h;
+    }
+    ui_init();                                       /* the panel, and the first patch, drawn (lui.c) */
     /* CPU1: after a supply setup that held, on a boot after no failed one, and not barred since power-on. It starts
      * through the mask ROM before it reaches our RAM loop: the PC limit only after (Melodee) */
     if (fm1_core1_boot_allowed(fm1_power_ready, bootguard.failed))

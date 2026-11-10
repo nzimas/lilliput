@@ -21,7 +21,9 @@
  *   HOME held                 the patch nudged: every channel's tone a little elsewhere, the connections kept
  *   SAVE held                 save the session: over the one loaded at once, else a new one (asked)
  *   SHIFT + SAVE              the SESSIONS page (PRESETS chooses, SAVE loads); held 0.8 s: GLOBAL SETUP
- *   PLAY                      the output muted, or back (a panic: the loops keep going, unheard)
+ *   REC / PLAY                the chosen channel's GESTURE loop: REC arms, ends; held, empties; PLAY plays or stops
+ *                             it (one loop a channel, each on its own: perform.c)
+ *   SHIFT + PLAY              the output muted, or back (a panic: the loops keep going, unheard)
  *   white keys 1 .. 15        the chosen channel's INPUT: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE,
  *                             CH 1 .. CH 6 (lit: the one it has)
  *   white key 16              its MAIN MIX on or off
@@ -41,11 +43,16 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
 
+static uint32_t boot_seed;                       /* (main.c, before ui_init: the ADCs' noise and the clock, mixed) */
 static int32_t batt_raw;                         /* the battery's divider, smoothed (main.c), 0 .. 1023; 0 none yet */
 #define SES_SLOTS 64u            /* (lses.c's: sessions 1 .. 64) */
 static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(255, 92, 210),
                                         RGB(96, 255, 96), RGB(255, 140, 0), RGB(190, 160, 255)};
+#define C_MONO RGB(190, 190, 190)        /* a channel not in the patch (nothing of it reaches anything): its screens */
 #define C_OUT RGB(140, 190, 255)
+/* a channel's colour; grey when it is not in the patch -- muted, or its LEVEL and SENDs off with no RHYTHM (the mixer
+ * does not run it: chr[c].dead) */
+static uint16_t ch_col(uint32_t c) { return chr[c].dead ? C_MONO : LAYER_COL[c]; }
 #define C_SES RGB(120, 255, 200)
 #define C_PRE RGB(255, 200, 120)          /* (the RECIPE's) */
 #define C_OK RGB(60, 220, 90)
@@ -101,13 +108,14 @@ static struct {
     uint32_t seed;
     char patch[16];              /* the patch's name: the recipe it was drawn from, or the session's */
     uint8_t fam;                 /* the recipe (family) of the patch playing */
-    uint8_t recipe;              /* the RECIPE shown (PRESETS): HOME's next patch is drawn from it */
+    uint8_t recipe;              /* the recipe chosen (PRESETS): HOME's next patch is drawn from it; ANY_RECIPE: none
+                                  * chosen, HOME draws from any */
     uint8_t browse;              /* PRESETS turned since the patch came: the main view names the recipe, not the patch */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
     uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
     uint32_t rhy_t0, beat_seen, beat_at;
-    uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the gesture loop emptied) */
+    uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the channel's gesture loop emptied) */
     uint32_t rec_t0;
     int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
     uint8_t snap_done;
@@ -135,6 +143,7 @@ static struct {
     int8_t shown_touch;
     uint32_t meter_at, view_at;
     int32_t shown_view[NCH];
+    uint8_t shown_dead;          /* the chosen channel drawn grey (not in the patch) */
     uint8_t force;
 } ui;
 
@@ -143,6 +152,8 @@ static void say(const char *s, uint32_t ms)
     str_cpy(ui.msg, s, sizeof ui.msg);
     ui.msg_until = fm1_ms + ms;
 }
+#define ANY_RECIPE ((uint8_t)NFAM)               /* (PRESETS' position before the first: no recipe chosen) */
+static const char *recipe_name(uint32_t r) { return r < NFAM ? FAM[r].name : "ANY"; }
 static void flash(const char *l1, const char *l2, uint16_t c)
 {
     str_cpy(ui.flash_l1, l1, sizeof ui.flash_l1);
@@ -667,19 +678,23 @@ static void rhy_new(int st)
     ui.force = 1;
 }
 
-/* a new patch: from recipe fam, or (-1) from another recipe than the one shown */
+/* a new patch: from recipe fam; NP_ANY from any recipe; NP_OTHER from another than the one playing. The choice
+ * (ui.recipe) stays as it was */
+enum { NP_OTHER = -1, NP_ANY = -2 };
 static void new_patch(int fam)
 {
     static lil_par_t q;
     uint32_t f;
-    if (fam < 0) {
+    if (fam == NP_ANY || fam >= (int)NFAM)
+        fam = (int)(next_seed() % NFAM);
+    else if (fam < 0) {
         fam = (int)(next_seed() % (NFAM - 1u));
-        if (fam >= (int)ui.recipe)
+        if (fam >= (int)ui.fam)
             fam++;
     }
     f = patch_draw(&q, next_seed(), fam);
     q.rhy = par.rhy;                             /* (the RHYTHM plays on over a new patch) */
-    ui.fam = ui.recipe = (uint8_t)f;
+    ui.fam = (uint8_t)f;
     patch_set(&q, FAM[f].name);
     say("NEW PATCH", 1200);
     ui.home_until = fm1_ms + 400u;
@@ -844,7 +859,7 @@ static void ui_input(void)
         if (!btn_bit(fm1_in.buttons, B_HOME)) {
             ui.home_down = 0;
             if (!ui.home_done)
-                new_patch(ui.home_sh ? -1 : (int)ui.recipe);
+                new_patch(ui.home_sh ? NP_OTHER : ui.recipe == ANY_RECIPE ? NP_ANY : (int)ui.recipe);
         } else if (!ui.home_done && (uint32_t)(fm1_ms - ui.home_t0) >= 800u) {
             ui.home_done = 1;
             patch_shift(&par, next_seed());
@@ -880,7 +895,7 @@ static void ui_input(void)
         else
             goto_page(PG_VIEW);
     }
-    if (btn_bit(press, B_PLAY)) {                /* PLAY: the gesture loop; SHIFT + PLAY: the output muted */
+    if (btn_bit(press, B_PLAY)) {                /* PLAY: the channel's gesture loop; SHIFT + PLAY: the output muted */
         if (sh) {
             par.out.mute = (uint8_t)!par.out.mute;
             say(par.out.mute ? "OUT MUTED" : "OUT ON", 1000);
@@ -1046,9 +1061,9 @@ static void ui_input(void)
         else {                                   /* the recipe: its name in the main view, in place; HOME draws from it */
             if (ui.page != PG_MAIN)
                 goto_page(PG_MAIN);
-            ui.recipe = (uint8_t)((ui.recipe + NFAM + (s > 0 ? 1u : NFAM - 1u)) % NFAM);
+            ui.recipe = (uint8_t)((ui.recipe + (s > 0 ? 1u : NFAM)) % (NFAM + 1u));   /* (ANY, then each) */
             ui.msg_until = fm1_ms;               /* (a message showing gives way to the name) */
-            ui.browse = ui.recipe != ui.fam || !str_eq(ui.patch, FAM[ui.fam].name);
+            ui.browse = ui.recipe != ui.fam || !str_eq(ui.patch, FAM[ui.fam].name);   /* (ANY: always) */
         }
     }
     /* KNOB 1 .. 4 */
@@ -1096,7 +1111,7 @@ knobs_lp:
         say(m, 900);
     }
     morph_poll();                                /* (a snapshot's morph, a step on) */
-    gest_poll();                                 /* (the gesture loop: played, and what changed this pass recorded) */
+    gest_poll();                                 /* (the gesture loops: played, and what changed this pass recorded) */
 }
 
 /* ------------------------------------------------------------ the lights --- */
@@ -1125,8 +1140,8 @@ static void ui_leds(void)
     fm1_led_key(PANEL_BTN[B_ARP], ui.page == PG_VIEW);
     fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK ||
                                    ui.page == PG_SNAP);
-    fm1_led_key(PANEL_BTN[B_PLAY], gs.play);
-    fm1_led_key(PANEL_BTN[B_REC], gs.st == GS_REC || (gs.st == GS_ARMED && blink));
+    fm1_led_key(PANEL_BTN[B_PLAY], gl[ui.sel].play);   /* (the chosen channel's loop) */
+    fm1_led_key(PANEL_BTN[B_REC], gl_state(ui.sel) == GS_REC || (gl_state(ui.sel) == GS_ARMED && blink));
     fm1_led_key(PANEL_BTN[B_OCTDN], (ui.page > PG_MAIN && ui.page <= PG_CH_LAST) || (ui.page > PG_OUT && ui.page <= PG_OFX));
     fm1_led_key(PANEL_BTN[B_OCTUP], ui.page < PG_CH_LAST || (ui.page >= PG_OUT && ui.page < PG_OFX));
     for (k = 0; k < NKEY; k++) {
@@ -1221,7 +1236,7 @@ static void draw_number(void)
     char d[2] = {(char)('1' + ui.sel), 0};
     CV_AREA(0, BAND_A, 240, BAND_B - BAND_A, C_BLACK) {
         draw_batt(237, 2 + ((int32_t)FONT_S.h - 10) / 2);
-        cv_text_c(3, &FONT_XL, d, LAYER_COL[ui.sel]);
+        cv_text_c(3, &FONT_XL, d, ch_col(ui.sel));
         if (!par.ch[ui.sel].mainmix)
             cv_text(4, 2, &FONT_S, "NO MIX", RGB(175, 175, 175));
     }
@@ -1237,7 +1252,7 @@ static void draw_src(void)
 static void draw_band_c(const char *t, int kind)
 {
     static const uint16_t BG[3] = {C_BLACK, C_WHITE, RGB(220, 0, 0)};
-    uint16_t fg = kind == 0 ? LAYER_COL[ui.sel] : kind == 1 ? C_BLACK : C_WHITE;
+    uint16_t fg = kind == 0 ? ch_col(ui.sel) : kind == 1 ? C_BLACK : C_WHITE;
     cv_begin(240, 44, BG[kind]);
     text_fit_c(0, 44, t, &FONT_M, fg);
     cv_blit(0, BAND_C);
@@ -1259,7 +1274,7 @@ static void draw_meter(int32_t px)              /* (its band from the end of ban
     cv_begin(240, BAND_D - BAND_C - 44, C_BLACK);
     cv_frame(METER_X - 2, 5, METER_LEN + 4, 16, 2, C_GREY);
     if (px)
-        cv_rect(METER_X, 7, px, 12, par.ch[ui.sel].mute ? C_GREY : LAYER_COL[ui.sel]);
+        cv_rect(METER_X, 7, px, 12, par.ch[ui.sel].mute ? C_GREY : ch_col(ui.sel));
     if (lv)                                      /* the fader: a white bar across, -60 .. +12 dB along the meter */
         cv_rect(METER_X + lv * (METER_LEN - 2) / LVL_MAX - 1, 2, 5, 22, C_WHITE);
     else
@@ -1277,14 +1292,14 @@ static void draw_pan(void)
     cv_rect(231, 4, 3, 16, C_GREY);
     cv_rect(119, 2, 3, 20, C_WHITE);
     cv_rect(x - 9, 0, 18, 24, C_WHITE);
-    cv_rect(x - 6, 3, 12, 18, LAYER_COL[ui.sel]);
+    cv_rect(x - 6, 3, 12, 18, ch_col(ui.sel));
     cv_blit(0, BAND_D);
     ui.shown_pan = pn;
 }
 
 /* a page: its title (and what its switches are), then four rows -- name, value, a bar under a value */
 #define C_RHY RGB(255, 120, 80)
-static uint16_t page_col(void) { return rhy_page() ? C_RHY : ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
+static uint16_t page_col(void) { return rhy_page() ? C_RHY : ui.page >= PG_OUT ? C_OUT : ch_col(ui.sel); }
 #define TITLE_H 36               /* a page's title band, then four rows of ROW_H */
 #define ROW_H 51
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
@@ -1449,7 +1464,7 @@ static void draw_dial(void)
     int32_t v = p_get(id), b, k, to;
     uint32_t av;
     char t[16], m[16];
-    uint16_t col = LAYER_COL[ui.sel];
+    uint16_t col = ch_col(ui.sel);
     const font_t *tf;
     str_cpy(t, p_name(id), sizeof t - 3);
     str_cpy(t + str_len(t), "  ", 3);
@@ -1489,7 +1504,7 @@ static void draw_view_row(uint32_t c)
     const ch_par_t *p = &par.ch[c];
     int32_t px = meter_px(ch_meter[c]) * 120 / METER_LEN;
     char n[2] = {(char)('1' + c), 0};
-    uint16_t col = p->mute ? C_GREY : LAYER_COL[c];
+    uint16_t col = p->mute ? C_GREY : ch_col(c);
     cv_begin(240, 40, c == ui.sel ? RGB(40, 40, 40) : C_BLACK);
     cv_text(4, (40 - (int32_t)FONT_S.h) / 2, &FONT_S, n, col);
     cv_text(30, (40 - (int32_t)FONT_S.h) / 2, &FONT_S, p->mute ? "MUTED" : SRC_NAME[clampi(p->src, 0, SRC_N - 1)], col);
@@ -1497,7 +1512,7 @@ static void draw_view_row(uint32_t c)
     if (px && !p->mute)
         cv_rect(114, 14, px, 12, col);
     cv_blit(0, 40 * c);
-    ui.shown_view[c] = px * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024;
+    ui.shown_view[c] = px * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024 + chr[c].dead * 0x100000;
 }
 static void draw_view(void)
 {
@@ -1508,7 +1523,8 @@ static void draw_view(void)
     ui.view_at = fm1_ms;
     for (c = 0; c < NCH; c++) {
         const ch_par_t *p = &par.ch[c];
-        int32_t key = meter_px(ch_meter[c]) * 120 / METER_LEN * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024;
+        int32_t key = meter_px(ch_meter[c]) * 120 / METER_LEN * 4 + p->mute * 2 + (c == ui.sel) + p->src * 1024 +
+                      chr[c].dead * 0x100000;
         if (all || key != ui.shown_view[c])
             draw_view_row(c);
     }
@@ -1695,6 +1711,10 @@ static void ui_draw(void)
     int32_t px;
     if (draw_flash())
         return;
+    if (chr[ui.sel].dead != ui.shown_dead) {     /* (the channel in the patch, or out: its colours, or grey) */
+        ui.shown_dead = chr[ui.sel].dead;
+        ui.force = 1;
+    }
     if (ui.cpu_page) {
         if (ui.shown_page != 0xF0)
             ui.force = 1;
@@ -1774,14 +1794,15 @@ static void ui_draw(void)
     }
     {
         char rs[16];
-        int rec = gs.st == GS_REC || gs.st == GS_ARMED;
+        uint32_t st = gl_state(ui.sel);
+        int rec = st != GS_IDLE;
         int kind = msg ? 1 : rec || par.out.mute || par.ch[ui.sel].mute ? 2 : 0;
-        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.browse ? FAM[ui.recipe].name : ui.patch;
-        if (gs.st == GS_ARMED)
+        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.browse ? recipe_name(ui.recipe) : ui.patch;
+        if (st == GS_ARMED)
             str_cpy(rs, (fm1_ms / 250u) & 1u ? "ARMED" : "", sizeof rs);
-        else if (gs.st == GS_REC) {              /* REC and the seconds so far */
+        else if (st == GS_REC) {                 /* REC and the seconds so far */
             str_cpy(rs, "REC ", sizeof rs);
-            fmt_int(rs + 4, (int32_t)((fm1_ms - gs.t0) / 1000u));
+            fmt_int(rs + 4, (int32_t)((fm1_ms - gl[ui.sel].t0) / 1000u));
             str_cpy(rs + str_len(rs), " S", 3);
         }
         if (ui.shown_msg != kind || !str_eq(t, ui.shown_text)) {
@@ -1807,13 +1828,18 @@ static void ui_init(void)
     ui.touched = -1;
     ui.snap_key = -1;
 #if TELEMETRY
-    ui.seed = 0x5EEDu;
+    ui.seed = 0x5EEDu;                           /* (a diagnostic build: the same patch each start) */
 #else
-    ui.seed = fm1_ticks() ^ 0x5EEDu;
+    ui.seed = boot_seed ^ fm1_ticks() ^ 0x5EEDu; /* (boot_seed: the ADCs' noise, main.c) */
 #endif
-    patch_draw(&q, 101u, 0);                     /* a DRONE, always the same: something sounding at once */
-    ui.fam = ui.recipe = 0;
-    patch_set(&q, FAM[0].name);
+    {                                            /* a patch drawn from any recipe, otherwise each start; its tempo
+                                                  * drawn too, 91 .. 299 BPM */
+        uint32_t f = patch_draw(&q, next_seed(), (int)(next_seed() % NFAM));
+        q.rhy.bpm = (uint16_t)(91u + next_seed() % 209u);
+        ui.fam = (uint8_t)f;
+        ui.recipe = ANY_RECIPE;
+        patch_set(&q, FAM[f].name);
+    }
     ui.shown_sel = 0xFF;
     ui.force = 1;
 }

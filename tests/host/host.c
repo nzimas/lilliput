@@ -632,7 +632,9 @@ static int cmd_flows(void)
     fresh_mixer();
     ui_init();
     run_ms(3600);
-    EXPECT(str_eq(ui.patch, FAM[0].name) && ui.recipe == 0, "a DRONE at the start, its recipe shown");
+    EXPECT(ui.fam < NFAM && str_eq(ui.patch, FAM[ui.fam].name) && ui.recipe == ANY_RECIPE,
+           "the start: a patch drawn, named after its recipe; no recipe chosen");
+    EXPECT(par.rhy.bpm > 90 && par.rhy.bpm < 300, "the start's tempo: drawn, 91 .. 299 BPM");
     EXPECT(out_meter > 300, "the start sounds");
     /* channels and pages */
     press_btn(LAYER_BTN[3]);
@@ -695,46 +697,52 @@ static int cmd_flows(void)
     turn(EN_K1, 1);
     key(KEY_SHIFT, 0);
     EXPECT(par.slot[1].in != FI_NON || par.slot[1].in == FI_INS, "SHIFT + KNOB 1: the slot's input");
-    /* PRESETS: the RECIPE shown (nothing else); HOME: a new patch from it; SHIFT + HOME: from another; held: nudged */
+    /* PRESETS: a recipe chosen, its name in place (nothing else); ANY: none chosen. HOME: a new patch from the recipe
+     * chosen, or from any; SHIFT + HOME: from another than the one playing; held: nudged */
     press_btn(LAYER_BTN[0]);
     keep_src = par.ch[0].src;
-    before = par;
     {
-        uint32_t f0 = ui.fam, pg = ui.page;
+        uint32_t i, seen = 0, pg = ui.page;
+        for (i = 0; i < 12u; i++) {
+            press_btn(B_HOME);
+            seen |= 1u << ui.fam;
+        }
+        EXPECT(ui.recipe == ANY_RECIPE && __builtin_popcount(seen) > 3, "no recipe chosen: HOME draws from any");
+        run_ms(1300);                            /* (NEW PATCH said and gone) */
+        before = par;
         turn(EN_PRESET, 1);
         run_ms(60);
-        EXPECT(ui.recipe == (f0 + 1u) % NFAM && ui.fam == f0 && !memcmp(&before, &par, sizeof par) && ui.page == PG_MAIN,
-               "PRESETS: the next recipe, the patch left as it was, the main view");
-        EXPECT(!ui.flash_on && str_eq(ui.shown_text, FAM[ui.recipe].name),
-               "PRESETS: the recipe's name in the main view, in place, no flash");
+        EXPECT(ui.recipe == 0 && !memcmp(&before, &par, sizeof par) && ui.page == PG_MAIN,
+               "PRESETS: the first recipe chosen, the patch left as it was, the main view");
+        EXPECT(!ui.flash_on && str_eq(ui.shown_text, FAM[0].name), "PRESETS: its name in the main view, in place, no flash");
         turn(EN_PRESET, -1);
         run_ms(60);
-        EXPECT(ui.recipe == f0 && str_eq(ui.shown_text, ui.patch), "PRESETS back to the patch's recipe: the patch's name");
+        EXPECT(ui.recipe == ANY_RECIPE && str_eq(ui.shown_text, "ANY"), "PRESETS back: ANY, none chosen");
         turn(EN_PRESET, -1);
         run_ms(60);
-        EXPECT(ui.recipe == (f0 + NFAM - 1u) % NFAM && str_eq(ui.shown_text, FAM[ui.recipe].name),
-               "PRESETS back: the one before, its name shown");
+        EXPECT(ui.recipe == NFAM - 1u && str_eq(ui.shown_text, FAM[NFAM - 1u].name), "and back again: the last recipe");
+        turn(EN_PRESET, 1);
+        turn(EN_PRESET, 1);
+        turn(EN_PRESET, 1);
+        EXPECT(ui.recipe == 1, "and on: the second");
         press_btn(B_HOME);
-        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam == (f0 + NFAM - 1u) % NFAM,
-               "HOME draws a new patch from the recipe shown");
-        EXPECT(str_eq(ui.patch, FAM[ui.fam].name) && str_eq(ui.shown_text, ui.patch) || ui.msg_until,
-               "the patch named after its recipe");
+        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam == 1 && ui.recipe == 1,
+               "HOME draws a new patch from the recipe chosen");
+        EXPECT(str_eq(ui.patch, FAM[1].name), "the patch named after its recipe");
         goto_page(pg);                           /* (the page the tests below expect) */
     }
     run_ms(3600);
     EXPECT(out_meter > 300, "the new patch sounds");
     {
-        uint32_t f0 = ui.fam;
         before = par;
         key(KEY_SHIFT, 1);
         press_btn(B_HOME);
         key(KEY_SHIFT, 0);
-        EXPECT(ui.fam != f0 && ui.recipe == ui.fam && memcmp(&before, &par, sizeof par) != 0,
-               "SHIFT + HOME: a new patch from another recipe, shown");
+        EXPECT(ui.fam != 1 && ui.recipe == 1 && memcmp(&before, &par, sizeof par) != 0,
+               "SHIFT + HOME: a new patch from another recipe; the choice kept");
         before = par;
-        f0 = ui.fam;
         press_btn(B_HOME);
-        EXPECT(ui.fam == f0 && memcmp(&before, &par, sizeof par) != 0, "HOME again: another patch of the same recipe");
+        EXPECT(ui.fam == 1 && memcmp(&before, &par, sizeof par) != 0, "HOME again: from the recipe chosen");
     }
     before = par;
     hold_btn(B_HOME, 900);
@@ -796,39 +804,84 @@ static int cmd_flows(void)
     press_btn(LAYER_BTN[0]);
     (void)keep_src;
     press_btn(B_PLAY);
-    EXPECT(!gs.play, "PLAY with no gesture loop: nothing");
-    /* the gesture loop: REC arms, the first change starts it, REC ends and plays; each round as recorded */
+    EXPECT(!gl[0].play, "PLAY with no gesture loop: nothing");
+    /* the gesture loops, one a channel: REC arms the chosen channel's, its first change starts it, REC ends and
+     * plays; each round as recorded; another channel's changes are not in it */
     press_btn(LAYER_BTN[0]);
     press_btn(LAYER_BTN[0]);
     run_ms(200);
     {
         int16_t l0 = par.ch[0].level, l1;
-        press_btn(B_REC);
-        EXPECT(gs.st == GS_ARMED, "REC arms");
-        run_ms(300);
-        EXPECT(gs.st == GS_ARMED, "nothing recorded until something changes");
+        uint8_t m3 = par.ch[3].mute, m0;
         int dir = l0 > 10 ? -1 : 1;              /* (the way the level can move) */
+        press_btn(B_REC);
+        EXPECT(gl_state(0) == GS_ARMED, "REC arms the channel's loop");
+        run_ms(300);
+        par.ch[3].level = (int16_t)(par.ch[3].level ^ 1);   /* (another channel's change: not its) */
+        run_ms(100);
+        EXPECT(gl_state(0) == GS_ARMED, "nothing recorded until the channel changes");
         turn(EN_SELECT, 3 * dir);
-        EXPECT(gs.st == GS_REC, "the first change starts the recording");
+        EXPECT(gl_state(0) == GS_REC, "the channel's first change starts the recording");
         run_ms(400);
-        tap_key(KEY_MUTE[3]);
+        tap_key(KEY_MUTE[0]);
+        tap_key(KEY_MUTE[3]);                    /* (channel 4's mute: not in channel 1's loop) */
+        m0 = par.ch[0].mute;
         run_ms(400);
         turn(EN_SELECT, 2 * dir);
         l1 = par.ch[0].level;
         run_ms(300);
         press_btn(B_REC);
-        EXPECT(gs.st == GS_IDLE && gs.play && gs.n >= 3, "REC again: the loop ends and plays");
+        EXPECT(gl_state(0) == GS_IDLE && gl[0].play && gl[0].n >= 3, "REC again: the loop ends and plays");
+        {
+            uint32_t i, li, mine = 1;
+            for (i = 0; i < gl[0].n; i++)
+                mine &= g_owner(gev[gl[0].off + i].w, &li) == 0;
+            EXPECT(mine, "only the channel's own changes in its loop");
+        }
+        tap_key(KEY_MUTE[3]);                    /* (channel 4 as it was) */
+        EXPECT(par.ch[3].mute == m3, "channel 4 as it was");
         run_ms(100);
         EXPECT(par.ch[0].level != l1, "a round begins as the recording began");
-        run_ms(gs.len);                          /* (into the second round, then to its end) */
-        while ((fm1_ms - gs.t0) % gs.len < gs.len - 80u)
+        run_ms(gl[0].len);                       /* (into the second round, then to its end) */
+        while ((fm1_ms - gl[0].t0) % gl[0].len < gl[0].len - 80u)
             run_ms(10);
-        EXPECT(par.ch[0].level == l1 && par.ch[3].mute, "and plays as recorded");
+        EXPECT(par.ch[0].level == l1 && par.ch[0].mute == m0 && par.ch[3].mute == m3, "and plays as recorded");
         press_btn(B_PLAY);
-        EXPECT(!gs.play, "PLAY stops it");
+        EXPECT(!gl[0].play, "PLAY stops it");
         press_btn(B_PLAY);
-        EXPECT(gs.play, "PLAY plays it again");
+        EXPECT(gl[0].play, "PLAY plays it again");
         (void)l0;
+        /* channel 2's own loop, beside channel 1's */
+        press_btn(LAYER_BTN[1]);
+        if (ui.page != PG_MAIN)
+            press_btn(LAYER_BTN[1]);
+        EXPECT(ui.sel == 1 && !gl[1].play, "channel 2: no loop of its own yet");
+        press_btn(B_REC);
+        EXPECT(gl_state(1) == GS_ARMED && gl[0].play, "REC on channel 2 arms its loop; channel 1's plays on");
+        turn(EN_ALGO, 5);
+        run_ms(300);
+        turn(EN_ALGO, -9);
+        run_ms(300);
+        press_btn(B_REC);
+        EXPECT(gl[1].play && gl[0].play && gl[1].n >= 2 && gl[1].len != gl[0].len,
+               "REC again: channel 2's loop plays too, its own length");
+        press_btn(B_PLAY);
+        EXPECT(!gl[1].play && gl[0].play, "PLAY on channel 2 stops its loop only");
+        press_btn(B_REC);                        /* (REC on channel 2 again, then on channel 1: 2's ends, 1 armed) */
+        turn(EN_ALGO, 3);
+        run_ms(200);
+        press_btn(LAYER_BTN[0]);
+        press_btn(B_REC);
+        EXPECT(gl_state(1) == GS_IDLE && gl[1].play && gl_state(0) == GS_ARMED,
+               "REC on another channel: the recording ends (it plays), that channel armed");
+        press_btn(B_REC);
+        EXPECT(gl_state(0) == GS_IDLE && gl[0].play && gl[0].n >= 3, "armed and let go: channel 1's loop as it was");
+        press_btn(LAYER_BTN[1]);
+        hold_btn(B_REC, 1100);
+        EXPECT(!gl[1].n && !gl[1].play && gl[0].n >= 3 && gl[0].play, "REC held: channel 2's loop emptied, 1's kept");
+        press_btn(LAYER_BTN[0]);
+        if (ui.page != PG_MAIN)
+            press_btn(LAYER_BTN[0]);
         key(KEY_SHIFT, 1);
         press_btn(B_PLAY);
         key(KEY_SHIFT, 0);
@@ -844,6 +897,8 @@ static int cmd_flows(void)
     EXPECT(ui.page == PG_SNAP, "SAVE short: the SNAPSHOTS page");
     {
         lil_par_t a;
+        par.ch[1].level = 500;                   /* (above the 100 set below, whatever the patch drew) */
+        run_ms(30);
         key(white_key(2), 1);
         run_ms(900);
         key(white_key(2), 0);
@@ -956,7 +1011,7 @@ static int cmd_flows(void)
                            (unsigned)__builtin_offsetof(lil_par_t, rhy), ((uint8_t *)&a)[i], ((uint8_t *)&b)[i]);
         }
         EXPECT(memcmp(&a, &b, sizeof a) == 0, "session 1 loaded back as it was");
-        EXPECT(snap_has(2) && gs.n >= 3, "with its snapshots and its gesture loop");
+        EXPECT(snap_has(2) && gl[0].n >= 3 && !gl[1].n, "with its snapshots and its gesture loops");
     }
     /* again, from the flash as a boot finds it */
     ses_scan(1);
@@ -981,6 +1036,41 @@ static int cmd_flows(void)
     }
     EXPECT(ses_save(9) == SES_OK, "a save beside another firmware's data");
     EXPECT(!memcmp(host_flash + SES_LO + 5u * SES_SECT, "ACS1 TONITOR SESSION", 20), "another firmware's data kept");
+    /* a channel not in the patch: its screens grey */
+    press_btn(LAYER_BTN[2]);
+    if (ui.page != PG_MAIN)
+        press_btn(LAYER_BTN[2]);
+    par.ch[2].mute = 0;
+    par.ch[2].level = 500;
+    run_ms(200);
+    EXPECT(!chr[2].dead && !ui.shown_dead && ch_col(2) == LAYER_COL[2], "a channel in the patch: its colour");
+    tap_key(KEY_MUTE[2]);
+    run_ms(200);
+    EXPECT(chr[2].dead && ui.shown_dead && ch_col(2) == C_MONO, "muted, out of the patch: grey");
+    tap_key(KEY_MUTE[2]);
+    par.ch[2].level = 0;
+    par.ch[2].send1 = par.ch[2].send2 = 0;
+    par.rhy.on = 0;
+    run_ms(200);
+    EXPECT(chr[2].dead && ui.shown_dead, "its LEVEL and SENDs off: grey");
+    par.ch[2].level = 500;
+    run_ms(200);
+    EXPECT(!chr[2].dead && !ui.shown_dead, "and back: its colour");
+    /* an older session's one loop: each channel's changes its own loop, the rest left out */
+    {
+        uint32_t w3 = CH_W0 + 3u * CHW + 5u, w0 = CH_W0 + 1u, ws = SL_W0 + 3u * SLW + 1u, wo = NWORD - 1u, li;
+        gev_t old[5] = {{10, (uint16_t)w3, 7}, {20, (uint16_t)wo, 9}, {30, (uint16_t)w0, 8}, {40, (uint16_t)ws, 6},
+                        {50, (uint16_t)w3, 5}};
+        memcpy(gev, old, sizeof old);
+        g_prev = par;
+        ((uint16_t *)&g_prev)[w3] = 77;
+        ses_gl_split(5, 1000);
+        EXPECT(gl[0].n == 1 && gl[3].n == 3 && gl[1].n == 0 && g_used == 4, "the old loop split by channel, the rest out");
+        EXPECT(gev[gl[3].off].t == 10 && gev[gl[3].off + 1u].t == 40 && gev[gl[3].off + 2u].t == 50 &&
+                   gl[3].len == 1000 && gl[1].len == 0, "each in time, as long as the old loop");
+        (void)g_owner(w3, &li);
+        EXPECT(g_s0[3][li] == 77 && (g_touched[3][li >> 3] >> (li & 7u) & 1u), "each from the old loop's start");
+    }
     printf("flows: ok\n");
     return 0;
 }
