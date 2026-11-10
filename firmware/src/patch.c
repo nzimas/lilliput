@@ -8,9 +8,10 @@
  * gestures, LFOs on the parameters that make its character (a siren's sweeping filter, a pulse's gated level, a
  * cavern's bending delay, a swarm's wandering pans), drawn anew for every channel so no two move alike.
  *
- *   HOME            a new patch, of a family drawn at random (another than the one playing)
- *   SHIFT + HOME    a new patch of the same family
- *   SHIFT + PRESETS a new patch of the family before or after
+ * A family is a RECIPE (PRESETS shows them, one at a time): an archetype, never a fixed patch -- each draw from it
+ * comes out otherwise, in its direction.
+ *   HOME            a new patch from the recipe shown
+ *   SHIFT + HOME    a new patch from a recipe drawn at random (another than the one shown)
  *   HOME held       the patch nudged (the app's SHIFT): every channel's tone a little elsewhere, the rest kept
  *
  * Every patch's faders are set a little past where its loops start to sing -- worked out from the gains round each
@@ -197,6 +198,47 @@ static const family_t FAM[] = {
      {0, 3, 1, 3, 3, 1}, 300, 500, 10, 25, 0, 0,
      {{100, MD_LOOP, SH_SINE | SH_TRI, 12, 30, 50, 90, 50}, {60, MD_PAN, SH_DRIFT, 5, 25, 30, 70, 0},
       {40, MD_FREQ, SH_DRIFT, 5, 20, 5, 20, 0}}, 1},
+    /* (build 10: eight more) */
+    {"CHOIR", {3, 1, 0, 3}, 70, 2, 4, 250, 800, 300, 750, {3, 0, 7}, 500, 850, 20, 350, 700, 400, 700, 20,
+     {3, 3, 2, 2, 1, 2}, {3, 3, 2, 1, 1, 1}, {2, 5, 2, 0, 0, 0}, 500, 950, 30, {1, 0, 2, 0, 4, 0, 0}, 0,
+     {0, 3, 1, 2, 3, 1}, 300, 500, 10, 25, 1, 5,
+     {{80, MD_FX1, SH_DRIFT | SH_SINE, 10, 35, 10, 40, 30}, {50, MD_FREQ, SH_DRIFT, 10, 30, 5, 20, 0},
+      {40, MD_LOOP, SH_SINE | SH_DRIFT, 8, 25, 8, 25, 50}}, 0},
+    {"ENGINE", {4, 3, 1, 1}, 25, 2, 5, 600, 950, 50, 350, {7, 1, 2}, 600, 950, 30, 200, 500, 600, 950, 70,
+     {1, 1, 2, 1, 4, 4}, {1, 1, 3, 3, 2, 1}, {1, 2, 4, 1, 0, 3}, 400, 850, 30, {1, 1, 0, 3, 0, 1, 0}, 10,
+     {3, 1, 1, 2, 0, 0}, 100, 300, 15, 35, 0, 5,
+     {{100, MD_LOOP, SH_SQR | SH_SINE | SH_SAWD, 50, 72, 40, 90, 0}, {50, MD_LIM, SH_SINE | SH_TRI, 40, 65, 5, 20, 0},
+      {30, MD_FOLD, SH_SINE, 40, 65, 20, 50, 0}}, 1},
+    {"INSECTS", {6, 0, 2, 0}, 15, 3, 6, 0, 300, 700, 1000, {4, 1, 5}, 600, 1000, 40, 600, 1000, 200, 500, 20,
+     {3, 3, 1, 2, 1, 1}, {3, 3, 2, 1, 2, 2}, {2, 1, 0, 4, 4, 0}, 300, 800, 30, {1, 2, 0, 2, 0, 2, 3}, 10,
+     {3, 1, 2, 0, 0, 0}, 100, 250, 5, 20, 1, 20,
+     {{90, MD_FREQ, SH_STEPS | SH_SQR | SH_SAWD, 65, 90, 5, 30, 0}, {70, MD_PAN, SH_STEPS | SH_DRIFT, 40, 75, 30, 90, 0},
+      {50, MD_LOOP, SH_SQR | SH_STEPS, 65, 90, 20, 60, 0}}, 0},
+    {"ORGAN", {3, 5, 0, 1}, 20, 3, 6, 400, 800, 300, 700, {8, 0, 2}, 650, 900, 10, 400, 700, 400, 700, 15,
+     {4, 3, 2, 1, 1, 2}, {4, 4, 2, 0, 1, 1}, {2, 3, 2, 0, 0, 1}, 600, 1000, 20, {1, 0, 3, 3, 0, 0, 0}, 0,
+     {0, 4, 2, 2, 1, 0}, 250, 450, 5, 15, 1, 0,
+     {{60, MD_LOOP, SH_SINE, 30, 50, 5, 15, 0}, {40, MD_PAN, SH_SINE, 10, 30, 20, 50, 0},
+      {30, MD_FREQ, SH_DRIFT, 3, 15, 1, 5, 0}}, 1},
+    {"MORSE", {6, 0, 0, 1}, 15, 2, 4, 50, 450, 500, 850, {6, 0, 4}, 650, 950, 30, 500, 900, 300, 600, 15,
+     {3, 3, 1, 1, 1, 1}, {3, 3, 2, 1, 2, 1}, {3, 3, 0, 0, 0, 1}, 500, 1000, 25, {3, 0, 0, 1, 0, 1, 0}, 20,
+     {3, 1, 3, 0, 0, 0}, 120, 300, 10, 25, 0, 10,
+     {{100, MD_LOOP, SH_SQR | SH_STEPS, 62, 85, 50, 85, 0}, {40, MD_FREQ, SH_STEPS, 50, 75, 5, 25, 0},
+      {30, MD_PAN, SH_STEPS, 45, 70, 20, 60, 0}}, 1},
+    {"FURNACE", {2, 2, 5, 1}, 30, 4, 6, 300, 800, 150, 600, {4, 2, 4}, 500, 900, 40, 300, 700, 500, 900, 90,
+     {2, 1, 4, 2, 3, 3}, {1, 1, 3, 4, 1, 3}, {2, 1, 3, 4, 1, 1}, 0, 300, 40, {0, 1, 0, 0, 0, 4, 2}, 30,
+     {2, 0, 1, 3, 1, 0}, 100, 300, 20, 40, 0, 20,
+     {{80, MD_GAIN, SH_DRIFT | SH_STEPS, 20, 50, 10, 40, 0}, {60, MD_FOLD, SH_DRIFT | SH_TRI, 15, 45, 20, 60, 0},
+      {40, MD_OVER, SH_STEPS, 40, 70, 15, 40, 0}}, 0},
+    {"AURORA", {3, 1, 1, 3}, 60, 3, 5, 100, 500, 650, 950, {6, 0, 4}, 550, 850, 20, 550, 900, 250, 500, 10,
+     {3, 4, 1, 1, 1, 1}, {4, 4, 1, 0, 1, 1}, {3, 3, 0, 0, 0, 0}, 600, 1000, 25, {1, 4, 4, 0, 1, 0, 0}, 0,
+     {0, 2, 2, 1, 3, 4}, 350, 600, 5, 20, 1, 5,
+     {{80, MD_FREQ, SH_SINE | SH_DRIFT, 8, 30, 5, 20, 30}, {60, MD_PAN, SH_SINE | SH_DRIFT, 10, 35, 40, 90, 0},
+      {40, MD_FXMIX, SH_DRIFT, 10, 30, 20, 50, 30}}, 0},
+    {"SONAR", {5, 0, 0, 2}, 80, 1, 3, 150, 600, 400, 850, {7, 0, 3}, 750, 1000, 20, 400, 800, 300, 650, 10,
+     {3, 3, 2, 1, 1, 1}, {3, 4, 1, 1, 2, 1}, {2, 4, 2, 0, 1, 0}, 600, 1000, 20, {7, 0, 0, 0, 0, 0, 0}, 0,
+     {0, 1, 1, 4, 3, 1}, 300, 550, -5, 10, 0, 5,
+     {{100, MD_LOOP, SH_SAWD | SH_SQR, 35, 60, 60, 100, 0}, {50, MD_FX1, SH_STEPS, 25, 50, 10, 40, 0},
+      {30, MD_FREQ, SH_STEPS, 25, 50, 5, 20, 0}}, 1},
 };
 #define NFAM NELEM(FAM)
 /* (build 4) each family's FOLD -- how often, how hard -- and its weights for the newer effects: RESONATOR, XMOD,
@@ -204,7 +246,9 @@ static const family_t FAM[] = {
 static const struct { uint8_t p; int16_t lo, hi; } FAM_FOLD[] = {
     {20, 50, 250}, {5, 30, 120}, {15, 50, 300}, {30, 100, 500}, {50, 200, 800}, {20, 100, 400}, {40, 100, 500},
     {10, 30, 150}, {30, 100, 500}, {15, 50, 250}, {20, 50, 300}, {30, 100, 450}, {25, 50, 350}, {80, 300, 1000},
-    {60, 200, 900}, {20, 50, 300}};
+    {60, 200, 900}, {20, 50, 300},
+    {10, 30, 150}, {50, 150, 600}, {20, 50, 250}, {5, 30, 100}, {10, 30, 150}, {80, 300, 1000}, {5, 30, 100},
+    {5, 30, 100}};
 /*                                   RESONATOR XMOD DUCK GATE | CYCLES REED OCTAVER DIFFUSER SAG CUTS (build 5) */
 static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
     {4, 1, 0, 1, 1, 2, 2, 3, 1, 0}, {3, 0, 0, 0, 0, 2, 0, 2, 0, 0}, {1, 1, 0, 0, 0, 1, 1, 1, 1, 0},
@@ -212,7 +256,10 @@ static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
     {1, 3, 2, 1, 1, 1, 2, 2, 2, 0}, {5, 1, 0, 0, 0, 2, 1, 2, 0, 0}, {1, 1, 4, 4, 2, 0, 1, 0, 3, 3},
     {3, 0, 1, 1, 0, 1, 2, 4, 1, 0}, {2, 1, 0, 1, 0, 3, 1, 2, 0, 0}, {1, 3, 1, 2, 3, 0, 1, 1, 2, 2},
     {3, 1, 1, 0, 1, 2, 4, 2, 1, 0}, {1, 4, 1, 1, 2, 1, 2, 0, 2, 1}, {1, 4, 2, 3, 4, 0, 1, 1, 1, 5},
-    {2, 0, 3, 2, 0, 1, 1, 3, 3, 0}};
+    {2, 0, 3, 2, 0, 1, 1, 3, 3, 0},
+    {7, 0, 0, 0, 0, 2, 1, 2, 0, 0}, {0, 4, 2, 1, 1, 0, 3, 0, 4, 0}, {0, 2, 1, 3, 2, 0, 0, 0, 0, 3},
+    {2, 0, 0, 0, 0, 4, 4, 1, 0, 0}, {0, 1, 1, 3, 0, 0, 0, 0, 0, 2}, {0, 4, 0, 0, 2, 0, 2, 1, 4, 1},
+    {2, 0, 0, 0, 0, 0, 0, 5, 0, 0}, {1, 0, 0, 1, 0, 0, 0, 2, 0, 0}};
 typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM ? 1 : -1];
 
 /* ------------------------------------------------------------ drawing --- */
@@ -627,19 +674,6 @@ static void patch_shift(lil_par_t *q, uint32_t seed)
             if (*f[j] > 0 || j > 1u)
                 *f[j] = (int16_t)clampi(*f[j] + pr_in(&r, -45, 45), j == 1u ? 1 : 0, PMAX);
     }
-}
-
-/* ------------------------------------------------------- the factory's --- */
-typedef struct { const char *name; uint8_t fam; uint32_t seed; } factory_t;
-static const factory_t FACTORY[] = {
-    {"FIRST LIGHT", 0, 101}, {"LONELY RADIO", 11, 7342}, {"CIRCLE", 7, 23}, {"STATIC SKY", 4, 911},
-    {"TANGLE", 6, 52}, {"UNDERCURRENT", 15, 3}, {"ECHO CHAMBER", 9, 77}, {"RELAY", 8, 4410},
-    {"STATIC FIELD", 5, 1312}, {"NIGHT BIRDS", 1, 808}, {"DEEP WIRE", 12, 2718}, {"MIRROR HALL", 10, 31415},
-    {"SIGNAL LOSS", 14, 66}, {"AIR RAID", 2, 2026}, {"CRICKETS", 3, 999}, {"FAULTY MACHINE", 13, 4096}};
-#define NFACTORY NELEM(FACTORY)
-static void factory_load(lil_par_t *q, uint32_t i)
-{
-    patch_draw(q, FACTORY[i % NFACTORY].seed, FACTORY[i % NFACTORY].fam);
 }
 
 /* the trim: a patch just drawn or loaded is played into for a moment, as a player would before letting it run.

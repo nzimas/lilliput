@@ -25,12 +25,12 @@ fixed point.
 - **A rack of seven effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
   on its channel, or fed from a send bus, or from the slot before it, into a return bus.
 - **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with six spaces.
-- **HOME draws a new patch** from sixteen **families** — DRONE, WHISTLE, SIREN, CHIRP, STATIC, GEIGER, SWARM,
-  BEATING, PULSE, CAVERN, VOICES, BROKEN RADIO, SUBTERRANEAN, SCREAM, GLITCH, TIDES —: new connections, new settings
-  and new motion for the whole mixer. Every patch drawn sounds at once, and moves.
+- **Twenty-four recipes**: archetypes, not presets. PRESETS shows one, and **HOME draws a new patch from it** — new
+  connections, new settings and new motion for the whole mixer, different every time but always in the recipe's
+  direction. Every patch drawn sounds at once, and moves.
 - **Each channel has two LFOs and four modulation slots** (Tonitor's matrix), so its parameters move by
   themselves.
-- Sixteen factory patches, sixty-four sessions, MIDI CCs, USB audio (the output, or the six channels).
+- Sixty-four sessions, MIDI CCs, USB audio (the output, or the six channels).
 
 The screen is Tonitor's, made for **low vision**: very few words, in very large type, with high contrast, and
 each channel in its own colour.
@@ -73,11 +73,10 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SEQ** | the output's pages: OUT, OUT EQ, OUT FX, then back. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
-| **HOME** | a **new patch** of another family (see [New patches](#new-patches)). |
-| **SHIFT + HOME** | a new patch of the **same family**. |
+| **HOME** | a **new patch** from the recipe shown (see [New patches](#new-patches)). |
+| **SHIFT + HOME** | a new patch from **another recipe**, drawn at random. |
 | **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | the factory's patches; **SAVE** loads the one shown. On the MOD page: its entry. |
-| **SHIFT + PRESETS** | a new patch of the **family before or after**. |
+| **PRESETS** knob | the **RECIPE**: its name shown; nothing else changes until HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
 | **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
@@ -211,11 +210,13 @@ At the top, SPACE MIX leaves the reverb alone.
 
 ## New patches
 
-**HOME** draws a new patch, from one of sixteen **families**: kinds of no-input sound, each with its own way of
-connecting the channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own
-**motion**, LFOs on the parameters that make its character, drawn anew for each channel:
+**PRESETS** turns through the **recipes** and shows each one's name; **HOME** then draws a new patch from the one
+shown. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
+channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
+the parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
+recipe's direction:
 
-| Family | What it is | How it moves |
+| Recipe | What it is | How it moves |
 | --- | --- | --- |
 | DRONE | low loops of their own or in a ring, slow limiters, resonant lows; caves and abysses | the filters drift; the pans wander |
 | WHISTLE | high, clean tones: fast limiters, narrow band-passes | a slight vibrato; the levels breathe |
@@ -233,9 +234,17 @@ connecting the channels, its own register, filters, tubes, op-amps, noises, effe
 | SCREAM | saturated tubes, high gain, notches | the notches sweep |
 | GLITCH | glitch and crush on inserts and returns | stepped limiters and effects |
 | TIDES | loops through the sends | the sends swell and ebb, in step |
+| CHOIR | resonator chords and formants on the returns, soft pink noise | the chords and vowels drift; the levels breathe |
+| ENGINE | the lowest loops, saturated power tubes, ring modulation, sag | in step: a motor's throb; the folds pulse |
+| INSECTS | many tiny high loops, crackle and Geiger clicks, gates and cuts | the pitch and the pans jump on fast steps |
+| ORGAN | channels in rings, close peaks, reeds and octavers, chorus | a slow tremolo, in step; a faint drift |
+| MORSE | a few clean beeps, gated, with short delays | in step: on and off, in patterns |
+| FURNACE | a dense saturated web, hard folds, crushers, the protection tripping | the gain, the folds and the threshold churn |
+| AURORA | high shimmering loops, chorus, flanger and diffusion, vast spaces | slow sweeps; the pans and the effects drift |
+| SONAR | one to three pings into long delays, deep spaces | in step: pings that swell and fade; the delays jump |
 
-**HOME** draws from another family than the one playing; **SHIFT + HOME** draws again from the same family;
-**SHIFT + PRESETS** goes to the family before or after. The patch's name, on the main view, is its family's.
+**HOME** draws from the recipe shown; **SHIFT + HOME** from another, drawn at random. The patch's name, on the main
+view, is its recipe's.
 
 The faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
 where the playing is. Some channels come with their fader down: brought up, they join in. For its first two
@@ -307,8 +316,13 @@ band-pass, a loop through the sends) is chopped rather than choked. The styles:
 | 1 | **TEMPO**, 10 … 500 BPM: a BPM a detent, five when turned fast |
 | 2 | **SWING**: the off steps late, up to a third of a step |
 | 3 | **CHAOS**: hits skipped, ghost hits added |
-| 4 | **GATES**: every gate shorter or longer (100 %: as drawn) |
+| 4 | **LENGTH**: every gate shorter or longer (100 %: as drawn) |
 | PRESETS | the styles: a new rhythm of each, playing |
+| OCT+ | the second page: **MIX** |
+
+**The MIX page** (OCT+ from TEMPO, OCT− back): **MIX** sets how much of the gates is heard, against the loops as
+they run on: 100 % all gate (as before), 0 % the loops alone, the rhythm unheard. KICK's bursts and ACCENT's pushes
+follow it too.
 
 A new patch keeps the rhythm playing (its lanes stay with the channels); snapshots and sessions keep their own. The
 rhythm's changes — on, off, a new one, the tempo — are gestures like any other: the gesture loop records them.
@@ -325,7 +339,7 @@ thrown at random, a new patch, a MIDI CC — and plays it back, round and round,
 - **REC** held 1 s empties it.
 
 Each round begins from the mixer as it was when the recording began — only what the loop touches — so it plays the
-same way every time; what you change that the loop does not touch stays yours. A new patch, a preset or a session
+same way every time; what you change that the loop does not touch stays yours. A new patch or a session
 stops the loop (PLAY plays it again, over the new mixer). Up to 2048 changes and ten minutes. The output's mute
 (SHIFT + PLAY) is never recorded. The loop is kept with the session.
 
@@ -344,9 +358,9 @@ last recalled framed.
 
 **SAVE** again, or a channel's button, goes back.
 
-## Presets and sessions
+## Sessions
 
-**PRESETS** turns through sixteen factory patches; **SAVE** loads the one shown. **SAVE** held saves the whole
+**SAVE** held saves the whole
 mixer as a session (64 of them); **SHIFT + SAVE** opens the sessions. A session keeps every parameter, the
 channel chosen, the patch's name and family, its sixteen snapshots and its gesture loop.
 
@@ -383,13 +397,13 @@ Every build is a git commit tagged `build-N`. To go back to a build: `git checko
 - the target check: nothing that needs a runtime the chip lacks (no float, no 64-bit division);
 - **check**: 200 patches HOME draws, each must sing, none clip or sit on DC; each family's pitch, movement and
   loudness reported;
-- **fits**: every page's words in their place — each name and every value any parameter can take, every family's
-  and preset's name, whole, without being squeezed;
-- **flows**: the panel — channels, pages, input keys, mutes, HOME, PLAY, sessions saved and loaded back, presets,
+- **fits**: every page's words in their place — each name and every value any parameter can take, every recipe's
+  name, whole, without being squeezed;
+- **flows**: the panel — channels, pages, input keys, mutes, HOME, PLAY, sessions saved and loaded back, recipes,
   GLOBAL SETUP, another firmware's data left alone;
 - **screens**: every page, as images in `build/screens`;
 - **cores**: the output stage on the second core sounds the same as on one;
-- a render of every factory patch to `build/sounds` (WAV).
+- a render of a patch from every recipe to `build/sounds` (WAV).
 
 `build/host render build/sounds v` prints each patch's settings beside its figures; `build/host calib` shows
 where a single channel's loop starts to sing, its level swept.
@@ -398,7 +412,7 @@ where a single channel's loop starts to sing, its level swept.
 
 `firmware/src/lilliput.c` is one compilation unit that includes the rest: `mixer.c` (the channels, the rack, the
 buses, the output; the per-sample loop runs from RAM on CPU0, the output stage a block late on CPU1),
-`patch.c` (HOME's patches, the trim, the factory's), `lui.c` (the panel and the screen), `lses.c` (sessions),
+`patch.c` (the recipes, HOME's patches, the trim), `lui.c` (the panel and the screen), `lses.c` (sessions),
 `setup.c` (GLOBAL SETUP, MIDI), and the platform from Tonitor, Felucca and SLOOP.
 
 # Licence

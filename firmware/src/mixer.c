@@ -133,7 +133,7 @@ typedef struct {
     lane_t lane[NCH];
     uint16_t bpm;                /* 10 .. 500 */
     uint8_t on, style;           /* playing; the style it was drawn in */
-    uint8_t swing, chaos, gscale, rsv;   /* 0 .. 100: the off steps late; hits skipped and ghosts added; the gates'
+    uint8_t swing, chaos, gscale, dry;   /* 0 .. 100: the off steps late; hits skipped and ghosts added; the gates'
                                           * length (50: as drawn) */
 } rhy_par_t;
 typedef struct {
@@ -1354,6 +1354,10 @@ static volatile uint8_t rhy_reset = 1;           /* (the main loop: from the top
 static volatile uint32_t rhy_beat;               /* the beats counted (the lights) */
 static uint32_t rhy_bph;
 static rnd_t rhy_r = {0x2468ACE1u};
+AINL int32_t rhy_wet(void)                       /* MIX: how much of the gate is heard (Q15; DRY 0, as before: all) */
+{
+    return par.rhy.dry >= 100u ? 0 : (int32_t)(100u - par.rhy.dry) * Q15 / 100;
+}
 static FAST void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t inc)
 {
     uint32_t sb = inc ? 0xFFFFFFFFu / inc : 1000u, g = L->gate * (uint32_t)(par.rhy.gscale ? par.rhy.gscale : 50) / 50u;
@@ -1367,9 +1371,9 @@ static FAST void rhy_trigger(uint32_t c, const lane_t *L, int accent, uint32_t i
             lrt[c].hold = mn;
     }
     if (L->mode == RM_KICK)
-        chr[c].kick = accent ? 30000 : 20000;
+        chr[c].kick = mulq15(accent ? 30000 : 20000, rhy_wet());
     else if (L->mode == RM_ACCENT)
-        rhy_acc[c] = accent ? Q15 : 20000;
+        rhy_acc[c] = mulq15(accent ? Q15 : 20000, rhy_wet());
 }
 static FAST void rhythm_block(void)
 {
@@ -1458,6 +1462,9 @@ static FAST void rhythm_block(void)
         floor = Q15 - L->depth * Q15 / 100;
         rhy_g[c] = floor + mulq15((L->mode == RM_KICK ? 2 * Q15 : Q15) - floor, lrt[c].env);   /* (KICK: a +6 dB punch
                                                   * while open -- the struck loop past its edge, at full strength) */
+        if (par.rhy.dry)                         /* MIX (build 10): the gate heard only so much, the rest the loop as
+                                                  * it runs on */
+            rhy_g[c] = Q15 + mulq15(rhy_g[c] - Q15, rhy_wet());
     }
     for (c = 0; c < NCH; c++)                    /* ACCENT's push dies away (~25 ms) */
         rhy_acc[c] -= rhy_acc[c] >> 5;

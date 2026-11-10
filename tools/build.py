@@ -38,7 +38,7 @@ CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-fu
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
 PRODUCT = "FM-1_800"                # package identity (the same for every build)
-VERSION = "9"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
+VERSION = "10"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
 
 
 def toolchain():

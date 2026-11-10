@@ -1,5 +1,19 @@
 # Changelog
 
+## Build 10 (2026-11-10)
+
+- PRESETS are gone: there were sixteen fixed "factory patches" and a page of them. The knob now shows the **RECIPE**
+  (an archetype, never a fixed patch): its name, flashed, and nothing else changes. **HOME** draws a new patch from
+  the recipe shown, otherwise each time; **SHIFT + HOME** from another recipe, at random. No page of its own.
+- Eight new recipes, twenty-four in all: CHOIR, ENGINE, INSECTS, ORGAN, MORSE, FURNACE, AURORA, SONAR. They reach
+  for the effects the first sixteen use little (RESONATOR, XMOD, SAG, OCTAVER, REED, DIFFUSER, GATE, CUTS). A session
+  keeps its recipe as before (the first sixteen keep their numbers).
+- The RHYTHM's pages: OCT+ / OCT- between TEMPO SWING CHAOS LENGTH and a second page, **MIX**: how much of the gates
+  is heard against the loops as they run on (100 %: all gate, as before; 0 %: the loops alone). KICK's bursts and
+  ACCENT's pushes follow it. Stored in the rhythm's spare byte: older sessions load at 100 %.
+- GATES is now LENGTH (the gates' length; "GATE LENGTH" does not fit beside its bar).
+- The start: a DRONE (the same patch as before, named after its recipe).
+
 ## Build 9 (2026-11-10)
 
 - CPU0 made room: over the same 30 drawn patches (tools/fm1_bench.py), a block's load is 64 % on average (build 8:

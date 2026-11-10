@@ -202,7 +202,7 @@ static void bench_patch(uint32_t seed, int fam, uint32_t secs)
     uint32_t f = patch_draw(&q, seed, fam);
     q.rhy.on = 0;
     q.out.mute = 1;                              /* (measured, not heard) */
-    ui.fam = (uint8_t)f;
+    ui.fam = ui.recipe = (uint8_t)f;
     patch_set(&q, FAM[f].name);
     bnp.fam = (uint8_t)f;
     bnp.until = fm1_ms + 1000u * (secs ? secs : 3u);

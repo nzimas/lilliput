@@ -10,12 +10,15 @@
  *                             SHIFT +: NOISE, MID (the middle filter's gain or width), PROTECT (the overload
  *                             protection's threshold), SEND 2 -- a dial over
  *                             the whole screen while turning. On a page: its four rows (SHIFT +: the page's switches)
- *   OCT- / OCT+               the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on the output's: OUT, OUT EQ, OUT FX)
+ *   OCT- / OCT+               the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on the output's: OUT, OUT EQ, OUT FX;
+ *                             on the RHYTHM's: TEMPO SWING CHAOS LENGTH (the gates'), then MIX)
  *   SEQ                       the output's pages: OUT, OUT EQ, OUT FX, then back
  *   ARP                       the OVERVIEW: the six channels, their inputs and levels, at once
- *   HOME                      a NEW PATCH: the whole mixer drawn again -- its connections and its settings (patch.c)
- *   SHIFT + HOME              the patch nudged: every channel's tone a little elsewhere, the connections kept
- *   PRESETS (knob)            the factory's patches (SAVE: load the one shown)
+ *   PRESETS (knob)            the RECIPE: an archetype a new patch is drawn from, its name shown (nothing else changes)
+ *   HOME                      a NEW PATCH from the recipe shown: the whole mixer drawn again -- its connections and
+ *                             its settings, each time otherwise (patch.c)
+ *   SHIFT + HOME              a new patch from a recipe drawn at random (another than the one shown)
+ *   HOME held                 the patch nudged: every channel's tone a little elsewhere, the connections kept
  *   SAVE held                 save the session: over the one loaded at once, else a new one (asked)
  *   SHIFT + SAVE              the SESSIONS page (PRESETS chooses, SAVE loads); held 0.8 s: GLOBAL SETUP
  *   PLAY                      the output muted, or back (a panic: the loops keep going, unheard)
@@ -44,7 +47,7 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
                                         RGB(96, 255, 96), RGB(255, 140, 0), RGB(190, 160, 255)};
 #define C_OUT RGB(140, 190, 255)
 #define C_SES RGB(120, 255, 200)
-#define C_PRE RGB(255, 200, 120)
+#define C_PRE RGB(255, 200, 120)          /* (the RECIPE's) */
 #define C_OK RGB(60, 220, 90)
 #define C_BAD RGB(255, 40, 40)
 #define C_REC RGB(255, 30, 30)
@@ -52,11 +55,11 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
 /* the pages */
 enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2,   /* a channel's (OCT- / OCT+) */
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
-       PG_TEMPO,                                             /* the RHYTHM's (its key held) */
-       PG_VIEW, PG_PRESET, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
+       PG_TEMPO, PG_RHY2,                                    /* the RHYTHM's (its key held; OCT- / OCT+ between) */
+       PG_VIEW, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
 #define PG_CH_LAST PG_MTX2
 static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
-                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "", "", "", "", "",
+                                           "OUT", "OUT EQ", "OUT FX", "RHYTHM", "RHYTHM", "", "", "", "",
                                            ""};
 
 /* every parameter the panel reaches: on the chosen channel, its slot, or the output */
@@ -67,6 +70,7 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_LSHAPE, P_LRATE, P_LMODE, P_LFADE,      /* (the LFO pages': LFO 1 or 2 as the page is) */
        P_FOLD,
        P_BPM, P_SWING, P_CHAOS, P_GSCALE,        /* (the TEMPO page's) */
+       P_RMIX,                                   /* (the RHYTHM's second page) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
@@ -75,14 +79,14 @@ static const uint8_t PG_ROW[PG_N][4] = {
     {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES},
-    {P_BPM, P_SWING, P_CHAOS, P_GSCALE}};
+    {P_BPM, P_SWING, P_CHAOS, P_GSCALE}, {P_RMIX, P_NONE, P_NONE, P_NONE}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
-    {P_NONE, P_NONE, P_NONE, P_NONE}};
+    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}};
 
 static struct {
     uint8_t sel, page, last_ch_page;
@@ -95,8 +99,9 @@ static struct {
     uint32_t msg_until;
     uint32_t home_until;
     uint32_t seed;
-    char patch[16];              /* the patch's name: the factory's, or the family drawn */
-    uint8_t fam;                 /* the family of the patch playing (HOME, SHIFT + HOME, SHIFT + PRESETS) */
+    char patch[16];              /* the patch's name: the recipe it was drawn from, or the session's */
+    uint8_t fam;                 /* the recipe (family) of the patch playing */
+    uint8_t recipe;              /* the RECIPE shown (PRESETS): HOME's next patch is drawn from it */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
     uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
@@ -114,7 +119,6 @@ static struct {
     uint8_t flash_on, flash_phase;
     uint16_t flash_col;
     char flash_l1[12], flash_l2[16];
-    uint8_t pre_ix;              /* the PRESETS page: the factory patch shown */
     uint8_t ses_ix, ses_yes, ses_over;   /* the SESSIONS page's slot; the question's answer, and whether it overwrites */
     uint16_t ses_new;
     uint32_t save_t0, ssv_t0;
@@ -206,6 +210,7 @@ static int32_t p_get(uint32_t id)
     case P_SWING: return par.rhy.swing;
     case P_CHAOS: return par.rhy.chaos;
     case P_GSCALE: return par.rhy.gscale;
+    case P_RMIX: return 100 - (par.rhy.dry > 100u ? 100 : par.rhy.dry);
     case P_LSHAPE: return c->mod.lfo[ui.page == PG_LFO2].shape;
     case P_LRATE: return c->mod.lfo[ui.page == PG_LFO2].rate;
     case P_LMODE: return c->mod.lfo[ui.page == PG_LFO2].mode;
@@ -246,7 +251,7 @@ static void p_set(uint32_t id, int32_t v)
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
         : id == P_BPM ? clampi(v, 10, 500)
         : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
-                       : id == P_GSCALE ? 100 : PMAX);
+                       : id == P_GSCALE || id == P_RMIX ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -293,6 +298,7 @@ static void p_set(uint32_t id, int32_t v)
     case P_SWING: par.rhy.swing = (uint8_t)v; break;
     case P_CHAOS: par.rhy.chaos = (uint8_t)v; break;
     case P_GSCALE: par.rhy.gscale = (uint8_t)(v < 5 ? 5 : v); break;
+    case P_RMIX: par.rhy.dry = (uint8_t)(100 - v); break;
     case P_LSHAPE: c->mod.lfo[ui.page == PG_LFO2].shape = (uint8_t)v; break;
     case P_LRATE: c->mod.lfo[ui.page == PG_LFO2].rate = (uint8_t)v; break;
     case P_LMODE: c->mod.lfo[ui.page == PG_LFO2].mode = (uint8_t)v; break;
@@ -303,7 +309,7 @@ static void p_set(uint32_t id, int32_t v)
 static int32_t p_hi(uint32_t id)
 {
     return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : id == P_BPM ? 500
-           : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE ? 100
+           : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE || id == P_RMIX ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
 static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : id == P_BPM ? 10 : 0; }
@@ -392,7 +398,8 @@ static const char *p_name(uint32_t id)
     case P_BPM: return "TEMPO";
     case P_SWING: return "SWING";
     case P_CHAOS: return "CHAOS";
-    case P_GSCALE: return "GATES";
+    case P_GSCALE: return "LENGTH";              /* (the gates': "GATE LENGTH" does not fit beside its bar) */
+    case P_RMIX: return "MIX";
     case P_LSHAPE: return "SHAPE";
     case P_LRATE: return "RATE";
     case P_LMODE: return "MODE";
@@ -512,6 +519,10 @@ static void p_text(uint32_t id, int32_t v, char *b)
         fmt_int(b, v);
         str_cpy(b + str_len(b), " BPM", 5);
         break;
+    case P_RMIX:                                 /* (0: the loop as it runs, the gate unheard; 100: all gate) */
+        fmt_int(b, v);
+        str_cpy(b + str_len(b), " %", 3);
+        break;
     case P_GSCALE:                               /* (as drawn: 100 %) */
         fmt_int(b, v * 2);
         str_cpy(b + str_len(b), " %", 3);
@@ -620,6 +631,7 @@ static void ch_fresh_all(void)                    /* (a new patch: what the ISR 
 }
 static void gest_halt(void);
 static void goto_page(uint32_t pg);
+static int rhy_page(void) { return ui.page == PG_TEMPO || ui.page == PG_RHY2; }
 static void mtx_knob(uint32_t j, int32_t s, int sh);
 static void mtx_from(int32_t s);
 static void patch_set(const lil_par_t *q, const char *name)
@@ -653,19 +665,19 @@ static void rhy_new(int st)
     ui.force = 1;
 }
 
-/* a new patch: of family fam, or (-1) of another family than the one playing */
+/* a new patch: from recipe fam, or (-1) from another recipe than the one shown */
 static void new_patch(int fam)
 {
     static lil_par_t q;
     uint32_t f;
     if (fam < 0) {
         fam = (int)(next_seed() % (NFAM - 1u));
-        if (fam >= (int)ui.fam)
+        if (fam >= (int)ui.recipe)
             fam++;
     }
     f = patch_draw(&q, next_seed(), fam);
     q.rhy = par.rhy;                             /* (the RHYTHM plays on over a new patch) */
-    ui.fam = (uint8_t)f;
+    ui.fam = ui.recipe = (uint8_t)f;
     patch_set(&q, FAM[f].name);
     say("NEW PATCH", 1200);
     ui.home_until = fm1_ms + 400u;
@@ -720,16 +732,6 @@ static void save_short(void)
             int rc = ses_save(n);
             ses_done(rc, "SAVED", n);
         }
-        return;
-    }
-    if (ui.page == PG_PRESET) {                  /* the factory patch shown: loaded */
-        static lil_par_t q;
-        factory_load(&q, ui.pre_ix);
-        q.rhy = par.rhy;
-        ui.fam = FACTORY[ui.pre_ix].fam;
-        patch_set(&q, FACTORY[ui.pre_ix].name);
-        flash("PRESET", FACTORY[ui.pre_ix].name, C_PRE);
-        page_back();
         return;
     }
     if (ui.page == PG_SES) {                     /* the session shown: loaded */
@@ -829,7 +831,7 @@ static void ui_input(void)
         (void)enc_take(EN_K4);
         goto knobs_lp;
     }
-    /* HOME: a new patch (another family); SHIFT + HOME: of the same family; held 0.8 s: the patch nudged */
+    /* HOME: a new patch from the RECIPE shown; SHIFT + HOME: from another, at random; held 0.8 s: the patch nudged */
     if (btn_bit(press, B_HOME)) {
         ui.home_down = 1;
         ui.home_sh = (uint8_t)sh;
@@ -840,7 +842,7 @@ static void ui_input(void)
         if (!btn_bit(fm1_in.buttons, B_HOME)) {
             ui.home_down = 0;
             if (!ui.home_done)
-                new_patch(ui.home_sh ? (int)ui.fam : -1);
+                new_patch(ui.home_sh ? -1 : (int)ui.recipe);
         } else if (!ui.home_done && (uint32_t)(fm1_ms - ui.home_t0) >= 800u) {
             ui.home_done = 1;
             patch_shift(&par, next_seed());
@@ -855,6 +857,8 @@ static void ui_input(void)
             goto_page(up ? (ui.page < PG_CH_LAST ? ui.page + 1u : ui.page) : (ui.page ? ui.page - 1u : 0u));
         else if (ui.page >= PG_OUT && ui.page <= PG_OFX)
             goto_page(up ? (ui.page < PG_OFX ? ui.page + 1u : ui.page) : (ui.page > PG_OUT ? ui.page - 1u : ui.page));
+        else if (rhy_page())                     /* the RHYTHM's: TEMPO .., then MIX */
+            goto_page(up ? PG_RHY2 : PG_TEMPO);
     }
     if (btn_bit(press, B_SEQ) && sh) {          /* SHIFT + SEQ: the chosen channel's modulation thrown anew */
         mod_random(&par.ch[ui.sel].mod, next_seed());
@@ -964,7 +968,7 @@ static void ui_input(void)
             }
         } else if (!ui.rhy_done && !ui.rhy_sh && (uint32_t)(fm1_ms - ui.rhy_t0) >= 800u) {
             ui.rhy_done = 1;                     /* held: the TEMPO page, or back */
-            if (ui.page == PG_TEMPO)
+            if (rhy_page())
                 page_back();
             else
                 goto_page(PG_TEMPO);
@@ -1026,25 +1030,22 @@ static void ui_input(void)
             ui.force = 1;
         }
     }
-    /* PRESETS: the factory's, or the SESSIONS page's slot, or the question's answer */
+    /* PRESETS: the RECIPE, or the SESSIONS page's slot, or the question's answer */
     s = enc_take(EN_PRESET);
-    if (s && sh) {                               /* SHIFT + PRESETS: a patch of the family before or after */
-        new_patch((int)((ui.fam + NFAM + (s > 0 ? 1u : NFAM - 1u)) % NFAM));
-        s = 0;
-    }
     if (s) {
         if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
             mtx_from(s);
-        else if (ui.page == PG_TEMPO)            /* the TEMPO page: PRESETS through the styles, a rhythm of each */
+        else if (rhy_page())                     /* the RHYTHM's pages: PRESETS through the styles, a rhythm of each */
             rhy_new((int)((par.rhy.style + RS_N + (s > 0 ? 1u : RS_N - 1u)) % RS_N));
         else if (ui.page == PG_SES)
             ui.ses_ix = (uint8_t)clampi(ui.ses_ix + (s > 0 ? 1 : -1), 1, (int32_t)SES_SLOTS);
         else if (ui.page == PG_ASK)
             ui.ses_yes = (uint8_t)(s > 0);
-        else if (ui.page == PG_PRESET)
-            ui.pre_ix = (uint8_t)((ui.pre_ix + NFACTORY + (s > 0 ? 1u : NFACTORY - 1u)) % NFACTORY);
-        else
-            goto_page(PG_PRESET);
+        else {                                   /* the RECIPE: shown, HOME draws from it */
+            ui.recipe = (uint8_t)((ui.recipe + NFAM + (s > 0 ? 1u : NFAM - 1u)) % NFAM);
+            flash("RECIPE", FAM[ui.recipe].name, C_PRE);
+            ui.force = 1;
+        }
     }
     /* KNOB 1 .. 4 */
     if (ui.page == PG_MTX1 || ui.page == PG_MTX2) {
@@ -1053,7 +1054,7 @@ static void ui_input(void)
             if (s)
                 mtx_knob(k, s, sh);
         }
-    } else if (ui.page <= PG_OFX || ui.page == PG_TEMPO) {
+    } else if (ui.page <= PG_OFX || rhy_page()) {
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
@@ -1118,7 +1119,7 @@ static void ui_leds(void)
     fm1_led_key(PANEL_BTN[B_HOME], (int32_t)(ui.home_until - fm1_ms) > 0);
     fm1_led_key(PANEL_BTN[B_SEQ], ui.page >= PG_OUT && ui.page <= PG_OFX);
     fm1_led_key(PANEL_BTN[B_ARP], ui.page == PG_VIEW);
-    fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK || ui.page == PG_PRESET ||
+    fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK ||
                                    ui.page == PG_SNAP);
     fm1_led_key(PANEL_BTN[B_PLAY], gs.play);
     fm1_led_key(PANEL_BTN[B_REC], gs.st == GS_REC || (gs.st == GS_ARMED && blink));
@@ -1279,7 +1280,7 @@ static void draw_pan(void)
 
 /* a page: its title (and what its switches are), then four rows -- name, value, a bar under a value */
 #define C_RHY RGB(255, 120, 80)
-static uint16_t page_col(void) { return ui.page == PG_TEMPO ? C_RHY : ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
+static uint16_t page_col(void) { return rhy_page() ? C_RHY : ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
 #define TITLE_H 36               /* a page's title band, then four rows of ROW_H */
 #define ROW_H 51
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
@@ -1306,7 +1307,7 @@ static void draw_title(void)
         t[n + 5] = (char)('1' + ui.sel);
         t[n + 6] = 0;
     }
-    if (ui.page == PG_TEMPO) {                   /* the RHYTHM: its style, or OFF */
+    if (rhy_page()) {                            /* the RHYTHM: its style, or OFF */
         str_cpy(t, par.rhy.on ? RS_NAME[par.rhy.style % RS_N] : "RHYTHM OFF", sizeof t);
     }
     if (show_shift())                            /* (SHIFT held: the switches) */
@@ -1345,6 +1346,12 @@ static void draw_row(uint32_t j, int touched)
     int32_t v = p_get(id);
     char t[16];
     int bar = id == P_PAN ? 2 : p_is_bar(id) || id == P_LEVEL ? 1 : 0;
+    if (id == P_NONE) {                          /* (a row with nothing on it: blank) */
+        cv_begin(240, ROW_H, C_BLACK);
+        cv_blit(0, TITLE_H + j * ROW_H);
+        ui.shown_row[j] = v;
+        return;
+    }
     p_text(id, v, t);
     draw_row2(j, p_name(id), t, bar, bar == 2 ? v * 1000 / PAN_MAX : p_bar(id, v, 1000), touched);
     ui.shown_row[j] = v;
@@ -1550,33 +1557,19 @@ static void draw_noyes(int yes)
     cv_text(180 - text_w(&FONT_M, "YES") / 2, 22, &FONT_M, "YES", yes ? C_BLACK : C_GREY);
     cv_bg_set(C_BLACK);
 }
-/* the PRESETS, SESSIONS and question pages: a title, the one shown very large, a line under it */
+/* the SESSIONS and question pages: a title, the one shown very large, a line under it */
 static int32_t shown_list;
 static void draw_list_page(void)
 {
     int32_t key;
     char n[8];
-    if (ui.page == PG_PRESET)
-        key = 1000 + ui.pre_ix;
-    else if (ui.page == PG_SES)
+    if (ui.page == PG_SES)
         key = 2000 + ui.ses_ix * 2 + ses_has(ui.ses_ix);
     else
         key = 3000 + ui.ses_yes;
     if (!ui.force && ui.shown_page == ui.page && key == shown_list)
         return;
     shown_list = key;
-    if (ui.page == PG_PRESET) {
-        CV_AREA(0, 0, 240, 60, C_BLACK)
-            cv_text_c(4, &FONT_L, "PRESETS", C_PRE);
-        fmt_int(n, ui.pre_ix + 1);
-        CV_AREA(0, 60, 240, 100, C_BLACK)
-            cv_text_c(0, &FONT_XL, n, C_WHITE);
-        CV_AREA(0, 160, 240, 80, C_BLACK) {
-            text_fit_c(0, 44, FACTORY[ui.pre_ix].name, &FONT_M, C_PRE);
-            cv_text_c(50, &FONT_XS, "SAVE TO LOAD", RGB(175, 175, 175));
-        }
-        return;
-    }
     if (ui.page == PG_SES) {
         int has = ses_has(ui.ses_ix);
         CV_AREA(0, 0, 240, 60, C_BLACK)
@@ -1732,7 +1725,7 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
-    if (ui.page == PG_PRESET || ui.page == PG_SES || ui.page == PG_ASK) {
+    if (ui.page == PG_SES || ui.page == PG_ASK) {
         draw_list_page();
         ui.shown_page = ui.page;
         ui.force = 0;
@@ -1746,7 +1739,7 @@ static void ui_draw(void)
         return;
     }
     if (ui.page != PG_MAIN) {
-        if (ui.page == PG_TEMPO && ui.shown_page == PG_TEMPO && (int32_t)ui.shown_snap != par.rhy.on * 256 + par.rhy.style) {
+        if (rhy_page() && ui.shown_page == ui.page && (int32_t)ui.shown_snap != par.rhy.on * 256 + par.rhy.style) {
             ui.shown_snap = par.rhy.on * 256 + par.rhy.style;   /* (the style or OFF changed: the title anew) */
             ui.force = 1;
         }
@@ -1814,9 +1807,9 @@ static void ui_init(void)
 #else
     ui.seed = fm1_ticks() ^ 0x5EEDu;
 #endif
-    factory_load(&q, 0);                         /* the first factory patch: something sounding at once */
-    ui.fam = FACTORY[0].fam;
-    patch_set(&q, FACTORY[0].name);
+    patch_draw(&q, 101u, 0);                     /* a DRONE, always the same: something sounding at once */
+    ui.fam = ui.recipe = 0;
+    patch_set(&q, FAM[0].name);
     ui.shown_sel = 0xFF;
     ui.force = 1;
 }

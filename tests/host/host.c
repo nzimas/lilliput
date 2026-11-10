@@ -379,17 +379,17 @@ static int cmd_render(const char *dir, int verbose)
     static int16_t buf[2 * FS * 12];
     uint32_t i, bad = 0;
     char path[512];
-    for (i = 0; i < NFACTORY + 8u; i++) {
+    for (i = 0; i < NFAM + 8u; i++) {           /* (a patch of each recipe, then eight from any) */
         stats_t st;
         const char *name;
         char nm[40];
         fresh_mixer();
-        if (i < NFACTORY) {
-            factory_load(&par, i);
-            name = FACTORY[i].name;
+        if (i < NFAM) {
+            patch_draw(&par, 101u + i * 7919u, (int)i);
+            name = FAM[i].name;
         } else {
             uint32_t rc = patch_draw(&par, 9000u + i * 37u, -1);
-            snprintf(nm, sizeof nm, "DRAWN %u %s", i - NFACTORY, FAM[rc].name);
+            snprintf(nm, sizeof nm, "DRAWN %u %s", i - NFAM, FAM[rc].name);
             name = nm;
         }
         st = render(12.0, buf, FS * 12u);
@@ -573,7 +573,7 @@ static int cmd_screens(const char *dir)
     tap_key(KEY_MUTE[2]);
     turn(EN_PRESET, 1);
     run_ms(60);
-    SHOT("12_presets");
+    SHOT("12_recipe");
     press_btn(LAYER_BTN[0]);
     press_btn(B_HOME);
     run_ms(200);
@@ -607,6 +607,9 @@ static int cmd_screens(const char *dir)
     key(KEY_RHY, 0);
     run_ms(100);
     SHOT("18_tempo");
+    press_btn(B_OCTUP);
+    run_ms(100);
+    SHOT("19_rhythm_mix");
     key(KEY_RHY, 1);
     run_ms(900);
     key(KEY_RHY, 0);
@@ -630,7 +633,7 @@ static int cmd_flows(void)
     fresh_mixer();
     ui_init();
     run_ms(3600);
-    EXPECT(str_eq(ui.patch, FACTORY[0].name), "the first factory patch at the start");
+    EXPECT(str_eq(ui.patch, FAM[0].name) && ui.recipe == 0, "a DRONE at the start, its recipe shown");
     EXPECT(out_meter > 300, "the start sounds");
     /* channels and pages */
     press_btn(LAYER_BTN[3]);
@@ -693,15 +696,22 @@ static int cmd_flows(void)
     turn(EN_K1, 1);
     key(KEY_SHIFT, 0);
     EXPECT(par.slot[1].in != FI_NON || par.slot[1].in == FI_INS, "SHIFT + KNOB 1: the slot's input");
-    /* HOME: a new patch of another family; SHIFT + HOME: of the same; SHIFT + PRESETS: the next family; held: nudged */
+    /* PRESETS: the RECIPE shown (nothing else); HOME: a new patch from it; SHIFT + HOME: from another; held: nudged */
     press_btn(LAYER_BTN[0]);
     keep_src = par.ch[0].src;
     before = par;
     {
-        uint32_t f0 = ui.fam;
+        uint32_t f0 = ui.fam, pg = ui.page;
+        turn(EN_PRESET, 1);
+        EXPECT(ui.recipe == (f0 + 1u) % NFAM && ui.fam == f0 && !memcmp(&before, &par, sizeof par) && ui.page == pg,
+               "PRESETS: the next recipe shown, the patch and the page left as they were");
+        turn(EN_PRESET, -1);
+        turn(EN_PRESET, -1);
+        EXPECT(ui.recipe == (f0 + NFAM - 1u) % NFAM, "PRESETS back: the one before");
         press_btn(B_HOME);
-        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam != f0, "HOME draws a new patch, of another family");
-        EXPECT(str_eq(ui.patch, FAM[ui.fam].name), "the patch named after its family");
+        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam == (f0 + NFAM - 1u) % NFAM,
+               "HOME draws a new patch from the recipe shown");
+        EXPECT(str_eq(ui.patch, FAM[ui.fam].name), "the patch named after its recipe");
     }
     run_ms(3600);
     EXPECT(out_meter > 300, "the new patch sounds");
@@ -711,11 +721,12 @@ static int cmd_flows(void)
         key(KEY_SHIFT, 1);
         press_btn(B_HOME);
         key(KEY_SHIFT, 0);
-        EXPECT(ui.fam == f0 && memcmp(&before, &par, sizeof par) != 0, "SHIFT + HOME: a new patch of the same family");
-        key(KEY_SHIFT, 1);
-        turn(EN_PRESET, 1);
-        key(KEY_SHIFT, 0);
-        EXPECT(ui.fam == (f0 + 1u) % NFAM, "SHIFT + PRESETS: the next family");
+        EXPECT(ui.fam != f0 && ui.recipe == ui.fam && memcmp(&before, &par, sizeof par) != 0,
+               "SHIFT + HOME: a new patch from another recipe, shown");
+        before = par;
+        f0 = ui.fam;
+        press_btn(B_HOME);
+        EXPECT(ui.fam == f0 && memcmp(&before, &par, sizeof par) != 0, "HOME again: another patch of the same recipe");
     }
     before = par;
     hold_btn(B_HOME, 900);
@@ -888,6 +899,14 @@ static int cmd_flows(void)
         par.rhy.bpm = 120;
         turn(EN_PRESET, 1);
         EXPECT(par.rhy.on, "PRESETS there: a rhythm of the next style, playing");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_RHY2, "OCT+ there: the RHYTHM's second page");
+        EXPECT(p_get(P_RMIX) == 100, "its MIX: all gate, as before");
+        turn(EN_K1, -40);
+        EXPECT(p_get(P_RMIX) == 60 && par.rhy.dry == 40, "KNOB 1 there: the MIX");
+        turn(EN_K1, 40);
+        press_btn(B_OCTDN);
+        EXPECT(ui.page == PG_TEMPO, "OCT- : back to TEMPO");
     }
     key(KEY_RHY, 1);
     run_ms(900);
@@ -933,12 +952,6 @@ static int cmd_flows(void)
     /* again, from the flash as a boot finds it */
     ses_scan(1);
     EXPECT(ses_has(1), "the session found after a restart");
-    /* presets */
-    turn(EN_PRESET, 2);
-    EXPECT(ui.page == PG_PRESET, "PRESETS: the factory's page");
-    turn(EN_PRESET, 1);
-    press_btn(B_SAVE);
-    EXPECT(str_eq(ui.patch, FACTORY[1].name), "SAVE loads the preset shown");
     /* GLOBAL SETUP */
     key(KEY_SHIFT, 1);
     hold_btn(B_SAVE, 900);
@@ -1153,8 +1166,13 @@ static int cmd_fits(void)
         }
     for (f = 0; f < NFAM; f++)
         FIT(text_w(&FONT_XS, FAM[f].name) <= 236, "a family's name", FAM[f].name);
-    for (f = 0; f < NFACTORY; f++)
-        FIT(text_w(&FONT_XS, FACTORY[f].name) <= 236, "a preset's name", FACTORY[f].name);
+    for (f = 0; f < NFAM; f++)
+        FIT(text_w(&FONT_XS, FAM[f].name) <= 236, "a recipe's name", FAM[f].name);
+    FIT(text_w(&FONT_L, "RECIPE") <= 236, "the RECIPE flash", "RECIPE");
+    for (pg = PG_TEMPO; pg <= PG_RHY2; pg++)    /* (the RHYTHM's pages) */
+        for (j = 0; j < 4u; j++)
+            if (PG_ROW[pg][j] != P_NONE)
+                FIT(text_w(&FONT_XS, p_name(PG_ROW[pg][j])) <= 150, "a RHYTHM row's name", p_name(PG_ROW[pg][j]));
     for (f = 0; f < MD_N; f++)
         FIT(text_w(&FONT_S, MD_NAME[f]) <= 228, "a destination", MD_NAME[f]);
     printf("fits: %s\n", bad ? "FAILED" : "every word in its place");
@@ -1169,7 +1187,7 @@ static int cmd_cores(int n)
     int32_t out[2 * CTL];
     fresh_mixer();
     audio_worker_online = n > 1;
-    factory_load(&par, 6);
+    patch_draw(&par, 77u, 9);                    /* (the patch build 9 measured: ECHO CHAMBER, then a factory one) */
     for (b = 0; b < 44100u * 4u / CTL; b++) {
         mix_block(out);
         for (i = 0; i < 2 * CTL; i++)
