@@ -33,7 +33,7 @@ fixed point.
 - Sixteen factory patches, sixty-four sessions, MIDI CCs, USB audio (the output, or the six channels).
 
 The screen is Tonitor's, made for **low vision**: very few words, in very large type, with high contrast, and
-each channel in its own colour. It has a screen reader.
+each channel in its own colour.
 
 > [!NOTE]
 > Lilliput is new. Its sound and its screens have been tested on the computer (see
@@ -92,7 +92,6 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SHIFT + black key 10** | a **new rhythm**, of another style, playing. |
 | **Black key 10** held 0.8 s | the **TEMPO** page (again: back). See [Rhythm](#rhythm). |
 | **SHIFT + black key 7**, held | the CPU page. |
-| **SHIFT + black key 8** | the screen reader on or off. |
 | **Black key 11** (last) | **SHIFT**. |
 | **MASTER** knob | the level after everything. |
 | **OCT− and OCT+**, held 5 s | UBOOT, the chip's own updater. |
@@ -355,14 +354,9 @@ channel chosen, the patch's name and family, its sixteen snapshots and its gestu
 
 **SHIFT + SAVE** held 0.8 s opens GLOBAL SETUP: **MIDI** (each channel's IN and OUT channel, AUTO for the chosen
 channel, CC in and out on or off, the USB and TRS ports), **AUDIO** (USB audio: STEREO, the output, or CHANNELS,
-the six channels each mono), **SETTINGS** (the screen reader, its speech rate). A channel answers to and sends
+the six channels each mono). A channel answers to and sends
 these CCs: **7** LEVEL, **10** PAN, **16** GAIN, **17** FREQ, **18** LIMIT, **19** SEND 1, **74** MID, **91**
 SEND 2, **92** NOISE.
-
-## Screen reader
-
-The FM-1 can say what its screen shows (GLOBAL SETUP → SETTINGS, or SHIFT + black key 8 from anywhere). It is
-Tonitor's screen reader, with Lilliput's words.
 
 # Building from source
 
@@ -414,7 +408,7 @@ GPL-3.0-only; see [LICENSING.md](LICENSING.md).
 # Credits
 
 - **NoInputMixer** by Igor Vasiliev: the model — its signal flow, its controls, its manual's descriptions.
-- **Tonitor** (Nuno Zimas): the screen, the panel's ways, the sessions, the screen reader, the reverb.
+- **Tonitor** (Nuno Zimas): the screen, the panel's ways, the sessions, the reverb.
 - **Felucca** (Leo Kuroshita, Hügelton Instruments) and **SLOOP** (isod89): the hardware layer, the boot, USB,
   the installer and the rescue mode.
 - **Melodee** (Kerem Kilic): the second core.

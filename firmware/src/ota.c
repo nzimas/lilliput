@@ -170,6 +170,8 @@ static void ota_service(void)
 #ifndef FELUCCA_LOADER
     else if (d >= 7u && ota_dec[2] >= 0x50 && ota_dec[2] <= 0x54)
         bk_handle(ota_dec, d);                   /* (TONITOR: the sessions and presets kept on a computer, backup.c) */
+    else if (d >= 7u && (ota_dec[2] == 0x60 || ota_dec[2] == 0x61))
+        bench_handle(ota_dec, d);                /* (LILLIPUT: the chip's costs measured, bench.c) */
 #endif
 }
 

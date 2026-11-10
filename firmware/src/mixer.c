@@ -184,6 +184,9 @@ typedef struct {
     int32_t pk;                  /* the output's peak this block (the meter) */
     ch_par_t seen;               /* the parameters the coefficients were worked out for */
     uint8_t fresh;
+    uint8_t eqmod;               /* HIGH (1), LOW (2), MID (4) a modulation slot moves: run even while flat */
+    uint8_t dead;                /* nothing of it reaches anything (muted, or LEVEL and SENDs off, no RHYTHM): its strip
+                                  * not run -- a sixth of CPU0 each. Back: from silence, as a loop long faded out */
 } ch_rt_t;
 static ch_rt_t chr[NCH];
 
@@ -372,18 +375,30 @@ static slot_par_t eff_slot[NSLOT];
 static FAST void ch_coef(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
-    ch_par_t now = eff_ch[c];
-    if (!k->fresh && fsame(&now, &k->seen, sizeof now))
-        return;
+    const ch_par_t *now = &eff_ch[c], *was = &k->seen;
+    int all = k->fresh;
+    /* each part anew only when what it is made of has moved: the modulation, the RHYTHM, a gesture move one or
+     * two values a block, and the whole channel's coefficients (three filters, divisions, exponentials) each
+     * block were 16 % of CPU0 (build 7, measured on the FM-1). The same coefficients as before, bit for bit */
+#define CH_MOVED(f) (all || now->f != was->f)
     k->fresh = 0;
-    k->src = (uint8_t)clampi(now.src, 0, SRC_N - 1);
-    k->ntype = (uint8_t)clampi(now.ntype, 0, NZ_N - 1);
-    k->tube = (uint8_t)clampi(now.tube, 0, TB_N - 1);
-    k->tmode = (uint8_t)clampi(now.tmode, 0, TM_N - 1);
-    k->opamp = (uint8_t)clampi(now.opamp, 0, OA_N - 1);
-    k->ft = (uint8_t)clampi(now.ftype, 0, FT_N - 1);
-    k->mt = (uint8_t)clampi(now.mtype, 0, MT_N - 1);
-    {   /* the tube */
+    {   /* the filters a modulation slot moves: kept running while flat, so they sound as they always did */
+        uint32_t i, m = 0;
+        for (i = 0; i < NMSLOT; i++) {
+            const mslot_t *ms = &now->mod.s[i];
+            if (ms->src != MSRC_OFF && ms->amt)
+                m |= ms->dst == MD_HIGH ? 1u : ms->dst == MD_LOW ? 2u : ms->dst == MD_MID ? 4u : 0u;
+        }
+        k->eqmod = (uint8_t)m;
+    }
+    k->src = (uint8_t)clampi(now->src, 0, SRC_N - 1);
+    k->ntype = (uint8_t)clampi(now->ntype, 0, NZ_N - 1);
+    k->opamp = (uint8_t)clampi(now->opamp, 0, OA_N - 1);
+    k->ft = (uint8_t)clampi(now->ftype, 0, FT_N - 1);
+    k->mt = (uint8_t)clampi(now->mtype, 0, MT_N - 1);
+    if (CH_MOVED(tube) || CH_MOVED(tmode)) {     /* the tube */
+        k->tube = (uint8_t)clampi(now->tube, 0, TB_N - 1);
+        k->tmode = (uint8_t)clampi(now->tmode, 0, TM_N - 1);
         k->drive = TUBE[k->tube].drive;
         k->bias = TUBE[k->tube].bias;
         k->kpos = TUBE[k->tube].kpos;
@@ -396,47 +411,80 @@ static FAST void ch_coef(uint32_t c)
         }
         k->tb0 = tanh_q15(k->bias);
     }
-    k->fgain = now.fold > 0 ? 4096 + clampi(now.fold, 0, PMAX) * 15 * 4096 / PMAX : 0;
-    k->opg = OPAMP[k->opamp].g;
-    k->rail = OPAMP[k->opamp].rp;
-    k->railn = OPAMP[k->opamp].rn;
-    k->irail = (int32_t)((1u << 30) / (uint32_t)k->rail);   /* (1 / rail: no division a sample) */
-    k->irailn = (int32_t)((1u << 30) / (uint32_t)k->railn);
-    k->slew = OPAMP[k->opamp].slew;
-    k->oplp = OPAMP[k->opamp].lp;
-    k->thr = ovl_q15(clampi(now.over, 0, PMAX));
-    k->lahead = lim_len(clampi(now.lim, 0, PMAX));
-    if (k->lahead < 4u)
-        k->lahead = 4u;
-    if (k->lahead > LIM_LEN - 2u)
-        k->lahead = LIM_LEN - 2u;
-    {   /* the release: 2 ms (fast) .. 400 ms (slow), as the look-ahead lengthens */
-        int32_t tau = (int32_t)(88u + (uint32_t)clampi(now.lim, 0, PMAX) * 17552u / PMAX);
-        k->rel = 32768 / tau + 1;
+    if (CH_MOVED(fold))
+        k->fgain = now->fold > 0 ? 4096 + clampi(now->fold, 0, PMAX) * 15 * 4096 / PMAX : 0;
+    if (CH_MOVED(opamp)) {
+        k->opg = OPAMP[k->opamp].g;
+        k->rail = OPAMP[k->opamp].rp;
+        k->railn = OPAMP[k->opamp].rn;
+        k->irail = (int32_t)((1u << 30) / (uint32_t)k->rail);   /* (1 / rail: no division a sample) */
+        k->irailn = (int32_t)((1u << 30) / (uint32_t)k->railn);
+        k->slew = OPAMP[k->opamp].slew;
+        k->oplp = OPAMP[k->opamp].lp;
     }
-    if (k->ntype == NZ_GEIGER)                   /* the clicks' rate: 0.3 .. 300 a second */
-        k->namp = now.noise <= 0 ? 0 : (int32_t)(((uint64_t)(uint32_t)hz_log(now.noise, 300, 2550) * 97391u) >> 10);   /* (mHz: 0.3 .. 300 Hz) */
-    else
-        k->namp = now.noise <= 0 ? 0 : db10_q15(-900 + clampi(now.noise, 0, PMAX) * 720 / PMAX);
+    if (CH_MOVED(over))
+        k->thr = ovl_q15(clampi(now->over, 0, PMAX));
+    if (CH_MOVED(lim)) {
+        k->lahead = lim_len(clampi(now->lim, 0, PMAX));
+        if (k->lahead < 4u)
+            k->lahead = 4u;
+        if (k->lahead > LIM_LEN - 2u)
+            k->lahead = LIM_LEN - 2u;
+        {   /* the release: 2 ms (fast) .. 400 ms (slow), as the look-ahead lengthens */
+            int32_t tau = (int32_t)(88u + (uint32_t)clampi(now->lim, 0, PMAX) * 17552u / PMAX);
+            k->rel = 32768 / tau + 1;
+        }
+    }
+    if (CH_MOVED(ntype) || CH_MOVED(noise)) {
+        if (k->ntype == NZ_GEIGER)               /* the clicks' rate: 0.3 .. 300 a second */
+            k->namp = now->noise <= 0 ? 0 : (int32_t)(((uint64_t)(uint32_t)hz_log(now->noise, 300, 2550) * 97391u) >> 10);   /* (mHz: 0.3 .. 300 Hz) */
+        else
+            k->namp = now->noise <= 0 ? 0 : db10_q15(-900 + clampi(now->noise, 0, PMAX) * 720 / PMAX);
+    }
     /* the filters */
-    if (k->ft == FT_SHELF) {
-        svf_coef(&k->fh, 5000, 2896);            /* (Q 0.707) */
-        svf_coef(&k->fl, 150, 2896);
-        k->ah = db10_q15(shelf_db10(clampi(now.high, 0, PMAX))) - Q15;
-        k->al = db10_q15(shelf_db10(clampi(now.low, 0, PMAX))) - Q15;
-    } else {
-        svf_coef(&k->fh, hcut_hz(clampi(now.high, 0, PMAX)), 2896);
-        svf_coef(&k->fl, lcut_hz(clampi(now.low, 0, PMAX)), 2896);
-        k->ah = k->al = 0;
+    if (CH_MOVED(ftype) || CH_MOVED(high) || CH_MOVED(low)) {
+        if (k->ft == FT_SHELF) {
+            if (all || CH_MOVED(ftype)) {
+                svf_coef(&k->fh, 5000, 2896);    /* (Q 0.707) */
+                svf_coef(&k->fl, 150, 2896);
+            }
+            if (all || CH_MOVED(ftype) || CH_MOVED(high)) {
+                int32_t a = db10_q15(shelf_db10(clampi(now->high, 0, PMAX))) - Q15;
+                if (!k->ah && a && !(k->eqmod & 1u))
+                    fzero(&k->sh, sizeof k->sh); /* (back from flat: from silence, not a stale state) */
+                k->ah = a;
+            }
+            if (all || CH_MOVED(ftype) || CH_MOVED(low)) {
+                int32_t a = db10_q15(shelf_db10(clampi(now->low, 0, PMAX))) - Q15;
+                if (!k->al && a && !(k->eqmod & 2u))
+                    fzero(&k->sl, sizeof k->sl);
+                k->al = a;
+            }
+        } else {
+            if (all || CH_MOVED(ftype) || CH_MOVED(high))
+                svf_coef(&k->fh, hcut_hz(clampi(now->high, 0, PMAX)), 2896);
+            if (all || CH_MOVED(ftype) || CH_MOVED(low))
+                svf_coef(&k->fl, lcut_hz(clampi(now->low, 0, PMAX)), 2896);
+            k->ah = k->al = 0;
+        }
     }
-    if (k->mt == MT_PEAK) {
-        svf_coef(&k->fm, mid_hz(clampi(now.mfreq, 0, PMAX)), 5734);   /* (Q 1.4) */
-        k->am = db10_q15(peak_db10(clampi(now.mgain, 0, PMAX))) - Q15;
-    } else {
-        svf_coef(&k->fm, mid_hz(clampi(now.mfreq, 0, PMAX)), bw_q12(clampi(now.mgain, 0, PMAX)));
-        k->am = 0;
+    if (CH_MOVED(mtype) || CH_MOVED(mfreq) || CH_MOVED(mgain)) {
+        if (k->mt == MT_PEAK) {
+            if (all || CH_MOVED(mtype) || CH_MOVED(mfreq))
+                svf_coef(&k->fm, mid_hz(clampi(now->mfreq, 0, PMAX)), 5734);   /* (Q 1.4) */
+            {
+                int32_t a = db10_q15(peak_db10(clampi(now->mgain, 0, PMAX))) - Q15;
+                if (!k->am && a && !(k->eqmod & 4u))
+                    fzero(&k->sm, sizeof k->sm);
+                k->am = a;
+            }
+        } else {
+            svf_coef(&k->fm, mid_hz(clampi(now->mfreq, 0, PMAX)), bw_q12(clampi(now->mgain, 0, PMAX)));
+            k->am = 0;
+        }
     }
-    k->seen = now;
+#undef CH_MOVED
+    k->seen = *now;
 }
 
 static FAST void slot_coef(uint32_t s)
@@ -1003,25 +1051,34 @@ static FAST int32_t ch_tick(uint32_t c, int32_t x)
         k->opy = u;
     }
     /* HIGH and LOW: shelves or cuts */
-    hp = svf3(&k->sh, &k->fh, u, &bp, &lp);
-    if (k->ft == FT_SHELF)
-        u += mulq15(hp, k->ah);
-    else
+    /* (a shelf or the peak at 0 dB adds nothing: not run, unless modulation moves it -- cleared when a hand brings
+     * it back, ch_coef) */
+    if (k->ft != FT_SHELF) {
+        svf3(&k->sh, &k->fh, u, &bp, &lp);
         u = lp;
-    hp = svf3(&k->sl, &k->fl, u, &bp, &lp);
-    if (k->ft == FT_SHELF)
-        u += mulq15(lp, k->al);
-    else
+        hp = svf3(&k->sl, &k->fl, u, &bp, &lp);
         u = hp;
+    } else {
+        if (k->ah || (k->eqmod & 1u)) {
+            hp = svf3(&k->sh, &k->fh, u, &bp, &lp);
+            u += mulq15(hp, k->ah);
+        }
+        if (k->al || (k->eqmod & 2u)) {
+            svf3(&k->sl, &k->fl, u, &bp, &lp);
+            u += mulq15(lp, k->al);
+        }
+    }
     /* the middle: peak, notch, band-pass */
-    hp = svf3(&k->sm, &k->fm, u, &bp, &lp);
-    bp = mulr24(k->fm.k, bp);                    /* (at unity: the normalised band-pass) */
-    if (k->mt == MT_PEAK)
-        u += mulq15(bp, k->am);
-    else if (k->mt == MT_NOTCH)
-        u -= bp;
-    else
-        u = bp;
+    if (k->mt != MT_PEAK || k->am || (k->eqmod & 4u)) {
+        svf3(&k->sm, &k->fm, u, &bp, &lp);
+        bp = mulr24(k->fm.k, bp);                /* (at unity: the normalised band-pass) */
+        if (k->mt == MT_PEAK)
+            u += mulq15(bp, k->am);
+        else if (k->mt == MT_NOTCH)
+            u -= bp;
+        else
+            u = bp;
+    }
     /* the brickwall limiter: the look-ahead line, an envelope that jumps to a peak as it enters and holds it until
      * the peak has left, the gain from it -- the line is the loop's delay */
     {
@@ -1071,7 +1128,7 @@ static FAST void mx_samples(void)
             case SRC_NONE: x = 0; break;
             default: x = ch_post[k->src - SRC_CH1]; break;
             }
-            y = ch_tick(c, x);
+            y = k->dead ? 0 : ch_tick(c, x);   /* (a dead channel: nothing; its insert, if any, runs on) */
             s1 += mulq15(y, k->gs1);
             s2 += mulq15(y, k->gs2);
             q = mulq15(y, k->gl);
@@ -1397,6 +1454,19 @@ static FAST void ch_gains(uint32_t c)
     GLIDE(k->gs1, k->dgs1, t1);
     GLIDE(k->gs2, k->dgs2, t2);
 #undef GLIDE
+    {
+        int dead = !tl && !t1 && !t2 && !k->gl && !k->gs1 && !k->gs2 && rhy_gmode[c] == RM_OFF;
+        if (k->dead && !dead) {                  /* back: the loop from silence */
+            fzero(&k->sh, sizeof k->sh);
+            fzero(&k->sl, sizeof k->sl);
+            fzero(&k->sm, sizeof k->sm);
+            k->dcx = k->dcy = k->opy = k->trip = k->env = 0;
+            k->g = Q15;
+            k->hold = 0;
+            fzero(lim_mem[c], sizeof lim_mem[c]);
+        }
+        k->dead = (uint8_t)dead;
+    }
 }
 
 #if defined(FELUCCA_UAC) && FELUCCA_UAC
@@ -1418,11 +1488,10 @@ AINL int32_t ceiling(int32_t x)
     a = Q15 / 2 + (tanh_q15((a - Q15 / 2) * 2) >> 1);
     return x < 0 ? -a : a;
 }
-static int32_t vv[CTL];
 static FAST void mix_block(int32_t *out)
 {
     uint32_t i, c, t0 = COST_NOW_(), t1;
-    int any1 = 0, voice;
+    int any1 = 0;
     int32_t mt = par.out.mute ? 0 : Q15, dm;
     midi_main_drain();
     for (c = 0; c < NSLOT; c++)
@@ -1462,9 +1531,6 @@ static FAST void mix_block(int32_t *out)
         ch_meter[c] = k->pk > ch_meter[c] ? k->pk : ch_meter[c] - (ch_meter[c] >> 5);
         k->pk = 0;
     }
-    voice = vce.speaking || vce.dk || vo_r != vo_w;
-    if (voice)
-        vo_block(vv, CTL);
     dm = (mt - out_mute_g) / (int32_t)CTL;
     for (i = 0; i < CTL; i++) {
         int32_t l = oout_l[i], r = oout_r[i];
@@ -1479,10 +1545,6 @@ static FAST void mix_block(int32_t *out)
         out_mute_g += dm;
         l = mulq15(l, out_mute_g);
         r = mulq15(r, out_mute_g);
-        if (voice) {
-            l = mulq15(l, 32768 - vce.dk) + vv[i];
-            r = mulq15(r, 32768 - vce.dk) + vv[i];
-        }
         out[2u * i] = ceiling(mulq12(l, master_q12));
         out[2u * i + 1u] = ceiling(mulq12(r, master_q12));
     }

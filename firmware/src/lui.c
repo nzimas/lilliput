@@ -23,7 +23,7 @@
  *                             CH 1 .. CH 6 (lit: the one it has)
  *   white key 16              its MAIN MIX on or off
  *   black keys 1 .. 6         mute channels 1 .. 6 (lit: muted)
- *   SHIFT + black key 7 held  the CPU page;  SHIFT + black key 8: the SCREEN READER on or off
+ *   SHIFT + black key 7 held  the CPU page
  *   MASTER (knob)             the level after everything */
 
 enum { B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO, B_HOME, B_SAVE, B_ARP, B_SEQ, B_PLAY, B_REC, B_OCTDN, B_OCTUP, NB };
@@ -34,7 +34,6 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 #define NKEY 27u
 #define KEY_SHIFT 25u            /* the rightmost black key */
 #define KEY_CPU 15u              /* the 7th black key: SHIFT + it held, the CPU page */
-#define KEY_READER 17u           /* the 8th: SHIFT + it, the SCREEN READER on or off */
 #define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- on or off; SHIFT +: a new one; held: TEMPO */
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
@@ -121,7 +120,6 @@ static struct {
     uint32_t save_t0, ssv_t0;
     uint8_t save_down, save_long, ssv_down, ssv_long;
     uint8_t set_page;            /* GLOBAL SETUP up (setup.c) */
-    uint8_t rd_flip;             /* SHIFT + black key 8 (reader_tick) */
     uint8_t cpu_page, cpu_was;
     uint8_t midi_mask[128];      /* (setup.c: MIDI notes are not played here) */
     /* the screen as last drawn */
@@ -1012,9 +1010,7 @@ static void ui_input(void)
         } else if (w == WHITE_MAINMIX) {
             par.ch[ui.sel].mainmix = (uint8_t)!par.ch[ui.sel].mainmix;
             say(par.ch[ui.sel].mainmix ? "MAIN MIX ON" : "MAIN MIX OFF", 1000);
-        } else if (k == KEY_READER && sh)
-            ui.rd_flip = 1;
-        else
+        } else
             for (c = 0; c < NCH; c++)
                 if (k == KEY_MUTE[c]) {
                     par.ch[c].mute = (uint8_t)!par.ch[c].mute;
@@ -1220,7 +1216,6 @@ static void draw_number(void)
     char d[2] = {(char)('1' + ui.sel), 0};
     CV_AREA(0, BAND_A, 240, BAND_B - BAND_A, C_BLACK) {
         draw_batt(237, 2 + ((int32_t)FONT_S.h - 10) / 2);
-        cv_note("CHANNEL");
         cv_text_c(3, &FONT_XL, d, LAYER_COL[ui.sel]);
         if (!par.ch[ui.sel].mainmix)
             cv_text(4, 2, &FONT_S, "NO MIX", RGB(175, 175, 175));
@@ -1230,7 +1225,6 @@ static void draw_src(void)
 {
     const char *e = SRC_NAME[clampi(par.ch[ui.sel].src, 0, SRC_N - 1)];
     cv_begin(240, 48, C_BLACK);
-    cv_note("INPUT");
     cv_text_c(2, &FONT_L, e, C_WHITE);
     cv_blit(0, BAND_B);
 }

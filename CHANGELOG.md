@@ -1,9 +1,25 @@
 # Changelog
 
+## Build 8 (2026-11-10)
+
+- The screen reader removed, whole: its voice, its words, GLOBAL SETUP's SETTINGS (SCREEN READER, SPEECH RATE) and
+  SHIFT + black key 8. A stored GLOBAL SETUP still loads (its two bytes kept, unused). The image 15 KiB smaller.
+- CPU0, measured on the FM-1 (tools/fm1_bench.py): every drawn patch ran at 85 .. 100 % (half of them late), CPU1 at
+  20 %. The effects are not the cause (most ~3 % of a sample each; RESONATOR 8.6, DIFFUSER 4.8): the six channel
+  strips are (~9 % each, run whether heard or not), and the coefficients worked out anew each block (16 %).
+  - A channel's coefficients now each anew only when what they are made of moves (the modulation moved one value,
+    the whole channel was redone).
+  - A channel that reaches nothing (muted, or LEVEL and both SENDs off, no RHYTHM on it) is not run; back, it starts
+    from silence. Its insert, if any, runs on.
+  - A shelf or the peak at 0 dB is not run, unless a modulation slot moves it.
+  The sound is unchanged: the host's renders are the same as build 7's, bit for bit.
+- tools/fm1_bench.py: each effect's, each strip's and a block's cost measured on the FM-1, and the load of drawn
+  patches as they play (firmware/src/bench.c, over USB MIDI).
+
 ## Build 7 (2026-11-10)
 
 - Fixes builds 5 and 6 coming up without USB (nothing reached the FM-1, not even the installer; UBOOT was the way
-  back). The every-block part of the mixer (the coefficients, the modulation, the rhythm, the screen reader's voice,
+  back). The every-block part of the mixer (the coefficients, the modulation, the rhythm, the screen reader's voice (since removed),
   ~12 KiB) ran from the flash, through its small cache; as it grew, the render filled CPU0 (~100 %) and USB, served
   between renders, never started. It runs from RAM now, as Tonitor's renders do. The sound is unchanged, bit for bit.
 - USB can no longer be shut out: if the renders leave it no gap for 2 ms, it is served inside one.

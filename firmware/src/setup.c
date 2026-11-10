@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * LILLIPUT: GLOBAL SETUP (Tonitor's, after BIGORNA builds 46-48): the settings of the machine, not of a session, kept as
  * a record of the sessions' store (number SET_NUM). SHIFT + SAVE held opens it; a channel's button leaves it. Its
- * sections -- MIDI, AUDIO, SETTINGS -- then each one's parts, then their rows: PRESETS through them, SAVE into one; on a
+ * sections -- MIDI, AUDIO -- then each one's parts, then their rows: PRESETS through them, SAVE into one; on a
  * row SAVE moves the focus to its value, PRESETS changes it, SAVE sets it; SHIFT + SAVE leaves a value as it was, or goes
  * back a level (from the top, out).
  *
@@ -11,8 +11,6 @@
  *          SEND       CC                                        ON / OFF
  *          PORTS      USB IN, TRS IN (the 3.5 mm MIDI IN jack)  ON / OFF
  *   AUDIO  USB                                                   STEREO (the output) / CHANNELS (the six, each mono)
- *   SETTINGS  SCREEN READER                                      ON / OFF: the screen's words spoken (voice.c)
- *             SPEECH RATE                                        1 (slowest) .. 5 (fastest)
  *
  * A channel answers to, and sends, these CCs on its channels: 7 LEVEL, 10 PAN, 16 GAIN, 17 FREQ, 18 LIMIT, 19 SEND 1,
  * 74 MIDDLE (peak gain or width), 91 SEND 2, 92 NOISE. */
@@ -20,7 +18,7 @@
 #define SET_NUM (PRE_NUM + 2u)                   /* (the record's number: after the presets' two) */
 #define SET_FORMAT 1u
 #define SET_LEN (32u + sizeof(midi_cfg_t))
-enum { SK_ONOFF, SK_CHAN, SK_USBA, SK_RATE };   /* (a value: ON / OFF; OFF, 1 .. 16; STEREO / TRACKS; 1 .. 5) */
+enum { SK_ONOFF, SK_CHAN, SK_USBA };   /* (a value: ON / OFF; OFF, 1 .. 16; STEREO / TRACKS) */
 typedef struct { const char *name; uint8_t off, kind; } set_row_t;
 #define SR(n, f, k) {n, (uint8_t)__builtin_offsetof(midi_cfg_t, f), k}
 static const set_row_t SET_IN[] = {SR("CH 1", in_ch[0], SK_CHAN), SR("CH 2", in_ch[1], SK_CHAN),
@@ -34,18 +32,15 @@ static const set_row_t SET_RCV[] = {SR("CC", rcv_cc, SK_ONOFF)};
 static const set_row_t SET_SND[] = {SR("CC", send_cc, SK_ONOFF)};
 static const set_row_t SET_PORT[] = {SR("USB IN", usb_in, SK_ONOFF), SR("TRS IN", trs_in, SK_ONOFF)};
 static const set_row_t SET_AUD[] = {SR("USB", usb_aud, SK_USBA)};
-static const set_row_t SET_GEN[] = {SR("SCREEN READER", reader, SK_ONOFF), SR("SPEECH RATE", rate, SK_RATE)};
 typedef struct { const char *name; const set_row_t *rows; uint8_t n; } set_part_t;
-#define SET_NPART 7u             /* (all of them: MIDI's five, then AUDIO's one, SETTINGS' one) */
+#define SET_NPART 6u             /* (all of them: MIDI's five, then AUDIO's one) */
 static const set_part_t SET_PART[SET_NPART] = {
     {"IN CHAN", SET_IN, NELEM(SET_IN)}, {"OUT CHAN", SET_OUT, NELEM(SET_OUT)}, {"RECEIVE", SET_RCV, NELEM(SET_RCV)},
-    {"SEND", SET_SND, NELEM(SET_SND)}, {"PORTS", SET_PORT, NELEM(SET_PORT)}, {"AUDIO", SET_AUD, NELEM(SET_AUD)},
-    {"SETTINGS", SET_GEN, NELEM(SET_GEN)}};
+    {"SEND", SET_SND, NELEM(SET_SND)}, {"PORTS", SET_PORT, NELEM(SET_PORT)}, {"AUDIO", SET_AUD, NELEM(SET_AUD)}};
 /* the sections: a name, their parts (first, how many) -- one part: opened on its rows */
-static const struct { const char *name; uint8_t p0, np; } SET_SECTION[3] = {{"MIDI", 0, 5}, {"AUDIO", 5, 1},
-                                                                            {"SETTINGS", 6, 1}};
+static const struct { const char *name; uint8_t p0, np; } SET_SECTION[2] = {{"MIDI", 0, 5}, {"AUDIO", 5, 1}};
 #define C_SET RGB(150, 200, 255)
-static int32_t set_hi(const set_row_t *r) { return r->kind == SK_CHAN ? 16 : r->kind == SK_RATE ? 4 : 1; }
+static int32_t set_hi(const set_row_t *r) { return r->kind == SK_CHAN ? 16 : 1; }
 
 static struct {
     uint8_t lvl;                 /* 0 the sections, 1 a section's parts, 2 a part's rows */
@@ -111,8 +106,6 @@ static void set_text(const set_row_t *r, int32_t v, char *b)
         str_cpy(b, v ? "CHANNELS" : "STEREO", 10);
     else if (r->kind == SK_ONOFF)
         str_cpy(b, v ? "ON" : "OFF", 4);
-    else if (r->kind == SK_RATE)
-        fmt_int(b, v + 1);
     else if (!v)
         str_cpy(b, "OFF", 4);
     else
@@ -196,31 +189,6 @@ static void setup_poll(void)
             setup_write();
     }
 }
-/* each pass, after the screen: the SCREEN READER on (the whole screen drawn again, for it to read), off, or what
- * changed spoken (voice.c) */
-static void reader_tick(void)
-{
-    static uint8_t was;
-    if (ui.rd_flip) {                            /* SHIFT + black key 8: on or off, kept, and said */
-        ui.rd_flip = 0;
-        mcfg.reader = (uint8_t)!mcfg.reader;
-        setup_write();
-        sp.intro = mcfg.reader ? 1u : 2u;
-    }
-    if (mcfg.reader && !was)
-        ui.force = 1;
-    was = mcfg.reader;
-    vo_rate(ui.set_page && set.lvl == 2u && set.edit && set.row &&
-            SET_PART[set.part].rows[set.row - 1u].kind == SK_RATE ? (uint32_t)set.val : mcfg.rate);   /* (heard as set) */
-    sp_tick(mcfg.reader, fm1_ms);
-    if (sp.intro == 2u) {                        /* (off: silent, but for that) */
-        sp.intro = 0;
-        vo_begin(1);
-        vo_text("SCREEN READER OFF");
-        vo_end();
-        sp_log("SCREEN READER OFF\n");
-    }
-}
 static void set_title(const char *t)
 {
     cv_begin(240, 55, C_BLACK);
@@ -236,7 +204,7 @@ static void set_line(uint32_t r, const char *name, const char *val, int chosen, 
     if (focus)                                   /* (the field as wide as its value: STEREO, TRACKS; or a long name) */
         cv_rect(val && (text_w(&FONT_S, val) > 64 || (name && text_w(&FONT_S, name) > 148)) ? 224 - text_w(&FONT_S, val)
                                                                                         : 160, 1, 240, 35, C_WHITE);
-    if (name) {                                  /* (a name too long beside its value, SCREEN READER: smaller,
+    if (name) {                                  /* (a name too long beside its value: smaller,
                                                   * its letters closer) */
         int32_t room = val ? 220 - text_w(&FONT_S, "OFF") - 8 : 224, n = 0, sq = 0, x = 8, i;
         const font_t *f = text_w(&FONT_S, name) > room ? &FONT_XS : &FONT_S;
@@ -245,7 +213,6 @@ static void set_line(uint32_t r, const char *name, const char *val, int chosen, 
             n += name[i] != ' ' && name[i + 1] != ' ';
         if (text_w(f, name) > room && n)
             sq = clampi((text_w(f, name) - room + n - 1) / n, 0, 6);   /* (as cv_text_fit at most) */
-        cv_cap((37 - (int32_t)f->h) / 2, f, name, fg);
         for (; *name; name++) {
             char one[2] = {*name, 0};
             x = cv_text_px(x, (37 - (int32_t)f->h) / 2, f, one, fg) - (*name != ' ' && name[1] && name[1] != ' ' ? sq : 0);

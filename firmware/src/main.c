@@ -19,6 +19,7 @@ static struct {
     uint8_t over;                /* bit k: the half k halves ago was over 90 % */
 } dbg;
 static volatile uint32_t t5_nested_ticks;
+static void bench_tally(uint32_t pc);           /* (bench.c: the chip's costs, over USB) */
 static uint32_t usb_polled, usb_nested_polls;      /* (TIMER5: the last usb_poll; those run inside a render) */
 
 
@@ -56,6 +57,7 @@ void fm1_alnk0_irq(void)         /* via isr_alnk0 (hal/fm1_isr.S) */
             else if ((dbg.over & 3u) == 3u && !shed_req)
                 shed_req = 1;                    /* two near the edge in a row: a tail goes */
             load_pct = (uint8_t)(pc > 255u ? 255u : pc);
+            bench_tally(pc);
             if (load_pct > load_pk)
                 load_pk = load_pct;          /* (the CPU page's PEAK: ui.c) */
         }
@@ -187,6 +189,7 @@ static int fl_erase4k_quiet(uint32_t off, uint32_t *took)
 }
 
 #define OTA_IDENTITY (recovery_active ? "FM-1_000" : LILLIPUT_ID)
+#include "bench.c"
 #include "ota.c"
 /* backup.c's hooks: a message to the host, and a record put back (the screen says so) */
 static int bk_wire(const uint8_t *p, uint32_t n) { return ota_wire_send(p, n); }
@@ -309,7 +312,6 @@ static void fm1_main(void)
     if (flash_ok)
         ota_boot_cleanup();                          /* a staging area left by an update */
     ses_scan(flash_ok);                              /* the sessions in flash */
-    vo_init();                                       /* (the SCREEN READER's voice, silent: voice.c) */
     setup_load();                                    /* GLOBAL SETUP's settings (MIDI) */
     lcd_init();
     splash();
@@ -366,6 +368,7 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
         }
         ota_service();                               /* the installer's handshake */
+        bench_poll();                                /* (a benchmark's patch played its time: its tallies sent) */
         if (usb.ota_req) {
             usb.ota_req = 0;
             par.out.mute = 1;                        /* (the installer: the output quiet) */
@@ -381,7 +384,6 @@ static void fm1_main(void)
         midi_poll();                                 /* (the tracks' CCs sent as they change) */
         ui_leds();
         ui_draw();
-        reader_tick();                               /* (the SCREEN READER: what changed on the screen, spoken) */
         ses_idle(!ui.keys && !ui.save_down && (mx_quiet() || par.out.mute));   /* (nothing heard: a sector blanked) */
         while ((uint32_t)(fm1_ms - m) < 15u)        /* ~60 frames a second at most */
             ui_input();

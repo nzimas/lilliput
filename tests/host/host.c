@@ -78,7 +78,6 @@ static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)
 }
 
 #include "dsp.h"
-#include "voice.c"
 #include "gfx.c"
 #include "logo.c"
 #include "reverb.c"

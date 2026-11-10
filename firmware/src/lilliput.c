@@ -3,7 +3,7 @@
  * One compilation unit (the HAL is header-only); the order matters.
  *
  * After NoInputMixer (Igor Vasiliev), its signal flow and controls, written anew for the FM-1. Built on TONITOR
- * (Nuno Zimas: the screen, the panel's ways, the sessions, the screen reader), itself on Felucca (Leo Kuroshita,
+ * (Nuno Zimas: the screen, the panel's ways, the sessions), itself on Felucca (Leo Kuroshita,
  * Hügelton Instruments) and SLOOP (isod89), GPL-3.0: the HAL, the boot, the USB stack, the update entry and loader,
  * the rescue mode; CPU1's worker from Melodee (Kerem Kilic). */
 #include <stdint.h>
@@ -50,7 +50,6 @@ bootguard_t bootguard __attribute__((section(".noinit")));
 #include "libc.c"
 #include "lcd.c"
 #include "dsp.h"
-#include "voice.c"               /* (the SCREEN READER: before gfx.c, which hands it the screen's words) */
 #include "gfx.c"
 #include "logo.c"
 #include "usb.c"
