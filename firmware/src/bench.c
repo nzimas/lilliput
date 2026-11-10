@@ -89,6 +89,37 @@ static void bn_out(void) { out_stage_p(); }
 static int32_t bn_buf[2u * CTL];
 static void bn_mixb(void) { bn_mix(bn_buf); }
 
+/* the CPU's clock: TIMER4's ticks for 64000 dependent adds (one a cycle), interrupts off */
+static FAST void bn_adds_ram(uint32_t n) { fm1_cpu_adds(n); }
+static void (*volatile bn_adds_ram_p)(uint32_t) = bn_adds_ram;
+static uint32_t bn_clock_ram(void)              /* the same, run from the RAM (.fast_text) */
+{
+    uint32_t best = 0xFFFFFFFFu, k;
+    for (k = 0; k < 3u; k++) {
+        uint32_t f = irq_save(), t0 = fm1_ticks(), d;
+        bn_adds_ram_p(1000u);
+        d = fm1_ticks() - t0;
+        irq_restore(f);
+        if (k && d < best)
+            best = d;
+    }
+    return best;
+}
+static uint32_t bn_clock(void)
+{
+    uint32_t best = 0xFFFFFFFFu, k;
+    for (k = 0; k < 3u; k++) {
+        uint32_t f = irq_save(), t0 = fm1_ticks(), d;
+        fm1_cpu_adds(1000u);
+        d = fm1_ticks() - t0;
+        irq_restore(f);
+        if (k && d < best)
+            best = d;
+        fm1_wdt_feed();
+    }
+    return best;
+}
+
 static void bench_costs(void)
 {
     uint32_t n = 0, t, c, v;
@@ -154,6 +185,10 @@ static void bench_costs(void)
         bk_wr32(bk_msg + 7u + 4u * n++, out);
         bk_wr32(bk_msg + 7u + 4u * n++, all > mx ? all - mx : 0u);   /* (with CPU1 online the stage is not in it) */
         bk_wr32(bk_msg + 7u + 4u * n++, all);
+        for (c = 0; c < 7u; c++)                 /* the last block's parts (mixer.c's mb_ph) */
+            bk_wr32(bk_msg + 7u + 4u * n++, mb_ph[c]);
+        bk_wr32(bk_msg + 7u + 4u * n++, bn_clock());
+        bk_wr32(bk_msg + 7u + 4u * n++, bn_clock_ram());
     }
     bk_msg[6] = (uint8_t)n;
     par = bn_keep;

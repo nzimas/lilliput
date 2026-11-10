@@ -3,6 +3,7 @@
 """LILLIPUT's costs measured on the FM-1 itself, over USB MIDI (firmware/src/bench.c).
 
   tools/fm1_bench.py costs            each effect, each channel strip, the strip's parts, a block's work
+  tools/fm1_bench.py costs-of I        the same, with drawn patch I loaded (as patches draws it)
   tools/fm1_bench.py patches N [S]    N drawn patches (the host's check seeds: 0xC0FFEE + i x 7919), S s each:
                                       the load as they play (CSV in build/bench/patches.csv)
 
@@ -67,10 +68,21 @@ def costs(link):
     for name, t in zip(VARIANTS, v[nfx + nch:nfx + nch + len(VARIANTS)]):
         print(f"strip {name:18s} {t / BN_N / 0.024:8.0f} ns  {pct(t, BN_N):5.1f}%")
     mx, out, coef, allb = v[nfx + nch + len(VARIANTS):][:4]
+    parts = v[nfx + nch + len(VARIANTS) + 4:][:7]
+    clk = v[nfx + nch + len(VARIANTS) + 11:][:2]
     print()
     for name, t in (("channels + slots (mx_samples)", mx), ("output stage", out),
                     ("coefficients + modulation", coef), ("mix_block", allb)):
         print(f"block: {name:32s} {t / CTL / 0.024:8.0f} ns/sample  {pct(t, CTL):5.1f}%")
+    if len(parts) == 7:
+        print()
+        for name, t in zip(("copies + RHYTHM", "modulation", "channel coefficients", "channel gains",
+                            "slot + output coefficients", "samples (mx_samples)", "tail (output, USB, meters)"), parts):
+            print(f"part:  {name:32s} {t / CTL / 0.024:8.0f} ns/sample  {pct(t, CTL):5.1f}%")
+    if clk and clk[0]:
+        print(f"\nCPU clock: about {64000 / (clk[0] / 24):.0f} MHz (64000 adds in {clk[0] / 24:.0f} us, from the flash)")
+    if len(clk) > 1 and clk[1]:
+        print(f"the same adds from the RAM: {clk[1] / 24:.0f} us ({clk[1] / clk[0]:.2f} x)")
 
 
 def patches(link, n, secs):
@@ -100,7 +112,7 @@ def patches(link, n, secs):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("costs", "patches"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("costs", "patches", "costs-of"):
         raise SystemExit(__doc__)
     up = fi.Updater(fi.MidoBackend())
     dev = up.find(lambda i: not i.loader)
@@ -108,6 +120,11 @@ def main():
         raise SystemExit("FM-1 not found")
     try:
         if sys.argv[1] == "costs":
+            costs(dev.link)
+        elif sys.argv[1] == "costs-of":          # costs-of I: drawn patch I loaded (muted, 1 s), then its costs
+            seed = (0xC0FFEE + int(sys.argv[2]) * 7919) & 0xFFFFFFFF
+            dev.link.send(frame(0x61, seed.to_bytes(4, "little") + bytes([255, 1])))
+            reply(dev.link, 0x61, 15)
             costs(dev.link)
         else:
             patches(dev.link, int(sys.argv[2]) if len(sys.argv) > 2 else 40,

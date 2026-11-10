@@ -185,6 +185,8 @@ typedef struct {
     ch_par_t seen;               /* the parameters the coefficients were worked out for */
     uint8_t fresh;
     uint8_t eqmod;               /* HIGH (1), LOW (2), MID (4) a modulation slot moves: run even while flat */
+    uint8_t snd, pan;            /* the sends, the pan's gains: any not 0 this block (none: not worked out) */
+    const int32_t *srcp;         /* its input: the bus or the channel the selector picks (ch_coef) */
     uint8_t dead;                /* nothing of it reaches anything (muted, or LEVEL and SENDs off, no RHYTHM): its strip
                                   * not run -- a sixth of CPU0 each. Back: from silence, as a loop long faded out */
 } ch_rt_t;
@@ -240,7 +242,7 @@ static int32_t slot_y[NSLOT];
 
 /* a block's work: the output's raw mix (L R) and the channels for USB, then the output stage's */
 static int32_t raw_l[CTL], raw_r[CTL], raw_r1[CTL], raw_r2[CTL];
-static int32_t usb_ch[NCH][CTL];
+static int32_t usb_ch[2][NCH][CTL];               /* (each channel for USB: this block's, the last's -- a block each) */
 static volatile uint8_t ch_meter_q[NCH];          /* (each channel's level for the screen and the lights) */
 static int32_t ch_meter[NCH];
 static int32_t out_meter;
@@ -370,6 +372,7 @@ AINL int32_t line_rd(const int16_t *b, uint32_t w, int32_t d)
 }
 
 /* ------------------------------------------ the parameters, made usable --- */
+static int32_t src_zero;                         /* (the selector's NONE) */
 static ch_par_t eff_ch[NCH];                     /* (each channel's parameters as the sound has them: modulated) */
 static slot_par_t eff_slot[NSLOT];
 static FAST void ch_coef(uint32_t c)
@@ -392,6 +395,18 @@ static FAST void ch_coef(uint32_t c)
         k->eqmod = (uint8_t)m;
     }
     k->src = (uint8_t)clampi(now->src, 0, SRC_N - 1);
+    switch (k->src) {                            /* (a pointer, not a choice each sample) */
+    case SRC_PRE: k->srcp = &ch_pre[c]; break;
+    case SRC_POST: k->srcp = &ch_post[c]; break;
+    case SRC_MIXL: k->srcp = &b_mixl; break;
+    case SRC_MIXR: k->srcp = &b_mixr; break;
+    case SRC_SND1: k->srcp = &b_s1; break;
+    case SRC_SND2: k->srcp = &b_s2; break;
+    case SRC_RET1: k->srcp = &b_r1; break;
+    case SRC_RET2: k->srcp = &b_r2; break;
+    case SRC_NONE: k->srcp = &src_zero; break;
+    default: k->srcp = &ch_post[k->src - SRC_CH1]; break;
+    }
     k->ntype = (uint8_t)clampi(now->ntype, 0, NZ_N - 1);
     k->opamp = (uint8_t)clampi(now->opamp, 0, OA_N - 1);
     k->ft = (uint8_t)clampi(now->ftype, 0, FT_N - 1);
@@ -484,14 +499,15 @@ static FAST void ch_coef(uint32_t c)
         }
     }
 #undef CH_MOVED
-    k->seen = *now;
+    SCOPY(k->seen, *now);
 }
 
 static FAST void slot_coef(uint32_t s)
 {
     slot_rt_t *k = &slr[s];
-    slot_par_t now = eff_slot[s];
+    slot_par_t now;
     int32_t p1, p2;
+    SCOPY(now, eff_slot[s]);
     if (!k->fresh && fsame(&now, &k->seen, sizeof now))
         return;
     if (!k->fresh && k->fx != (uint8_t)clampi(now.fx, 0, FX_N - 1)) {   /* another effect: its line from silence */
@@ -666,7 +682,7 @@ static FAST void slot_coef(uint32_t s)
         k->greps = 1u + (uint32_t)p2 * 15u / PMAX;
         break;
     }
-    k->seen = now;
+    SCOPY(k->seen, now);
 }
 
 /* ------------------------------------------------ the effects, a sample --- */
@@ -962,9 +978,8 @@ static FAST int32_t fx_tick(uint32_t s, int32_t x)
 /* ------------------------------------------------- a channel, a sample --- *
  * in: its input (the selector's pick, the buses a sample ago). Out: the limiter's output after the mute (for the
  * sends) in *lim; returned, the same */
-static FAST int32_t ch_tick(uint32_t c, int32_t x)
+AINL int32_t ch_strip(ch_rt_t *k, int16_t *ln, int32_t x)   /* (inlined in mx_samples: no call a channel a sample) */
 {
-    ch_rt_t *k = &chr[c];
     int32_t u, bp, lp, hp, a;
     if (k->kick) {                               /* (the RHYTHM's KICK: a burst into the loop) */
         x += mulq15(rnd_bi(&k->r), k->kick);
@@ -1082,7 +1097,6 @@ static FAST int32_t ch_tick(uint32_t c, int32_t x)
     /* the brickwall limiter: the look-ahead line, an envelope that jumps to a peak as it enters and holds it until
      * the peak has left, the gain from it -- the line is the loop's delay */
     {
-        int16_t *ln = lim_mem[c];
         uint32_t rd;
         int32_t o;
         a = u < 0 ? -u : u;
@@ -1106,34 +1120,27 @@ static FAST int32_t ch_tick(uint32_t c, int32_t x)
     }
     return u;
 }
+static int32_t ch_tick(uint32_t c, int32_t x) { return ch_strip(&chr[c], lim_mem[c], x); }   /* (bench.c's: the flash) */
 
 /* the whole block, a sample at a time: every channel, the slots on the sends, the buses (CPU0, the ISR) */
 static FAST void mx_samples(void)
 {
     uint32_t i, c, s;
+    int32_t (*uc)[CTL] = usb_ch[blk_clock & 1u];
     for (i = 0; i < CTL; i++) {
         int32_t mxl = 0, mxr = 0, s1 = 0, s2 = 0, r1 = 0, r2 = 0;
         for (c = 0; c < NCH; c++) {
             ch_rt_t *k = &chr[c];
-            int32_t x, y, q;
-            switch (k->src) {
-            case SRC_PRE: x = ch_pre[c]; break;
-            case SRC_POST: x = ch_post[c]; break;
-            case SRC_MIXL: x = b_mixl; break;
-            case SRC_MIXR: x = b_mixr; break;
-            case SRC_SND1: x = b_s1; break;
-            case SRC_SND2: x = b_s2; break;
-            case SRC_RET1: x = b_r1; break;
-            case SRC_RET2: x = b_r2; break;
-            case SRC_NONE: x = 0; break;
-            default: x = ch_post[k->src - SRC_CH1]; break;
+            int32_t y, q;
+            y = k->dead ? 0 : ch_strip(k, lim_mem[c], *k->srcp);   /* (a dead channel: nothing; its insert, if any,
+                                                                      * runs on) */
+            if (k->snd) {
+                s1 += mulq15(y, k->gs1);
+                s2 += mulq15(y, k->gs2);
+                k->gs1 += k->dgs1;
+                k->gs2 += k->dgs2;
             }
-            y = k->dead ? 0 : ch_tick(c, x);   /* (a dead channel: nothing; its insert, if any, runs on) */
-            s1 += mulq15(y, k->gs1);
-            s2 += mulq15(y, k->gs2);
             q = mulq15(y, k->gl);
-            k->gs1 += k->dgs1;
-            k->gs2 += k->dgs2;
             k->gl += k->dgl;
             ch_pre[c] = q;
             if (slr[c].in == FI_INS) {           /* its slot as insert */
@@ -1141,11 +1148,13 @@ static FAST void mx_samples(void)
                 slot_y[c] = q;
             }
             ch_post[c] = q;
-            usb_ch[c][i] = q;
-            mxl += mulq15(q, k->gpl);
-            mxr += mulq15(q, k->gpr);
-            k->gpl += k->dgpl;
-            k->gpr += k->dgpr;
+            uc[c][i] = q;
+            if (k->pan) {
+                mxl += mulq15(q, k->gpl);
+                mxr += mulq15(q, k->gpr);
+                k->gpl += k->dgpl;
+                k->gpr += k->dgpr;
+            }
             q = q < 0 ? -q : q;
             if (q > k->pk)
                 k->pk = q;
@@ -1202,7 +1211,8 @@ static int32_t rv_in[CTL], rv_l[CTL], rv_r[CTL];
 static FAST void out_coef(void)
 {
     out_rt_t *k = &outr;
-    out_par_t now = par.out;
+    out_par_t now;
+    SCOPY(now, par.out);
     if (!k->fresh && fsame(&now, &k->seen, sizeof now))
         return;
     k->ft = (uint8_t)clampi(now.ftype, 0, FT_N - 1);
@@ -1229,9 +1239,22 @@ static FAST void out_coef(void)
         rv_param(SPACE[sp][0], SPACE[sp][1], SPACE[sp][2], 50);
     }
     k->fresh = 0;
-    k->seen = now;
+    SCOPY(k->seen, now);
 }
 
+/* above half scale, a soft knee into a ceiling at full scale */
+AINL int32_t ceiling(int32_t x)
+{
+    int32_t a = absi(x);
+    if (a <= Q15 / 2)
+        return x;
+    a = Q15 / 2 + (tanh_q15((a - Q15 / 2) * 2) >> 1);
+    return x < 0 ? -a : a;
+}
+#if defined(FELUCCA_UAC) && FELUCCA_UAC
+static int32_t usb_blk[UAC_NBLK * CTL];          /* (USB audio: the output before the MASTER knob, then each channel) */
+#endif
+static const int32_t (*volatile usb_prev)[CTL];   /* (the last block's channels, for the stage's USB lanes) */
 static FAST void out_stage(void)
 {
     out_rt_t *k = &outr;
@@ -1288,6 +1311,17 @@ static FAST void out_stage(void)
         }
     }
     out_meter = pk > out_meter ? pk : out_meter - (out_meter >> 4);
+#if defined(FELUCCA_UAC) && FELUCCA_UAC && UAC_NBLK > 2u
+    {   /* USB's channel lanes, the last block's channels as the output is the last block's mix: on CPU1 with the
+         * stage, and in time with the output (before build 9 they came a block ahead of it) */
+        const int32_t (*uc)[CTL] = usb_prev;
+        uint32_t c;
+        if (uc)
+            for (i = 0; i < CTL; i++)
+                for (c = 0; c < NCH && c + 2u < UAC_NBLK; c++)
+                    usb_blk[UAC_NBLK * i + 2u + c] = ceiling(uc[c][i]);
+    }
+#endif
 }
 static __typeof__(&out_stage) volatile out_stage_p = out_stage;
 static void out_job(void *ctx)
@@ -1454,6 +1488,8 @@ static FAST void ch_gains(uint32_t c)
     GLIDE(k->gs1, k->dgs1, t1);
     GLIDE(k->gs2, k->dgs2, t2);
 #undef GLIDE
+    k->snd = (k->gs1 | k->gs2 | k->dgs1 | k->dgs2) != 0;   /* (all 0: they stay 0 the block through) */
+    k->pan = (k->gpl | k->gpr | k->dgpl | k->dgpr) != 0;
     {
         int dead = !tl && !t1 && !t2 && !k->gl && !k->gs1 && !k->gs2 && rhy_gmode[c] == RM_OFF;
         if (k->dead && !dead) {                  /* back: the loop from silence */
@@ -1469,9 +1505,6 @@ static FAST void ch_gains(uint32_t c)
     }
 }
 
-#if defined(FELUCCA_UAC) && FELUCCA_UAC
-static int32_t usb_blk[UAC_NBLK * CTL];          /* (USB audio: the output before the MASTER knob, then each channel) */
-#endif
 #ifdef HOST
 static uint32_t host_cost_clock;
 #define COST_NOW_() host_cost_clock
@@ -1479,43 +1512,53 @@ static uint32_t host_cost_clock;
 #define COST_NOW_() fm1_ticks()
 #endif
 #define BLK_TICKS ((uint32_t)CTL * 1000000u / FS * 24u)   /* a block's time, in TIMER4's ticks (24 a microsecond) */
-/* above half scale, a soft knee into a ceiling at full scale */
-AINL int32_t ceiling(int32_t x)
-{
-    int32_t a = absi(x);
-    if (a <= Q15 / 2)
-        return x;
-    a = Q15 / 2 + (tanh_q15((a - Q15 / 2) * 2) >> 1);
-    return x < 0 ? -a : a;
-}
+/* CPU0's block in parts, the last block's (bench.c): copies and RHYTHM, modulation, channel coefficients, gains,
+ * slot and output coefficients, the samples, the tail (the copies, the meters, the output and USB's) */
+static uint32_t mb_ph[7];
 static FAST void mix_block(int32_t *out)
 {
-    uint32_t i, c, t0 = COST_NOW_(), t1;
+    uint32_t i, c, t0 = COST_NOW_(), t1, tp, tq, pm = 0, pc = 0, pg = 0;
     int any1 = 0;
     int32_t mt = par.out.mute ? 0 : Q15, dm;
     midi_main_drain();
     for (c = 0; c < NSLOT; c++)
-        eff_slot[c] = par.slot[c];
+        SCOPY(eff_slot[c], par.slot[c]);
     rhythm_block();
+    tp = COST_NOW_();
+    mb_ph[0] = tp - t0;
     for (c = 0; c < NCH; c++) {                  /* the modulation, then what it means */
         mod_block(c);
-        eff_ch[c] = par.ch[c];
+        SCOPY(eff_ch[c], par.ch[c]);
         mod_apply(c, &eff_ch[c], &eff_slot[c]);
         if (rhy_acc[c] > 64) {                   /* (the RHYTHM's ACCENT: GAIN and FOLD pushed, never the pitch) */
             eff_ch[c].gain = (int16_t)clampi(eff_ch[c].gain + mulq15(rhy_acc[c], 250), 0, PMAX);
             eff_ch[c].fold = (int16_t)clampi(eff_ch[c].fold + mulq15(rhy_acc[c], 400), 0, PMAX);
         }
+        tq = COST_NOW_();
+        pm += tq - tp;
         ch_coef(c);
+        tp = COST_NOW_();
+        pc += tp - tq;
         ch_gains(c);
+        tq = COST_NOW_();
+        pg += tq - tp;
+        tp = tq;
     }
+    mb_ph[1] = pm;
+    mb_ph[2] = pc;
+    mb_ph[3] = pg;
     for (c = 0; c < NSLOT; c++)
         slot_coef(c);
     out_coef();
+    usb_prev = (const int32_t (*)[CTL])usb_ch[(blk_clock & 1u) ^ 1u];
     audio_worker_check();
     if (audio_worker_online)
         any1 = audio_worker_submit(out_job, 0);  /* the last block's output stage, on CPU1 .. */
+    tq = COST_NOW_();
+    mb_ph[4] = tq - tp;
     mx_samples_p();                              /* .. while this block's channels run here */
     t1 = COST_NOW_();
+    mb_ph[5] = t1 - tq;
     if (!any1)
         out_stage_p();
     else if (!audio_worker_join())
@@ -1537,10 +1580,6 @@ static FAST void mix_block(int32_t *out)
 #if defined(FELUCCA_UAC) && FELUCCA_UAC
         usb_blk[UAC_NBLK * i] = ceiling(l);
         usb_blk[UAC_NBLK * i + 1u] = ceiling(r);
-#if UAC_NBLK > 2u
-        for (c = 0; c < NCH && c + 2u < UAC_NBLK; c++)
-            usb_blk[UAC_NBLK * i + 2u + c] = ceiling(usb_ch[c][i]);
-#endif
 #endif
         out_mute_g += dm;
         l = mulq15(l, out_mute_g);
@@ -1549,6 +1588,7 @@ static FAST void mix_block(int32_t *out)
         out[2u * i + 1u] = ceiling(mulq12(r, master_q12));
     }
     out_mute_g = mt;
+    mb_ph[6] = COST_NOW_() - t1;
     mx_ticks = t1 - t0;
     blk_clock++;
 }

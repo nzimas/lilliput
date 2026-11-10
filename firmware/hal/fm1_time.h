@@ -44,3 +44,19 @@ static inline void fm1_delay_ms(uint32_t ms)
     while (ms--)
         fm1_delay_us(1000u);
 }
+
+/* n passes of 64 dependent adds (one a cycle): the CPU's clock against TIMER4 (Lilliput's bench) */
+static inline __attribute__((always_inline)) void fm1_cpu_adds(uint32_t n)
+{
+    uint32_t a = 0;
+    while (n--)
+        __asm__ volatile(
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n"
+            "%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n%0 += 1\n" : "+r"(a));
+}

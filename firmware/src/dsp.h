@@ -52,6 +52,17 @@ AINL void fcopy(void *d, const void *s, uint32_t n)
     for (n >>= 2; n; n--)
         *w++ = *r++;
 }
+/* a struct of halfwords and bytes copied a halfword at a time (the RAM code's struct assignment: the compiler's is a
+ * bytewise memcpy, in the flash) */
+AINL void hcopy(void *d, const void *s, uint32_t n)
+{
+    uint16_t *w = (uint16_t *)d;
+    const uint16_t *r = (const uint16_t *)s;
+    for (n >>= 1; n; n--)
+        *w++ = *r++;
+}
+#define SCOPY(d, s) do { _Static_assert(sizeof(d) == sizeof(s) && !(sizeof(d) & 1u), "SCOPY"); \
+                         hcopy(&(d), &(s), sizeof(d)); } while (0)
 AINL int fsame(const void *a, const void *b, uint32_t n)   /* (memcmp's "equal", for the RAM code) */
 {
     const uint8_t *x = (const uint8_t *)a, *y = (const uint8_t *)b;

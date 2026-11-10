@@ -1,5 +1,21 @@
 # Changelog
 
+## Build 9 (2026-11-10)
+
+- CPU0 made room: over the same 30 drawn patches (tools/fm1_bench.py), a block's load is 64 % on average (build 8:
+  76 %, build 7: 91 %), 82 % at worst (build 8: 102 %), and no patch runs late (build 8: three did, all six channels
+  live). The sound is unchanged: the host's renders are build 8's, bit for bit.
+  - Each channel's strip runs inside the sample loop, not called (the call, a channel a sample, cost more than the
+    tube); its input is read through a pointer set once a block; sends and pan worked out only when not 0.
+  - The parameters copied each block a halfword at a time, in RAM (the compiler's copy went bytewise, to the flash).
+  - USB's six channel lanes are made on CPU1 with the output stage, and now line up with the output (before, they
+    came a block ahead of it).
+  - The tanh, exp2, log2 and filter tables in RAM, off the flash's cache.
+- tools/fm1_bench.py costs-of I: a drawn patch's costs, a block in parts (copies, modulation, coefficients, gains,
+  samples, the tail), and the CPU's clock (324 MHz).
+- The build stays -Os: built -O2, the update loader never answers (the FM-1 sits in update mode until power-cycled),
+  and the app comes up on USB but never answers there (UBOOT was the way back).
+
 ## Build 8 (2026-11-10)
 
 - The screen reader removed, whole: its voice, its words, GLOBAL SETUP's SETTINGS (SCREEN READER, SPEECH RATE) and

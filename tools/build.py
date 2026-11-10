@@ -38,7 +38,7 @@ CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-fu
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
 PRODUCT = "FM-1_800"                # package identity (the same for every build)
-VERSION = "8"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
+VERSION = "9"                       # the BUILD NUMBER: Lilliput has builds, 1, 2, 3 .. -- no version numbers
 
 
 def toolchain():
@@ -139,6 +139,8 @@ def build_loader():
 # ---- app
 
 def build_app():
+    # (-Os, as the loader. Tried -O2, 2026-11-10: the loader built so never answered (the FM-1 sat in update mode),
+    # and the app built so booted, came up on USB, and never answered there either -- recovered by UBOOT)
     flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen",
              f'-DLILLIPUT_ID="{PRODUCT}"', f'-DLILLIPUT_VERSION="{VERSION}"']
     if os.environ.get("LILLIPUT_TELEMETRY") == "1":      # a diagnostic build: timing over USB, the chip's own benchmark
