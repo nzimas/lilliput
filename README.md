@@ -68,7 +68,7 @@ going back to Tonitor erases Lilliput's sessions.)
 | **SELECT** knob | the chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
 | **ALGORITHM** knob | its **PAN**, **one step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through the mix bus it is part of the loop. |
 | **KNOB 1–4** | on the main view: **GAIN**, **FREQ** (the middle filter's), **LIMIT** (the loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (the middle filter's gain or width), **PROTECT** (the overload protection), **SEND 2**. A dial covers the screen while you turn. On a page: its four rows. |
-| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX, MOD (on the output's pages: OUT, OUT EQ, OUT FX). Their lights: a page that way. |
+| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX, LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8 (on the output's pages: OUT, OUT EQ, OUT FX). Their lights: a page that way. |
 | **SHIFT** held on a page | its rows show the page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
 | **SEQ** | the output's pages: OUT, OUT EQ, OUT FX, then back. |
 | **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
@@ -78,12 +78,16 @@ going back to Tonitor erases Lilliput's sessions.)
 | **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
 | **PRESETS** knob | the factory's patches; **SAVE** loads the one shown. On the MOD page: its entry. |
 | **SHIFT + PRESETS** | a new patch of the **family before or after**. |
+| **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
-| **PLAY** | the output muted, or back (it blinks while muted). The loops keep going, unheard. |
+| **REC** | arm the **gesture loop**; REC again ends it and it plays. Held 1 s: empty it. See [Gestures](#gestures). |
+| **PLAY** | the gesture loop played, or stopped (lit while it plays). |
+| **SHIFT + PLAY** | the output muted, or back (OUT MUTED on the screen). The loops keep going, unheard. |
 | **White keys 1–15** | the chosen channel's **INPUT**: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has). |
 | **White key 16** | its **MAIN MIX** on or off. |
 | **Black keys 1–6** | mute channels 1–6 (lit: muted). |
+| **SHIFT + black key 1** | the chosen channel **at random**: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept. |
 | **SHIFT + black key 7**, held | the CPU page. |
 | **SHIFT + black key 8** | the screen reader on or off. |
 | **Black key 11** (last) | **SHIFT**. |
@@ -110,7 +114,8 @@ brickwall limiter → mute → SEND 1, SEND 2 → LEVEL → insert effect → PA
 | **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), the middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
 | **SEND** | INPUT, SEND 1, SEND 2, MAIN MIX | |
 | **FX** | the channel's slot: EFFECT, its two parameters, PRESENCE | KNOB 1: IN; KNOB 2: OUT; KNOB 3: LO-FI; KNOB 4: BYPASS |
-| **MOD** | its modulation, an entry at a time (PRESETS): **LFO 1, LFO 2** — SHAPE, RATE, MODE, FADE; **MOD A–D** — FROM, TO, AMOUNT, and NOW (what it does this moment) | |
+| **LFO 1**, **LFO 2** | SHAPE, RATE (a step a detent), MODE, FADE | |
+| **MOD 1 TO 4**, **MOD 5 TO 8** | the matrix's eight slots, four a page: each row a slot — its number and where it comes FROM, small; where it goes TO and by how much, large; the amount a bar from the middle. KNOB 1–4: the AMOUNT (an amount on an empty slot takes it from LFO 1) | KNOB 1–4: TO. **PRESETS**: FROM, of the slot in hand (the last turned, its row lit) |
 
 A page's rows show each parameter's name small, with a bar, and its value large under it. Hold **SHIFT** to see the
 page's switches in place of its rows.
@@ -210,7 +215,7 @@ levels kept: the same patch, elsewhere.
 
 ## Modulation
 
-Each channel has two **LFOs** and four **slots** (Tonitor's modulation matrix). An LFO has a SHAPE (SINE, TRI, SAW
+Each channel has two **LFOs** and eight **slots** (Tonitor's modulation matrix, twice its slots). An LFO has a SHAPE (SINE, TRI, SAW
 UP, SAW DN, SQUARE, STEPS — a new random value each cycle —, DRIFT — smooth random), a RATE (0.01 … 20 Hz), a MODE
 (FREE; ONSET: from the start each time the channel's loop bursts into sound; ONCE: one cycle from each onset) and a
 FADE (in over up to 10 s from an onset). A slot takes a source — LFO 1, LFO 2, LEVEL (the channel's own loudness: a
@@ -220,11 +225,42 @@ and its mix, or either LFO's rate — by an amount, −100 … +100. The panel's
 sound moves round them. Every new patch comes with its family's motion; **SHIFT + SEQ** throws the chosen channel's
 modulation anew.
 
+## Gestures
+
+The gesture loop records what your hands do — on any channel, at once: a knob, an input key, a mute, a channel
+thrown at random, a new patch, a MIDI CC — and plays it back, round and round, while you go on playing over it.
+
+- **REC** arms it (the screen says ARMED, REC blinks; a loop playing stops). Nothing is recorded until something
+  changes: the first change starts the recording (REC on the screen, white on red, with the seconds; REC lit).
+- **REC** again ends it: the loop is as long as from that first change to now, and plays at once (PLAY lit).
+- **PLAY** stops it, or plays it again from its start. Stopped, everything stays where the loop left it.
+- **REC** held 1 s empties it.
+
+Each round begins from the mixer as it was when the recording began — only what the loop touches — so it plays the
+same way every time; what you change that the loop does not touch stays yours. A new patch, a preset or a session
+stops the loop (PLAY plays it again, over the new mixer). Up to 2048 changes and ten minutes. The output's mute
+(SHIFT + PLAY) is never recorded. The loop is kept with the session.
+
+## Snapshots
+
+Sixteen complete states of the mixer — every channel, every slot, the output, the modulation — kept with the
+session. **SAVE** (short) opens the SNAPSHOTS page: the sixteen as the white keys lie, the stored ones filled, the
+last recalled framed.
+
+- a **white key** let go soon: its snapshot recalled;
+- held 0.8 s: the mixer stored in it;
+- **SHIFT +** it: emptied;
+- **KNOB 1**: the **MORPH** time, off … 30 s. A recall then glides every value that can glide — levels, pans, gains,
+  noise, filters, sends, limiters, protection, the effects' parameters, the returns, the main level — from where it
+  is to the snapshot's; the rest (inputs, types, routings, LFOs) changes at once.
+
+**SAVE** again, or a channel's button, goes back.
+
 ## Presets and sessions
 
 **PRESETS** turns through sixteen factory patches; **SAVE** loads the one shown. **SAVE** held saves the whole
 mixer as a session (64 of them); **SHIFT + SAVE** opens the sessions. A session keeps every parameter, the
-channel chosen and the patch's name.
+channel chosen, the patch's name and family, its sixteen snapshots and its gesture loop.
 
 ## Global setup and MIDI
 

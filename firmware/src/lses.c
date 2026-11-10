@@ -7,7 +7,8 @@
  * In flash 0x97000 .. 0xE0000, 73 sectors of 4 KiB. A session is one record in one sector:
  *   head (32 B): magic, its number, its length, a sequence number (the newest copy wins), the format, the size of
  *                the mixer's parameters, a CRC of the head and one of the rest
- *   body: the channel chosen, the patch's name, the parameters (lil_par_t)
+ *   body: the channel chosen, the patch's name, the parameters (lil_par_t); which snapshots are kept, the morph
+ *         time, the gesture loop's length and count; each snapshot kept; the loop's start and its changes
  * Saving over a session writes the new copy into a free sector first and only then kills the old one, by
  * programming its magic to zero (no erase): a power cut in between leaves the old or both, never neither.
  * Erasing a sector silences the audio for a moment, so a save takes a sector already blank if it can, and the
@@ -20,9 +21,11 @@
 #define SES_SECT 4096u
 #define SES_NSECT ((SES_HI - SES_LO) / SES_SECT)
 #define SES_MAGIC 0x314C494Cu    /* "LIL1" */
-#define SES_FORMAT 2u           /* 2: LEVEL in tenths of a dB, PAN -50 .. 50, each channel's modulation */
+#define SES_FORMAT 3u           /* 3: eight matrix slots, the snapshots and the gesture loop; 2: LEVEL in tenths of a dB,
+                                  * PAN -50 .. 50, each channel's modulation */
 #define SES_MAX 73u              /* records in the list (one a sector at most) */
-#define SES_BUF (32u + 24u + (uint32_t)sizeof(lil_par_t))   /* the largest record: a session */
+#define SES_BUF (32u + 24u + 12u + (uint32_t)sizeof(lil_par_t) * (2u + NSNAP) + GEV_MAX * 8u)   /* the largest: a
+                                  * session with every snapshot and a full gesture loop (~27 KiB, seven sectors) */
 #define PRE_NUM 1000u            /* (records 1000, 1001: Tonitor's presets, not used here; 1002: GLOBAL SETUP) */
 
 /* the flash, for the target (main.c) or the host test (host.c); offsets from the flash's start */
@@ -354,6 +357,12 @@ typedef struct {
     char patch[16];
     uint32_t rsv2;
 } ses_glob_t;
+typedef struct {
+    uint16_t snap_used;
+    uint8_t morph_hs, rsv;
+    uint16_t gn, rsv2;           /* the gesture loop's changes (0: none) */
+    uint32_t glen;               /* .. its length, ms */
+} ses_perf_t;
 static void ses_emit(void)
 {
     ses_glob_t g;
@@ -363,6 +372,23 @@ static void ses_emit(void)
     str_cpy(g.patch, ui.patch, sizeof g.patch);
     ses_out(&g, sizeof g);
     ses_out(&par, sizeof par);
+    {
+        ses_perf_t pf;
+        uint32_t i;
+        memset(&pf, 0, sizeof pf);
+        pf.snap_used = snap_used;
+        pf.morph_hs = morph_hs;
+        pf.gn = gs.st == GS_REC ? 0u : gs.n;     /* (a loop being recorded is not kept) */
+        pf.glen = gs.len;
+        ses_out(&pf, sizeof pf);
+        for (i = 0; i < NSNAP; i++)
+            if (snap_has(i))
+                ses_out(&snap[i], sizeof snap[i]);
+        if (pf.gn) {
+            ses_out(&g_s0, sizeof g_s0);
+            ses_out(gev, pf.gn * (uint32_t)sizeof gev[0]);
+        }
+    }
 }
 static int ses_save(uint32_t num)
 {
@@ -402,28 +428,62 @@ static int ses_load(uint32_t num)
     static lil_par_t q;
     ses_head_t h;
     ses_glob_t g;
-    int i = ses_find(num);
+    ses_perf_t pf;
+    uint32_t i, ns = 0, pass, base;
+    int at = ses_find(num);
     if (!ses.ok)
         return SES_NOFLASH;
-    if (i < 0)
+    if (at < 0)
         return SES_FAIL;
-    ss_begin(SS_READ, SES_LO + ses.sect[i] * SES_SECT);
-    ses_in(&h, sizeof h);
-    if (!ses_head_ok(&h) || h.format != SES_FORMAT || h.par_size != sizeof(lil_par_t) || h.len != sizeof h + sizeof g + sizeof q)
-        return SES_FAIL;
-    ses_in(&g, sizeof g);
-    ses_in(&q, sizeof q);
-    if (ss.crc != h.body_crc)
-        return SES_FAIL;
+    base = SES_LO + ses.sect[at] * SES_SECT;
+    for (pass = 0; pass < 2u; pass++) {          /* the whole record checked first (its CRC), only then taken */
+        ss_begin(SS_READ, base);
+        ses_in(&h, sizeof h);
+        if (!ses_head_ok(&h) || h.format != SES_FORMAT || h.par_size != sizeof(lil_par_t))
+            return SES_FAIL;
+        ses_in(&g, sizeof g);
+        ses_in(&q, sizeof q);
+        ses_in(&pf, sizeof pf);
+        if (pf.gn > GEV_MAX)
+            return SES_FAIL;
+        for (i = 0, ns = 0; i < NSNAP; i++)
+            if (pf.snap_used >> i & 1u) {
+                ses_in(pass ? &snap[i] : 0, sizeof snap[i]);
+                ns++;
+            }
+        if (pf.gn) {
+            ses_in(pass ? &g_s0 : 0, sizeof g_s0);
+            ses_in(pass ? gev : 0, pf.gn * (uint32_t)sizeof gev[0]);
+        }
+        if (ss.pos != h.len || ss.crc != h.body_crc)
+            return SES_FAIL;
+    }
     g.patch[sizeof g.patch - 1u] = 0;
     ui.sel = (uint8_t)(g.sel < NCH ? g.sel : 0u);
     ui.fam = (uint8_t)(g.rsv[0] < NFAM ? g.rsv[0] : 0u);
-    {
-        uint32_t c;
-        for (c = 0; c < NCH; c++)
-            mod_check(&q.ch[c].mod);
-    }
+    for (i = 0; i < NCH; i++)
+        mod_check(&q.ch[i].mod);
+    for (i = 0; i < NSNAP; i++)
+        if (pf.snap_used >> i & 1u) {
+            uint32_t c;
+            for (c = 0; c < NCH; c++)
+                mod_check(&snap[i].ch[c].mod);
+        }
+    snap_used = pf.snap_used;
+    snap_cur = -1;
+    morph_hs = (uint8_t)(pf.morph_hs <= 60u ? pf.morph_hs : 0u);
     patch_set(&q, g.patch);
+    gs.st = GS_IDLE;                             /* the session's gesture loop, stopped (PLAY plays it) */
+    gs.play = 0;
+    gs.n = pf.gn;
+    gs.len = pf.glen ? pf.glen : 200u;
+    memset(g_touched, 0, sizeof g_touched);
+    for (i = 0; i < gs.n; i++)
+        if (gev[i].w < NWORD)
+            g_touched[gev[i].w >> 3] |= (uint8_t)(1u << (gev[i].w & 7u));
+        else
+            gs.n = 0;                            /* (a change beyond the mixer: the loop not trusted) */
+    (void)ns;
     ses.current = (uint16_t)num;
     return SES_OK;
 }

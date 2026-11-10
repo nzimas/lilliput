@@ -69,11 +69,11 @@ enum { MD_GAIN, MD_NOISE, MD_FREQ, MD_MID, MD_HIGH, MD_LOW, MD_LIM, MD_OVER, MD_
        MD_FX1, MD_FX2, MD_FXMIX, MD_RATE1, MD_RATE2, MD_N };
 typedef struct { uint8_t shape, rate, mode, fade; } mlfo_t;
 typedef struct { uint8_t src, dst; int8_t amt; } mslot_t;
-#define NMSLOT 4u
+#define NMSLOT 8u
 typedef struct {
     mlfo_t lfo[2];
     mslot_t s[NMSLOT];
-} mod_t;                                         /* (a channel's: 20 bytes) */
+} mod_t;                                         /* (a channel's: 32 bytes) */
 
 typedef struct {
     int16_t src;                 /* SRC_* */

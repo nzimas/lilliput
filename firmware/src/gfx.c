@@ -17,7 +17,10 @@ typedef struct {
 #define C_GREY RGB(110, 110, 110)
 
 #define CV_MAX (240u * 56u)     /* (a quarter of the screen: taller areas are drawn a band at a time, CV_AREA) */
-static uint16_t cv_px[CV_MAX] POOL;
+static uint16_t cv_px0[CV_MAX] POOL;
+static uint16_t cv_px1[CV_MAX];  /* (LILLIPUT: a second canvas, in .bss -- one band drawn while the last is sent) */
+static uint16_t *cv_px = cv_px0;
+static const uint16_t *cv_sent;  /* (the canvas last handed to the panel: maybe still going out) */
 static uint32_t cv_w, cv_h;
 static int32_t cv_oy;            /* the band's top within the area being drawn (CV_AREA): drawing is placed by the area */
 static uint16_t cv_bg;
@@ -30,7 +33,11 @@ static void cv_begin(uint32_t w, uint32_t h, uint16_t bg)
     uint32_t i, n;
     if (w * h > CV_MAX)
         h = CV_MAX / w;
-    lcd_sync();                       /* the last transfer may still read the canvas */
+    /* (LILLIPUT) the other canvas: the transfer still running reads the one just sent, not this one -- a band is
+     * drawn while the last goes out (the next transfer waits for the last: lcd_window) */
+    cv_px = cv_px == cv_px0 ? cv_px1 : cv_px0;
+    if (cv_px == cv_sent)
+        lcd_sync();                   /* (begun twice without a send between: this one may still be going out) */
     if (!cva.on)
         sp_cap_begin();               /* (the SCREEN READER: this band's words, voice.c) */
     cv_w = w;
@@ -81,6 +88,7 @@ static void cv_blit(uint32_t x, uint32_t y)
     if (!cva.on)
         sp_cap_commit(x, y);
     lcd_blit(x, y, cv_w, cv_h, cv_px);
+    cv_sent = cv_px;
 }
 
 static void cv_rect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)

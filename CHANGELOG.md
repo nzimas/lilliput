@@ -1,5 +1,18 @@
 # Changelog
 
+## Build 3 (2026-11-10)
+
+- The modulation on pages of its own, the channel's last: LFO 1, LFO 2, and the matrix -- now eight slots -- on
+  MOD 1 TO 4 and MOD 5 TO 8 (KNOB: amount; SHIFT + KNOB: destination; PRESETS: source of the slot in hand).
+- SHIFT + black key 1: the chosen channel, every parameter at random (its mute kept).
+- The GESTURE loop: REC arms, the first change records, REC ends and plays; PLAY plays or stops it; REC held empties
+  it. Every change on any channel. The output's mute moves to SHIFT + PLAY.
+- SNAPSHOTS: SAVE short opens them; sixteen whole-mixer states on the white keys (held: store; short: recall;
+  SHIFT: empty), with a morph time (KNOB 1, up to 30 s). Kept with the session, as is the gesture loop.
+- The screen: a second canvas (one band drawn while the last is sent), the panel's link at 20 MHz (was 12), the main
+  view drawn without a wipe -- pages change about twice as fast.
+- Sessions saved by build 2 are not read.
+
 ## Build 2 (2026-11-10)
 
 - LEVEL: 1 dB a detent up to -5 dB, then 0.1 dB a detent; PAN: one step a detent, L 50 .. R 50.

@@ -50,28 +50,33 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
 #define C_REC RGB(255, 30, 30)
 
 /* the pages */
-enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_MOD,   /* a channel's (OCT- / OCT+) */
+enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_LFO1, PG_LFO2, PG_MTX1, PG_MTX2,   /* a channel's (OCT- / OCT+) */
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
-       PG_VIEW, PG_PRESET, PG_SES, PG_ASK, PG_SET, PG_N };
-#define PG_CH_LAST PG_MOD
-static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "MOD", "OUT", "OUT EQ", "OUT FX", "", "", "", "",
+       PG_VIEW, PG_PRESET, PG_SES, PG_ASK, PG_SNAP, PG_SET, PG_N };
+#define PG_CH_LAST PG_MTX2
+static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "LFO 1", "LFO 2", "MOD 1 TO 4", "MOD 5 TO 8",
+                                           "OUT", "OUT EQ", "OUT FX", "", "", "", "", "",
                                            ""};
 
 /* every parameter the panel reaches: on the chosen channel, its slot, or the output */
 enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYPE, P_HIGH, P_LOW, P_MTYPE, P_MGAIN, P_MFREQ,
        P_LEVEL, P_PAN, P_SEND1, P_SEND2, P_SRC, P_MAINMIX, P_MUTE,
        P_FX, P_P1, P_P2, P_PRES, P_LOFI, P_BYP, P_FIN, P_FOUT,
-       P_RET1, P_RET2, P_OFTYPE, P_OHIGH, P_OLOW, P_OWIDE, P_OMGAIN, P_OMFREQ, P_SPACE, P_SPRES, P_OLEVEL, P_NONE };
+       P_RET1, P_RET2, P_OFTYPE, P_OHIGH, P_OLOW, P_OWIDE, P_OMGAIN, P_OMFREQ, P_SPACE, P_SPRES, P_OLEVEL,
+       P_LSHAPE, P_LRATE, P_LMODE, P_LFADE,      /* (the LFO pages': LFO 1 or 2 as the page is) */
+       P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
     {P_GAIN, P_MFREQ, P_LIM, P_SEND1}, {P_TUBE, P_TMODE, P_GAIN, P_OPAMP}, {P_NOISE, P_NTYPE, P_LIM, P_OVER},
     {P_HIGH, P_LOW, P_MGAIN, P_MFREQ}, {P_SRC, P_SEND1, P_SEND2, P_MAINMIX}, {P_FX, P_P1, P_P2, P_PRES},
-    {P_NONE, P_NONE, P_NONE, P_NONE},
+    {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE}, {P_LSHAPE, P_LRATE, P_LMODE, P_LFADE},
+    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
-    {P_NONE, P_NONE, P_NONE, P_NONE},
+    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
+    {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP}};
 
 static struct {
@@ -89,8 +94,14 @@ static struct {
     uint8_t fam;                 /* the family of the patch playing (HOME, SHIFT + HOME, SHIFT + PRESETS) */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
-    uint8_t mod_ix;              /* the MOD page's entry: LFO 1, LFO 2, MOD A .. D */
-    uint32_t mod_drawn_at;
+    uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the gesture loop emptied) */
+    uint32_t rec_t0;
+    int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
+    uint8_t snap_done;
+    uint32_t snap_t0;
+    int32_t shown_snap;
+    uint8_t mtx_focus;           /* the MOD pages' slot in hand (its row lit): PRESETS sets where it comes FROM */
+    int32_t shown_mtx[4];
     uint32_t keys;               /* the keys down last time */
     uint32_t flash_t0;
     uint8_t flash_on, flash_phase;
@@ -184,6 +195,10 @@ static int32_t p_get(uint32_t id)
     case P_SPACE: return o->space;
     case P_SPRES: return o->spres;
     case P_OLEVEL: return o->level;
+    case P_LSHAPE: return c->mod.lfo[ui.page == PG_LFO2].shape;
+    case P_LRATE: return c->mod.lfo[ui.page == PG_LFO2].rate;
+    case P_LMODE: return c->mod.lfo[ui.page == PG_LFO2].mode;
+    case P_LFADE: return c->mod.lfo[ui.page == PG_LFO2].fade;
     default: return 0;
     }
 }
@@ -203,6 +218,8 @@ static int32_t p_count(uint32_t id)
     case P_FIN: return FI_N;
     case P_FOUT: return FO_N;
     case P_SPACE: return SP_N;
+    case P_LSHAPE: return MS_N;
+    case P_LMODE: return MM_N;
     case P_PAN: return -1;                       /* (-PAN_MAX .. PAN_MAX) */
     default: return 0;
     }
@@ -213,7 +230,8 @@ static void p_set(uint32_t id, int32_t v)
     slot_par_t *s = &par.slot[pslot()];
     out_par_t *o = &par.out;
     int32_t n = p_count(id);
-    v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX) : clampi(v, 0, id == P_LEVEL ? LVL_MAX : PMAX);
+    v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
+        : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -255,10 +273,18 @@ static void p_set(uint32_t id, int32_t v)
     case P_SPACE: o->space = (int16_t)v; break;
     case P_SPRES: o->spres = (int16_t)v; break;
     case P_OLEVEL: o->level = (int16_t)v; break;
+    case P_LSHAPE: c->mod.lfo[ui.page == PG_LFO2].shape = (uint8_t)v; break;
+    case P_LRATE: c->mod.lfo[ui.page == PG_LFO2].rate = (uint8_t)v; break;
+    case P_LMODE: c->mod.lfo[ui.page == PG_LFO2].mode = (uint8_t)v; break;
+    case P_LFADE: c->mod.lfo[ui.page == PG_LFO2].fade = (uint8_t)v; break;
     default: break;
     }
 }
-static int32_t p_hi(uint32_t id) { return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : p_count(id) > 0 ? p_count(id) - 1 : PMAX; }
+static int32_t p_hi(uint32_t id)
+{
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : id == P_LRATE || id == P_LFADE ? 100
+           : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
+}
 static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : 0; }
 /* LEVEL, a detent: 1 dB a step up to -5 dB (on whole dBs), 0.1 dB a step above it; below -60 dB, off */
 static int32_t level_step(int32_t v, int up)
@@ -287,7 +313,7 @@ static void p_turn(uint32_t id, int32_t s)
         for (; a > 0; a--)
             v = level_step(v, s > 0);
         p_set(id, v);
-    } else if (id == P_PAN)
+    } else if (id == P_PAN || p_hi(id) <= 100)   /* (PAN, an LFO's RATE and FADE: a step a detent) */
         p_set(id, p_get(id) + s);
     else if (n > 0)
         p_set(id, p_get(id) + (s > 0 ? 1 : -1));
@@ -339,6 +365,10 @@ static const char *p_name(uint32_t id)
     case P_SPACE: return "SPACE";
     case P_SPRES: return "SPACE MIX";
     case P_OLEVEL: return "LEVEL";
+    case P_LSHAPE: return "SHAPE";
+    case P_LRATE: return "RATE";
+    case P_LMODE: return "MODE";
+    case P_LFADE: return "FADE";
     default: return "";
     }
 }
@@ -450,6 +480,31 @@ static void p_text(uint32_t id, int32_t v, char *b)
     case P_FIN: str_cpy(b, FI_NAME[v], 12); break;
     case P_FOUT: str_cpy(b, FO_NAME[v], 12); break;
     case P_SPACE: str_cpy(b, SP_NAME[v], 12); break;
+    case P_LSHAPE: str_cpy(b, MS_NAME[v], 12); break;
+    case P_LMODE: str_cpy(b, MM_NAME[v], 12); break;
+    case P_LRATE: {                              /* 0.01 Hz x 2000^(rate / 100) */
+        uint32_t ch = (uint32_t)(((uint64_t)100u * exp2_q16(v * 7189)) >> 16);   /* (Hz x 100) */
+        if (ch < 1000u) {
+            b[0] = (char)('0' + ch / 100u);
+            b[1] = '.';
+            b[2] = (char)('0' + ch / 10u % 10u);
+            b[3] = (char)('0' + ch % 10u);
+            b[4] = 0;
+        } else
+            fmt_fix(b, (int32_t)(ch / 10u), 1);
+        str_cpy(b + str_len(b), " HZ", 4);
+        break;
+    }
+    case P_LFADE:
+        if (!v)
+            str_cpy(b, "OFF", 12);
+        else {
+            b[0] = (char)('0' + v / 10);
+            b[1] = '.';
+            b[2] = (char)('0' + v % 10);
+            str_cpy(b + 3, " S", 3);
+        }
+        break;
     case P_P1:
         if (s->fx == FX_DELAY) {
             ms_text(b, hz_log(v, 44, 2183) * (s->lofi ? 2 : 1));
@@ -473,14 +528,21 @@ static void ch_fresh_all(void)                    /* (a new patch: what the ISR 
     for (c = 0; c < NSLOT; c++)
         slr[c].seen.fx = -1;
 }
+static void gest_halt(void);
+static void goto_page(uint32_t pg);
+static void mtx_knob(uint32_t j, int32_t s, int sh);
+static void mtx_from(int32_t s);
 static void patch_set(const lil_par_t *q, const char *name)
 {
     par = *q;
     ch_fresh_all();
+    gest_halt();                                 /* (a loop playing stops: it was another patch's) */
     str_cpy(ui.patch, name, sizeof ui.patch);
     trim_start();
     ui.force = 1;
 }
+#include "perform.c"                     /* (the GESTURE loop and the SNAPSHOTS) */
+
 /* a new patch: of family fam, or (-1) of another family than the one playing */
 static void new_patch(int fam)
 {
@@ -565,6 +627,13 @@ static void save_short(void)
         } else
             say("EMPTY", 1000);
         page_back();
+        return;
+    }
+    if (ui.page == PG_SNAP)                      /* SAVE, short: the SNAPSHOTS page, or back */
+        page_back();
+    else {
+        ui.snap_key = -1;
+        goto_page(PG_SNAP);
     }
 }
 
@@ -581,7 +650,6 @@ static int32_t white_ix(uint32_t k)
     return (int32_t)o * 7 + w - (4 * 7 + 3);     /* F3 = 0 */
 }
 static void setup_open(void);
-static void mod_knob(uint32_t ix, uint32_t j, int32_t s);
 static void setup_press(int sh);
 static void setup_preset(int32_t s);
 static void setup_draw(void);
@@ -602,7 +670,7 @@ static void goto_page(uint32_t pg)
 }
 static void ui_input(void)
 {
-    uint32_t rel, press = fm1_input_edges(&rel), keys, down, c, k;
+    uint32_t rel, press = fm1_input_edges(&rel), keys, down, up, c, k;
     int32_t s;
     int sh;
     (void)rel;
@@ -615,6 +683,7 @@ static void ui_input(void)
     trim_poll();
     keys = fm1_in.notes;
     down = keys & ~ui.keys;
+    up = ui.keys & ~keys;
     ui.keys = keys;
     sh = (int)((keys >> KEY_SHIFT) & 1u);
     midi_take();
@@ -693,9 +762,27 @@ static void ui_input(void)
         else
             goto_page(PG_VIEW);
     }
-    if (btn_bit(press, B_PLAY)) {
-        par.out.mute = (uint8_t)!par.out.mute;
-        say(par.out.mute ? "MUTED" : "OUT ON", 1000);
+    if (btn_bit(press, B_PLAY)) {                /* PLAY: the gesture loop; SHIFT + PLAY: the output muted */
+        if (sh) {
+            par.out.mute = (uint8_t)!par.out.mute;
+            say(par.out.mute ? "OUT MUTED" : "OUT ON", 1000);
+        } else
+            gest_play_press();
+    }
+    if (btn_bit(press, B_REC)) {                 /* REC: arm, end; held 1 s: empty */
+        ui.rec_down = 1;
+        ui.rec_done = 0;
+        ui.rec_t0 = fm1_ms;
+    }
+    if (ui.rec_down) {
+        if (!btn_bit(fm1_in.buttons, B_REC)) {
+            ui.rec_down = 0;
+            if (!ui.rec_done)
+                gest_rec_press();
+        } else if (!ui.rec_done && (uint32_t)(fm1_ms - ui.rec_t0) >= 1000u) {
+            ui.rec_done = 1;
+            gest_clear();
+        }
     }
     /* SAVE (and SHIFT + SAVE) */
     if (btn_bit(press, B_SAVE)) {
@@ -738,10 +825,38 @@ static void ui_input(void)
         }
     }
     /* the keys */
+    if (ui.page == PG_SNAP && ui.snap_key >= 0) {   /* a snapshot's key: let go soon, recalled; held, stored */
+        uint32_t kk = (uint32_t)ui.snap_key, sw = (uint32_t)white_ix(kk);
+        if ((up >> kk) & 1u) {
+            if (!ui.snap_done)
+                snap_recall(sw);
+            ui.snap_key = -1;
+        } else if (!ui.snap_done && (uint32_t)(fm1_ms - ui.snap_t0) >= 800u) {
+            ui.snap_done = 1;
+            snap_store(sw);
+        }
+    }
     for (k = 0; k < NKEY; k++) {
         int32_t w = white_ix(k);
         if (!((down >> k) & 1u) || k == KEY_SHIFT)
             continue;
+        if (ui.page == PG_SNAP && w >= 0) {      /* the SNAPSHOTS page: the white keys are the sixteen */
+            if (sh)
+                snap_clear((uint32_t)w);
+            else {
+                ui.snap_key = (int8_t)k;
+                ui.snap_t0 = fm1_ms;
+                ui.snap_done = 0;
+            }
+            ui.force = 1;
+            continue;
+        }
+        if (k == KEY_MUTE[0] && sh) {            /* SHIFT + black key 1: the chosen channel, every parameter at random */
+            patch_random_channel(&par, ui.sel, next_seed());
+            say("CHANNEL RANDOM", 1000);
+            ui.force = 1;
+            continue;
+        }
         if (w >= 0 && w < SRC_N) {               /* the chosen channel's input */
             par.ch[ui.sel].src = (int16_t)w;
             say(SRC_NAME[w], 900);
@@ -759,6 +874,13 @@ static void ui_input(void)
                 }
     }
     ui.cpu_page = (uint8_t)(sh && ((keys >> KEY_CPU) & 1u));
+    if (ui.page == PG_SNAP) {                    /* KNOB 1 on the SNAPSHOTS page: the morph time */
+        s = enc_take(EN_K1);
+        if (s) {
+            morph_hs = (uint8_t)clampi(morph_hs + s, 0, 60);
+            ui.force = 1;
+        }
+    }
     /* PRESETS: the factory's, or the SESSIONS page's slot, or the question's answer */
     s = enc_take(EN_PRESET);
     if (s && sh) {                               /* SHIFT + PRESETS: a patch of the family before or after */
@@ -766,10 +888,9 @@ static void ui_input(void)
         s = 0;
     }
     if (s) {
-        if (ui.page == PG_MOD) {
-            ui.mod_ix = (uint8_t)clampi(ui.mod_ix + s, 0, 5);
-            ui.force = 1;
-        } else if (ui.page == PG_SES)
+        if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
+            mtx_from(s);
+        else if (ui.page == PG_SES)
             ui.ses_ix = (uint8_t)clampi(ui.ses_ix + (s > 0 ? 1 : -1), 1, (int32_t)SES_SLOTS);
         else if (ui.page == PG_ASK)
             ui.ses_yes = (uint8_t)(s > 0);
@@ -779,11 +900,11 @@ static void ui_input(void)
             goto_page(PG_PRESET);
     }
     /* KNOB 1 .. 4 */
-    if (ui.page == PG_MOD) {
+    if (ui.page == PG_MTX1 || ui.page == PG_MTX2) {
         for (k = 0; k < 4u; k++) {
             s = enc_take(EN_K1 + k);
             if (s)
-                mod_knob(ui.mod_ix, k, s);
+                mtx_knob(k, s, sh);
         }
     } else if (ui.page <= PG_OFX) {
         for (k = 0; k < 4u; k++) {
@@ -822,6 +943,8 @@ knobs_lp:
         str_cpy(m + 4, v, sizeof m - 4);
         say(m, 900);
     }
+    morph_poll();                                /* (a snapshot's morph, a step on) */
+    gest_poll();                                 /* (the gesture loop: played, and what changed this pass recorded) */
 }
 
 /* ------------------------------------------------------------ the lights --- */
@@ -848,13 +971,19 @@ static void ui_leds(void)
     fm1_led_key(PANEL_BTN[B_HOME], (int32_t)(ui.home_until - fm1_ms) > 0);
     fm1_led_key(PANEL_BTN[B_SEQ], ui.page >= PG_OUT && ui.page <= PG_OFX);
     fm1_led_key(PANEL_BTN[B_ARP], ui.page == PG_VIEW);
-    fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK || ui.page == PG_PRESET);
-    fm1_led_key(PANEL_BTN[B_PLAY], par.out.mute && blink);
-    fm1_led_key(PANEL_BTN[B_REC], 0);
+    fm1_led_key(PANEL_BTN[B_SAVE], ui.set_page || ui.page == PG_SES || ui.page == PG_ASK || ui.page == PG_PRESET ||
+                                   ui.page == PG_SNAP);
+    fm1_led_key(PANEL_BTN[B_PLAY], gs.play);
+    fm1_led_key(PANEL_BTN[B_REC], gs.st == GS_REC || (gs.st == GS_ARMED && blink));
     fm1_led_key(PANEL_BTN[B_OCTDN], (ui.page > PG_MAIN && ui.page <= PG_CH_LAST) || (ui.page > PG_OUT && ui.page <= PG_OFX));
     fm1_led_key(PANEL_BTN[B_OCTUP], ui.page < PG_CH_LAST || (ui.page >= PG_OUT && ui.page < PG_OFX));
     for (k = 0; k < NKEY; k++) {
         int32_t w = white_ix(k);
+        if (ui.page == PG_SNAP && w >= 0) {      /* the SNAPSHOTS page: stored ones glow, the last lit */
+            fm1_led_key(14u + k, w == snap_cur && snap_has((uint32_t)w));
+            led_dim_key(14u + k, snap_has((uint32_t)w));
+            continue;
+        }
         if (w >= 0 && w < SRC_N) {               /* the inputs: the one chosen lit, the others glowing */
             int self = w >= SRC_CH1 && (uint32_t)(w - SRC_CH1) == ui.sel;
             fm1_led_key(14u + k, p->src == w);
@@ -968,18 +1097,18 @@ static int32_t meter_px(int32_t peak)
     db10 = (int32_t)(((int64_t)(log2_q16((uint32_t)peak) - (15 << 16)) * 602) >> 16) / 10;
     return meter_px_db10(db10);
 }
-static void draw_meter(int32_t px)
+static void draw_meter(int32_t px)              /* (its band from the end of band C to the pan's: no gap left) */
 {
     int32_t lv = par.ch[ui.sel].level;
-    cv_begin(240, BAND_D - BAND_M - 2, C_BLACK);
-    cv_frame(METER_X - 2, 3, METER_LEN + 4, 16, 2, C_GREY);
+    cv_begin(240, BAND_D - BAND_C - 44, C_BLACK);
+    cv_frame(METER_X - 2, 5, METER_LEN + 4, 16, 2, C_GREY);
     if (px)
-        cv_rect(METER_X, 5, px, 12, par.ch[ui.sel].mute ? C_GREY : LAYER_COL[ui.sel]);
+        cv_rect(METER_X, 7, px, 12, par.ch[ui.sel].mute ? C_GREY : LAYER_COL[ui.sel]);
     if (lv)                                      /* the fader: a white bar across, -60 .. +12 dB along the meter */
-        cv_rect(METER_X + lv * (METER_LEN - 2) / LVL_MAX - 1, 0, 5, 22, C_WHITE);
+        cv_rect(METER_X + lv * (METER_LEN - 2) / LVL_MAX - 1, 2, 5, 22, C_WHITE);
     else
-        cv_rect(METER_X - 2, 0, 5, 22, C_REC);
-    cv_blit(0, BAND_M);
+        cv_rect(METER_X - 2, 2, 5, 22, C_REC);
+    cv_blit(0, BAND_C + 44);
     ui.shown_meter = px;
     ui.shown_level = lv;
 }
@@ -1004,7 +1133,7 @@ static uint16_t page_col(void) { return ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui
 static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
 {
     uint32_t j;
-    if (!((ui.keys >> KEY_SHIFT) & 1u) || ui.page > PG_OFX || ui.page == PG_MOD)
+    if (!((ui.keys >> KEY_SHIFT) & 1u) || ui.page > PG_OFX || (ui.page >= PG_LFO1 && ui.page <= PG_MTX2))
         return 0;
     for (j = 0; j < 4u; j++)
         if (PG_SHROW[ui.page][j] != P_NONE)
@@ -1019,10 +1148,6 @@ static void draw_title(void)
 {
     char t[24];
     str_cpy(t, PG_TITLE[ui.page], sizeof t);
-    if (ui.page == PG_MOD) {                     /* the MOD page: the entry (PRESETS chooses it) */
-        static const char *const ME[6] = {"LFO 1", "LFO 2", "MOD A", "MOD B", "MOD C", "MOD D"};
-        str_cpy(t, ME[ui.mod_ix % 6u], sizeof t);
-    }
     if (ui.page <= PG_CH_LAST) {                 /* the channel's number after the page's name */
         uint32_t n = str_len(t);
         str_cpy(t + n, "  CH ", 6);
@@ -1069,89 +1194,57 @@ static void draw_row(uint32_t j, int touched)
     draw_row2(j, p_name(id), t, bar, bar == 2 ? v * 1000 / PAN_MAX : p_bar(id, v, 1000), touched);
     ui.shown_row[j] = v;
 }
-/* the MOD page: the chosen channel's modulation, an entry at a time (PRESETS): LFO 1, LFO 2, the slots MOD A .. D;
- * KNOB 1 .. 4 its rows (Tonitor's) */
-static void mod_knob(uint32_t ix, uint32_t j, int32_t s)
+/* the MOD pages: the chosen channel's eight slots, four a page -- each row a slot: where it comes FROM and its
+ * number small, where it goes TO and by how much large, the amount a bar from the middle. KNOB 1 .. 4: the AMOUNT;
+ * SHIFT + KNOB: TO; PRESETS: FROM, of the slot in hand (the last turned: its row lit) */
+static uint32_t mtx_base(void) { return ui.page == PG_MTX2 ? 4u : 0u; }
+static void mtx_knob(uint32_t j, int32_t s, int sh)
 {
-    mod_t *m = &par.ch[ui.sel].mod;
-    if (ix < 2u) {
-        mlfo_t *f = &m->lfo[ix];
-        if (j == 0u)
-            f->shape = (uint8_t)clampi(f->shape + s, 0, MS_N - 1);
-        else if (j == 1u)
-            f->rate = (uint8_t)clampi(f->rate + s, 0, 100);
-        else if (j == 2u)
-            f->mode = (uint8_t)clampi(f->mode + s, 0, MM_N - 1);
-        else
-            f->fade = (uint8_t)clampi(f->fade + 2 * s, 0, 100);
-    } else {
-        mslot_t *q = &m->s[ix - 2u];
-        if (j == 0u)
-            q->src = (uint8_t)clampi(q->src + s, 0, MSRC_N - 1);
-        else if (j == 1u)
-            q->dst = (uint8_t)clampi(q->dst + s, 0, MD_N - 1);
-        else if (j == 2u)
-            q->amt = (int8_t)clampi(q->amt + 2 * s, -100, 100);
-        else
-            return;
+    mslot_t *q = &par.ch[ui.sel].mod.s[mtx_base() + j];
+    ui.mtx_focus = (uint8_t)j;
+    if (sh)
+        q->dst = (uint8_t)clampi(q->dst + (s > 0 ? 1 : -1), 0, MD_N - 1);
+    else {
+        q->amt = (int8_t)clampi(q->amt + s, -100, 100);
+        if (!q->src && q->amt)                   /* (an amount on a slot from nowhere: from LFO 1) */
+            q->src = MSRC_L1;
     }
-    touch((int32_t)j);
-    ui.force = 1;
 }
-static void lead_zero(char *v)                   /* ".05" -> "0.05" */
+static void mtx_from(int32_t s)
 {
-    uint32_t n = str_len(v);
-    if (v[0] != '.')
-        return;
-    for (; n + 1u > 0u; n--)
-        v[n + 1u] = v[n];
-    v[0] = '0';
+    mslot_t *q = &par.ch[ui.sel].mod.s[mtx_base() + ui.mtx_focus % 4u];
+    q->src = (uint8_t)clampi(q->src + (s > 0 ? 1 : -1), 0, MSRC_N - 1);
 }
-static void draw_mod_page(void)
+static int32_t mtx_key(uint32_t j)
 {
-    uint32_t c = ui.sel, ix = ui.mod_ix;
-    int32_t t = (int32_t)(ui.touch_until - fm1_ms) > 0 ? ui.touched : -1;
-    const mod_t *m = &par.ch[c].mod;
-    char v[16];
-    ui.mod_drawn_at = fm1_ms;
-    if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel)
+    const mslot_t *q = &par.ch[ui.sel].mod.s[mtx_base() + j];
+    return q->src | q->dst << 4 | (q->amt + 128) << 10 | (int32_t)(j == ui.mtx_focus) << 20;
+}
+static void draw_mtx_page(void)
+{
+    uint32_t j;
+    int all = ui.force || ui.shown_page != ui.page || ui.shown_sel != ui.sel;
+    if (all)
         draw_title();
-    if (ix < 2u) {
-        const mlfo_t *f = &m->lfo[ix];
-        uint32_t ch = (uint32_t)(((uint64_t)100u * exp2_q16(f->rate * 7189)) >> 16);   /* (0.01 Hz units, x 100) */
-        if (!ui.force && ui.shown_page == PG_MOD && ui.shown_sel == ui.sel)
-            return;                              /* (an LFO's rows change only with its knobs) */
-        draw_row2(0, "SHAPE", MS_NAME[f->shape % MS_N], 0, 0, t == 0);
-        fmt_fix(v, (int32_t)(ch < 100000u ? ch / 100u : ch / 1000u), ch < 100000u ? 2 : 1);
-        lead_zero(v);                            /* (0.05, not .05) */
-        str_cpy(v + str_len(v), " HZ", 4);
-        draw_row2(1, "RATE", v, 1, f->rate * 10, t == 1);
-        draw_row2(2, "MODE", MM_NAME[f->mode % MM_N], 0, 0, t == 2);
-        if (f->fade) {
-            fmt_fix(v, f->fade, 1);
-            lead_zero(v);
-            str_cpy(v + str_len(v), " S", 3);
-        } else
-            str_cpy(v, "OFF", 4);
-        draw_row2(3, "FADE", v, 1, f->fade * 10, t == 3);
-        return;
-    }
-    {
-        const mslot_t *q = &m->s[ix - 2u];
-        int32_t now = 0;
-        if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel) {
-            draw_row2(0, "FROM", MSRC_NAME[q->src % MSRC_N], 0, 0, t == 0);
-            draw_row2(1, "TO", MD_NAME[q->dst % MD_N], 0, 0, t == 1);
-            if (q->amt > 0) {
-                v[0] = '+';
-                fmt_int(v + 1, q->amt);
-            } else
-                fmt_int(v, q->amt);
-            draw_row2(2, "AMOUNT", v, 2, q->amt * 10, t == 2);
+    for (j = 0; j < 4u; j++) {
+        const mslot_t *q = &par.ch[ui.sel].mod.s[mtx_base() + j];
+        char nm[24], v[24];
+        if (!all && ui.shown_mtx[j] == mtx_key(j))
+            continue;
+        ui.shown_mtx[j] = mtx_key(j);
+        nm[0] = (char)('1' + mtx_base() + j);
+        str_cpy(nm + 1, "  FROM ", 8);
+        str_cpy(nm + 8, MSRC_NAME[q->src % MSRC_N], 10);
+        if (!q->src || !q->amt)
+            str_cpy(v, "OFF", sizeof v);
+        else {
+            str_cpy(v, MD_NAME[q->dst % MD_N], sizeof v);
+            str_cpy(v + str_len(v), " ", 2);
+            if (q->amt > 0)
+                str_cpy(v + str_len(v), "+", 2);
+            fmt_int(v + str_len(v), q->amt);
         }
-        if (q->src && q->amt && q->dst < MD_N)   /* (what it does now) */
-            now = clampi(mst[c].off[q->dst] * 1000 / MD_SPAN[q->dst], -1000, 1000);
-        draw_row2(3, "NOW", "", 2, now, 0);
+        draw_row2(j, nm, v, 2, q->amt * 10, j == ui.mtx_focus);
     }
 }
 static void draw_page(void)
@@ -1402,6 +1495,48 @@ static void draw_cpu_page(void)
     }
 }
 
+/* the SNAPSHOTS page: the sixteen as the white keys lie, four by four -- stored ones filled, the last recalled
+ * framed white; the morph time under them */
+static void draw_snap_page(void)
+{
+    int32_t key = snap_used | (snap_cur + 1) << 16 | morph_hs << 21 | (ui.snap_key >= 0) << 28, r, c;
+    char t[16];
+    if (!ui.force && ui.shown_page == PG_SNAP && key == ui.shown_snap)
+        return;
+    ui.shown_snap = key;
+    cv_begin(240, TITLE_H, C_BLACK);
+    text_fit_c(0, TITLE_H - 2, "SNAPSHOTS", &FONT_M, RGB(120, 220, 255));
+    cv_rect(0, TITLE_H - 1, 240, 1, RGB(60, 60, 60));
+    cv_blit(0, 0);
+    for (r = 0; r < 4; r++) {
+        cv_begin(240, 40, C_BLACK);
+        for (c = 0; c < 4; c++) {
+            int32_t i = r * 4 + c, x = 4 + c * 59, has = snap_has((uint32_t)i);
+            char n[4];
+            fmt_int(n, i + 1);
+            if (i == snap_cur)
+                cv_frame(x, 1, 55, 38, 3, C_WHITE);
+            if (has)
+                cv_rect(x + 3, 4, 49, 32, RGB(120, 220, 255));
+            cv_bg_set(has ? RGB(120, 220, 255) : C_BLACK);
+            cv_text(x + (55 - text_w(&FONT_S, n)) / 2, (40 - (int32_t)FONT_S.h) / 2, &FONT_S, n, has ? C_BLACK : C_GREY);
+            cv_bg_set(C_BLACK);
+        }
+        cv_blit(0, (uint32_t)(TITLE_H + r * 40));
+    }
+    cv_begin(240, 240 - TITLE_H - 160, C_BLACK);
+    if (morph_hs) {
+        str_cpy(t, "MORPH ", sizeof t);
+        fmt_int(t + 6, morph_hs / 2);
+        if (morph_hs & 1)
+            str_cpy(t + str_len(t), ".5", 3);
+        str_cpy(t + str_len(t), " S", 3);
+    } else
+        str_cpy(t, "MORPH OFF", sizeof t);
+    text_fit_c(0, 240 - TITLE_H - 160, t, &FONT_S, C_WHITE);
+    cv_blit(0, TITLE_H + 160);
+}
+
 static void ui_draw(void)
 {
     int msg = (int32_t)(ui.msg_until - fm1_ms) > 0;
@@ -1436,16 +1571,21 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
+    if (ui.page == PG_SNAP) {
+        draw_snap_page();
+        ui.shown_page = PG_SNAP;
+        ui.force = 0;
+        return;
+    }
     if (ui.page == PG_PRESET || ui.page == PG_SES || ui.page == PG_ASK) {
         draw_list_page();
         ui.shown_page = ui.page;
         ui.force = 0;
         return;
     }
-    if (ui.page == PG_MOD) {
-        if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel || (uint32_t)(fm1_ms - ui.mod_drawn_at) >= 40u)
-            draw_mod_page();
-        ui.shown_page = PG_MOD;
+    if (ui.page == PG_MTX1 || ui.page == PG_MTX2) {
+        draw_mtx_page();
+        ui.shown_page = ui.page;
         ui.shown_sel = ui.sel;
         ui.force = 0;
         return;
@@ -1467,8 +1607,6 @@ static void ui_draw(void)
     if (ui.shown_page != PG_MAIN)
         ui.force = 1;
     ui.shown_page = PG_MAIN;
-    if (ui.force)
-        lcd_fill(0, 0, 240, 240, C_BLACK);       /* (the gaps between the bands: nothing of the page before) */
     if (ui.force || ui.shown_sel != ui.sel) {
         draw_number();
         ui.shown_sel = ui.sel;
@@ -1479,8 +1617,17 @@ static void ui_draw(void)
         ui.shown_src = par.ch[ui.sel].src;
     }
     {
-        int kind = msg ? 1 : par.ch[ui.sel].mute ? 2 : 0;
-        const char *t = msg ? ui.msg : par.ch[ui.sel].mute ? "MUTED" : ui.patch;
+        char rs[16];
+        int rec = gs.st == GS_REC || gs.st == GS_ARMED;
+        int kind = msg ? 1 : rec || par.out.mute || par.ch[ui.sel].mute ? 2 : 0;
+        const char *t = msg ? ui.msg : rec ? rs : par.out.mute ? "OUT MUTED" : par.ch[ui.sel].mute ? "MUTED" : ui.patch;
+        if (gs.st == GS_ARMED)
+            str_cpy(rs, (fm1_ms / 250u) & 1u ? "ARMED" : "", sizeof rs);
+        else if (gs.st == GS_REC) {              /* REC and the seconds so far */
+            str_cpy(rs, "REC ", sizeof rs);
+            fmt_int(rs + 4, (int32_t)((fm1_ms - gs.t0) / 1000u));
+            str_cpy(rs + str_len(rs), " S", 3);
+        }
         if (ui.shown_msg != kind || !str_eq(t, ui.shown_text)) {
             draw_band_c(t, kind);
             str_cpy(ui.shown_text, t, sizeof ui.shown_text);
@@ -1502,6 +1649,7 @@ static void ui_init(void)
     static lil_par_t q;
     memset(&ui, 0, sizeof ui);
     ui.touched = -1;
+    ui.snap_key = -1;
 #if TELEMETRY
     ui.seed = 0x5EEDu;
 #else

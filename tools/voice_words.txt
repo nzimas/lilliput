@@ -525,3 +525,7 @@ sky	S K AY1
 subterranean	S AH2 B T ER0 EY1 N IY0 AH0 N
 voices	V OY1 S AH0 Z
 whistle	W IH1 S AH0 L
+gestures	JH EH1 S CH ER0 Z
+morphing	M AO1 R F IH0 NG
+recalled	R IY0 K AO1 L D
+recording	R AH0 K AO1 R D IH0 NG

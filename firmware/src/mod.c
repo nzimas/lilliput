@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * LILLIPUT: each channel's modulation -- Tonitor's matrix (its 0.53), its LFOs as they were, its sources and
- * destinations made the mixer's. Each channel has two LFOs and four slots; a slot takes a source to a destination by
+ * destinations made the mixer's. Each channel has two LFOs and eight slots; a slot takes a source to a destination by
  * an amount, -100 .. +100 of the destination's swing. It moves the channel's parameters as the ISR reads them each
  * block (1378 Hz): the values the panel shows stay where they were set, the sound moves round them.
  *

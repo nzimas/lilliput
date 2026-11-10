@@ -544,10 +544,14 @@ static int cmd_screens(const char *dir)
     key(KEY_SHIFT, 0);
     press_btn(B_OCTUP);
     run_ms(300);
-    SHOT("07b_mod_lfo");
-    turn(EN_PRESET, 2);
+    SHOT("07b_lfo1");
+    press_btn(B_OCTUP);
+    press_btn(B_OCTUP);
     run_ms(300);
-    SHOT("07c_mod_slot");
+    SHOT("07c_mod_1_4");
+    press_btn(B_OCTUP);
+    run_ms(300);
+    SHOT("07d_mod_5_8");
     press_btn(B_SEQ);
     run_ms(60);
     SHOT("08_out");
@@ -580,6 +584,22 @@ static int cmd_screens(const char *dir)
     SHOT("14_cpu");
     key(KEY_CPU, 0);
     key(KEY_SHIFT, 0);
+    press_btn(B_SAVE);
+    key(white_key(0), 1);
+    run_ms(900);
+    key(white_key(0), 0);
+    key(white_key(6), 1);
+    run_ms(900);
+    key(white_key(6), 0);
+    turn(EN_K1, 5);
+    run_ms(1700);
+    SHOT("16_snapshots");
+    press_btn(B_SAVE);
+    press_btn(B_REC);
+    turn(EN_SELECT, 1);
+    run_ms(2200);
+    SHOT("17_rec");
+    press_btn(B_REC);
     hold_btn(B_SAVE, 900);
     run_ms(60);
     SHOT("15_save_ask");
@@ -694,34 +714,137 @@ static int cmd_flows(void)
             same &= before.ch[c].src == par.ch[c].src && before.ch[c].level == par.ch[c].level;
         EXPECT(same && memcmp(&before, &par, sizeof par) != 0, "HOME held: the tone moved, the connections kept");
     }
-    /* the MOD page: LFO 1's rate; MOD A; SHIFT + SEQ throws the channel's modulation anew */
+    /* the LFO pages, the matrix pages; SHIFT + SEQ throws the channel's modulation anew */
     press_btn(LAYER_BTN[2]);
+    if (ui.page != PG_MAIN)
+        press_btn(LAYER_BTN[2]);
     {
         uint32_t i;
-        for (i = 0; i < 7u; i++)
+        for (i = 0; i < 6u; i++)
             press_btn(B_OCTUP);
     }
-    EXPECT(ui.page == PG_MOD, "OCT+ to the MOD page");
+    EXPECT(ui.page == PG_LFO1, "OCT+ to LFO 1");
     {
         uint8_t r0 = par.ch[2].mod.lfo[0].rate;
         turn(EN_K2, r0 < 100 ? 1 : -1);
-        EXPECT(par.ch[2].mod.lfo[0].rate != r0, "KNOB 2 there: LFO 1's rate");
-        turn(EN_PRESET, 2);
-        EXPECT(ui.mod_ix == 2, "PRESETS there: MOD A");
+        EXPECT(par.ch[2].mod.lfo[0].rate == (r0 < 100 ? r0 + 1 : r0 - 1), "KNOB 2 there: LFO 1's rate, a step a detent");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_LFO2, "then LFO 2");
+        turn(EN_K1, 1);
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_MTX1, "then MOD 1-4");
+        memset(par.ch[2].mod.s, 0, sizeof par.ch[2].mod.s);
+        turn(EN_K3, 25);
+        EXPECT(par.ch[2].mod.s[2].amt == 25 && par.ch[2].mod.s[2].src == MSRC_L1, "KNOB 3: slot 3's amount (from LFO 1)");
+        key(KEY_SHIFT, 1);
+        turn(EN_K3, 2);
+        key(KEY_SHIFT, 0);
+        EXPECT(par.ch[2].mod.s[2].dst == 1, "SHIFT + KNOB 3: where it goes");
+        turn(EN_PRESET, 1);
+        EXPECT(par.ch[2].mod.s[2].src == MSRC_L2, "PRESETS: where the slot in hand comes from");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_MTX2, "then MOD 5-8");
+        turn(EN_K4, -10);
+        EXPECT(par.ch[2].mod.s[7].amt == -10, "slot 8");
         before = par;
         key(KEY_SHIFT, 1);
         press_btn(B_SEQ);
         key(KEY_SHIFT, 0);
         EXPECT(memcmp(&before.ch[2].mod, &par.ch[2].mod, sizeof(mod_t)) != 0, "SHIFT + SEQ: the modulation thrown anew");
     }
+    /* SHIFT + black key 1: the channel at random, its mute kept */
+    before = par;
+    par.ch[2].mute = 1;
+    key(KEY_SHIFT, 1);
+    tap_key(KEY_MUTE[0]);
+    key(KEY_SHIFT, 0);
+    EXPECT(par.ch[2].mute == 1 && !par.ch[0].mute == !before.ch[0].mute, "SHIFT + black key 1: no mute changed");
+    EXPECT(memcmp(&before.ch[2].gain, &par.ch[2].gain, sizeof(ch_par_t) - 4) != 0 && memcmp(&before.ch[1], &par.ch[1], sizeof(ch_par_t)) == 0,
+           "the chosen channel drawn anew, the others kept");
+    par.ch[2].mute = 0;
     press_btn(LAYER_BTN[0]);
     press_btn(LAYER_BTN[0]);
     (void)keep_src;
-    /* PLAY: the output muted */
     press_btn(B_PLAY);
+    EXPECT(!gs.play, "PLAY with no gesture loop: nothing");
+    /* the gesture loop: REC arms, the first change starts it, REC ends and plays; each round as recorded */
+    press_btn(LAYER_BTN[0]);
+    press_btn(LAYER_BTN[0]);
     run_ms(200);
-    EXPECT(par.out.mute, "PLAY mutes the output");
-    press_btn(B_PLAY);
+    {
+        int16_t l0 = par.ch[0].level, l1;
+        press_btn(B_REC);
+        EXPECT(gs.st == GS_ARMED, "REC arms");
+        run_ms(300);
+        EXPECT(gs.st == GS_ARMED, "nothing recorded until something changes");
+        turn(EN_SELECT, -3);
+        EXPECT(gs.st == GS_REC, "the first change starts the recording");
+        run_ms(400);
+        tap_key(KEY_MUTE[3]);
+        run_ms(400);
+        turn(EN_SELECT, -2);
+        l1 = par.ch[0].level;
+        run_ms(300);
+        press_btn(B_REC);
+        EXPECT(gs.st == GS_IDLE && gs.play && gs.n >= 3, "REC again: the loop ends and plays");
+        run_ms(100);
+        EXPECT(par.ch[0].level != l1, "a round begins as the recording began");
+        run_ms(gs.len);                          /* (into the second round, then to its end) */
+        while ((fm1_ms - gs.t0) % gs.len < gs.len - 80u)
+            run_ms(10);
+        EXPECT(par.ch[0].level == l1 && par.ch[3].mute, "and plays as recorded");
+        press_btn(B_PLAY);
+        EXPECT(!gs.play, "PLAY stops it");
+        press_btn(B_PLAY);
+        EXPECT(gs.play, "PLAY plays it again");
+        (void)l0;
+        key(KEY_SHIFT, 1);
+        press_btn(B_PLAY);
+        key(KEY_SHIFT, 0);
+        EXPECT(par.out.mute, "SHIFT + PLAY: the output muted");
+        key(KEY_SHIFT, 1);
+        press_btn(B_PLAY);
+        key(KEY_SHIFT, 0);
+        EXPECT(!par.out.mute, "and back");
+    }
+    /* snapshots: SAVE short opens them; a key held stores, let go soon recalls; SHIFT + it empties */
+    press_btn(B_PLAY);                            /* (the loop stopped: it would play over the recall) */
+    press_btn(B_SAVE);
+    EXPECT(ui.page == PG_SNAP, "SAVE short: the SNAPSHOTS page");
+    {
+        lil_par_t a;
+        key(white_key(2), 1);
+        run_ms(900);
+        key(white_key(2), 0);
+        EXPECT(snap_has(2), "a white key held: stored");
+        a = par;
+        par.ch[1].level = 100;
+        par.ch[1].src = SRC_MIXR;
+        tap_key(white_key(2));
+        EXPECT(par.ch[1].level == a.ch[1].level && par.ch[1].src == a.ch[1].src, "let go soon: recalled");
+        turn(EN_K1, 4);
+        EXPECT(morph_hs == 4, "KNOB 1: the morph time");
+        par.ch[1].level = 100;
+        tap_key(white_key(2));
+        run_ms(900);
+        EXPECT(par.ch[1].level > 100 && par.ch[1].level < a.ch[1].level, "a morph on its way");
+        run_ms(1400);
+        EXPECT(par.ch[1].level == a.ch[1].level, "and there");
+        key(KEY_SHIFT, 1);
+        tap_key(white_key(5));
+        key(white_key(5), 0);
+        key(KEY_SHIFT, 0);
+        key(white_key(5), 1);
+        run_ms(900);
+        key(white_key(5), 0);
+        EXPECT(snap_has(5), "another stored");
+        key(KEY_SHIFT, 1);
+        tap_key(white_key(5));
+        key(KEY_SHIFT, 0);
+        EXPECT(!snap_has(5), "SHIFT + its key: emptied");
+        press_btn(B_SAVE);
+        EXPECT(ui.page != PG_SNAP, "SAVE again: back");
+    }
     /* sessions: save as a new one (asked), load it back */
     hold_btn(B_SAVE, 900);
     EXPECT(ui.page == PG_ASK && ui.ses_new == 1, "SAVE held: a new session, asked");
@@ -742,6 +865,7 @@ static int cmd_flows(void)
         lil_par_t a = before, b = par;
         a.out.level = b.out.level = 0;
         EXPECT(memcmp(&a, &b, sizeof a) == 0, "session 1 loaded back as it was");
+        EXPECT(snap_has(2) && gs.n >= 3, "with its snapshots and its gesture loop");
     }
     /* again, from the flash as a boot finds it */
     ses_scan(1);

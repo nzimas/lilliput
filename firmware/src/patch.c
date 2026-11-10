@@ -497,6 +497,62 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
     return (uint32_t)fam;
 }
 
+/* SHIFT + black key 1: every parameter of channel c drawn anew -- its input, its voice, its filters, its sends, its
+ * slot, its LFOs and matrix, its fader and pan (set together with its gain, so it sings); only its mute kept. From
+ * any family's ranges, so anything the families can do, it can */
+static void patch_random_channel(lil_par_t *q, uint32_t c, uint32_t seed)
+{
+    rnd_t r;
+    const family_t *f;
+    ch_par_t *p = &q->ch[c];
+    uint8_t mute = p->mute;
+    int32_t margin, lv = 0, src, k;
+    int ret1 = 0, ret2 = 0;
+    rnd_seed(&r, seed);
+    f = &FAM[rnd_below(&r, (int32_t)NFAM)];
+    draw_voice(&r, f, p, pr_in(&r, f->mf_lo, f->mf_hi));
+    p->noise = (int16_t)pr_in(&r, 250, 750);
+    p->pan = (int16_t)pr_in(&r, -PAN_MAX, PAN_MAX);
+    p->mainmix = (uint8_t)!rnd_chance(&r, 10);
+    for (k = 0; k < NSLOT; k++) {                /* (the returns something feeds) */
+        ret1 |= q->slot[k].out == FO_RET1 && q->slot[k].in != FI_NON;
+        ret2 |= q->slot[k].out == FO_RET2 && q->slot[k].in != FI_NON;
+    }
+    do                                           /* its input: anything but itself, a return only if it is fed */
+        src = rnd_below(&r, SRC_N);
+    while (src == SRC_CH1 + (int32_t)c || src == SRC_NONE || (src == SRC_RET1 && !ret1) || (src == SRC_RET2 && !ret2));
+    p->src = (int16_t)src;
+    margin = pr_in(&r, 10, 70);
+    if (rnd_chance(&r, 45))                      /* its slot: an insert, or left as it was */
+        draw_slot(&r, f, &q->slot[c], FI_INS, rnd_chance(&r, 25) ? (uint32_t)(FO_RET1 + rnd_below(&r, 2)) : FO_NON);
+    else if (q->slot[c].in == FI_INS)
+        q->slot[c].in = FI_NON;
+    lv = -pr_in(&r, 0, 160);
+    switch (src) {
+    case SRC_SND1: case SRC_RET1:
+        p->send1 = sing_send(p, -pr_in(&r, 20, 120), margin, src == SRC_RET1 ? 30 : 0);
+        p->send2 = (int16_t)(rnd_chance(&r, 30) ? pr_in(&r, 200, 700) : 0);
+        p->level = lvl_of_db10(lv);
+        break;
+    case SRC_SND2: case SRC_RET2:
+        p->send2 = sing_send(p, -pr_in(&r, 20, 120), margin, src == SRC_RET2 ? 30 : 0);
+        p->send1 = (int16_t)(rnd_chance(&r, 30) ? pr_in(&r, 200, 700) : 0);
+        p->level = lvl_of_db10(lv);
+        break;
+    default:
+        p->send1 = (int16_t)(rnd_chance(&r, 30) ? pr_in(&r, 200, 700) : 0);
+        p->send2 = (int16_t)(rnd_chance(&r, 30) ? pr_in(&r, 200, 700) : 0);
+        p->level = sing_at(p, lv, margin, src == SRC_MIXL || src == SRC_MIXR ? 30 : src >= SRC_CH1 ? 15 : 0);
+        break;
+    }
+    motion_sync.on = 0;
+    if (rnd_chance(&r, 50))                      /* its motion: a family's gestures, or thrown wide */
+        draw_motion(&r, f, p, seed ^ 0xA5A5u);
+    else
+        mod_random(&p->mod, seed ^ 0x5A5Au);
+    p->mute = mute;
+}
+
 /* SHIFT + HOME: every channel's tone a little elsewhere */
 static void patch_shift(lil_par_t *q, uint32_t seed)
 {
