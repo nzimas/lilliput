@@ -423,3 +423,87 @@ window	W IH1 N D OW0
 wire	W AY1 ER0
 xor	EH1 K S AO1 R
 yes	Y EH1 S
+# LILLIPUT: the no-input mixer's words
+amp	AE1 M P
+band	B AE1 N D
+bitcrush	B IH1 T K R AH2 SH
+bypass	B AY1 P AE2 S
+byp	B AY1 P AE2 S
+cave	K EY1 V
+centre	S EH1 N T ER0
+ch	CH AE1 N AH0 L
+chamber	CH EY1 M B ER0
+channels	CH AE1 N AH0 L Z
+chorus	K AO1 R AH0 S
+circle	S ER1 K AH0 L
+cut	K AH1 T
+deep	D IY1 P
+echo	EH1 K OW0
+effect	IH0 F EH1 K T
+faulty	F AO1 L T IY0
+field	F IY1 L D
+first	F ER1 S T
+flanger	F L AE1 N JH ER0
+freq	F R IY1 K W AH0 N S IY0
+gain	G EY1 N
+geiger	G AY1 G ER0
+hall	HH AO1 L
+hi	HH AY1
+high	HH AY1
+hum	HH AH1 M
+hybrid	HH AY1 B R AH0 D
+input	IH1 N P UH2 T
+insert	IH1 N S ER0 T
+intensity	IH0 N T EH1 N S AH0 T IY0
+light	L AY1 T
+limit	L IH1 M AH0 T
+linear	L IH1 N IY0 ER0
+lo	L OW1
+load	L OW1 D
+lofi	L OW1 F AY2
+lonely	L OW1 N L IY0
+loss	L AO1 S
+low	L OW1
+main	M EY1 N
+middle	M IH1 D AH0 L
+mirror	M IH1 R ER0
+mute	M Y UW1 T
+muted	M Y UW1 T AH0 D
+narrow	N EH1 R OW0
+none	N AH1 N
+offset	AO1 F S EH2 T
+orbit	AO1 R B AH0 T
+output	AW1 T P UH2 T
+patch	P AE1 CH
+peak	P IY1 K
+pink	P IH1 NG K
+post	P OW1 S T
+pre	P R IY1
+presence	P R EH1 Z AH0 N S
+preset	P R IY1 S EH2 T
+prev	P R IY1 V IY0 AH0 S
+protect	P R AH0 T EH1 K T
+radio	R EY1 D IY0 OW2
+red	R EH1 D
+relay	R IY1 L EY2
+ret	R IH0 T ER1 N
+return	R IH0 T ER1 N
+room	R UW1 M
+saturated	S AE1 CH ER0 EY2 T IH0 D
+shelf	SH EH1 L F
+shifted	SH IH1 F T IH0 D
+signal	S IH1 G N AH0 L
+solo	S OW1 L OW0
+space	S P EY1 S
+tangle	T AE1 NG G AH0 L
+tremolo	T R EH1 M AH0 L OW2
+tube	T UW1 B
+type	T AY1 P
+undercurrent	AH1 N D ER0 K ER2 AH0 N T
+vibrato	V AH0 B R AA1 T OW0
+void	V OY1 D
+vowel	V AW1 AH0 L
+weatherstation	W EH1 DH ER0 S T EY2 SH AH0 N
+web	W EH1 B
+white	W AY1 T
+wide	W AY1 D

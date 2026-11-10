@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* USB full-speed device on USB0: a class-compliant USB-MIDI interface.
- * (From Felucca / SLOOP; for TONITOR only the product strings changed: "FM-1 Tonitor". From 0.52 its USB audio is
+ * (From Felucca / SLOOP; for TONITOR the product strings changed, for LILLIPUT again: "FM-1 Lilliput". From 0.52 its USB audio is
  * on, at 44.1 kHz, as BIGORNA's build 49.)
  * All SIE traffic happens in usb_poll(), called from the TIMER5 ISR at 2 kHz,
  * so INDEX is never shared and no USB IRQ is needed. MIDI in goes to a ring
@@ -237,9 +237,9 @@ static const uint8_t CFG_DESC[] = {
     8, 0x0B, 0, 2 + 2 * FELUCCA_UAC, 1, 1, 0, 0,        /* IAD: audio + MIDI (IF 0-1, 0-3) */
 #else
 #ifndef FELUCCA_USB_PID
-#define FELUCCA_USB_PID 0x0003   /* (TONITOR: its own, so a computer that has seen Felucca's 0x0001 reads "FM-1
-                                  * Tonitor" afresh rather than keep the name it stored then; the update loader is
-                                  * 0x0002) */
+#define FELUCCA_USB_PID 0x000B   /* (LILLIPUT: its own, so a computer reads "FM-1 Lilliput" afresh rather than a name
+                                  * it stored for another firmware: Felucca 0x0001, the update loader 0x0002, TONITOR
+                                  * 0x0003, BIGORNA 0x0004 .. 0x0006, FIBER 0x000A) */
 #endif
 static const uint8_t DEV_DESC[18] = {18, 1, 0x10, 0x01, 0, 0, 0, 64, 0x09, 0x12, FELUCCA_USB_PID & 0xFF,
                                      FELUCCA_USB_PID >> 8, 0x00 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K) + UAC_BCD_AS, 0x03,
@@ -321,12 +321,12 @@ static int usb_cdc_now(void) { return usb_cdc_on; }   /* (the menu: what this st
 static int usb_cdc_now(void) { return 0; }
 #endif
 static const uint8_t STR0[4] = {4, 3, 0x09, 0x04};
-static const uint8_t STR1[] = {16, 3, 'T', 0, 'o', 0, 'n', 0, 'i', 0, 't', 0, 'o', 0, 'r', 0};
+static const uint8_t STR1[] = {18, 3, 'L', 0, 'i', 0, 'l', 0, 'l', 0, 'i', 0, 'p', 0, 'u', 0, 't', 0};
 #ifdef FELUCCA_LOADER
 static const uint8_t STR2[] = {30, 3, 'F', 0, 'e', 0, 'l', 0, 'u', 0, 'c', 0, 'c', 0, 'a', 0, ' ', 0, 'U', 0, 'p', 0,
                                'd', 0, 'a', 0, 't', 0, 'e', 0};
 #else
-static const uint8_t STR2[] = {26, 3, 'F', 0, 'M', 0, '-', 0, '1', 0, ' ', 0, 'T', 0, 'o', 0, 'n', 0, 'i', 0, 't', 0, 'o', 0, 'r', 0};
+static const uint8_t STR2[] = {28, 3, 'F', 0, 'M', 0, '-', 0, '1', 0, ' ', 0, 'L', 0, 'i', 0, 'l', 0, 'l', 0, 'i', 0, 'p', 0, 'u', 0, 't', 0};
 #endif
 
 #if FELUCCA_UAC

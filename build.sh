@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# TONITOR: build build/tonitor.fwsc (./setup.sh first).   ./build.sh [--release X.Y]
+# LILLIPUT: build build/lilliput.fwsc (./setup.sh first).   ./build.sh [--release X.Y]
 set -e
 cd "$(dirname "$0")"
 PY=.venv/bin/python

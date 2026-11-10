@@ -1,24 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * TONITOR: GLOBAL SETUP (0.51, after BIGORNA builds 46-48): the settings of the machine, not of a session, kept as a
- * record of the sessions' store (number SET_NUM). SHIFT + SAVE opens it; a track's button leaves it. Its sections --
- * MIDI, AUDIO, SETTINGS -- then each one's parts, then their rows: PRESETS through them, SAVE into one; on a row SAVE moves
- * the focus to its value, PRESETS changes it, SAVE sets it; SHIFT + SAVE leaves a value as it was, or goes back a
- * level (from the top, out). Each level below the top begins with BACK: SAVE on it goes back a level; a level opens
- * on the entry below it. A section of one part (AUDIO, SETTINGS) opens on its rows. Left, what changed is written.
+ * LILLIPUT: GLOBAL SETUP (Tonitor's, after BIGORNA builds 46-48): the settings of the machine, not of a session, kept as
+ * a record of the sessions' store (number SET_NUM). SHIFT + SAVE held opens it; a channel's button leaves it. Its
+ * sections -- MIDI, AUDIO, SETTINGS -- then each one's parts, then their rows: PRESETS through them, SAVE into one; on a
+ * row SAVE moves the focus to its value, PRESETS changes it, SAVE sets it; SHIFT + SAVE leaves a value as it was, or goes
+ * back a level (from the top, out).
  *
- *   MIDI   IN CHAN    TRACK 1 .. 6, AUTO (the chosen track)     OFF, 1 .. 16
- *          OUT CHAN   TRACK 1 .. 6                              OFF, 1 .. 16
- *          RECEIVE    NOTES, CC                                 ON / OFF
- *          SEND       NOTES, CC                                 ON / OFF
+ *   MIDI   IN CHAN    CH 1 .. 6, AUTO (the chosen channel)      OFF, 1 .. 16
+ *          OUT CHAN   CH 1 .. 6                                 OFF, 1 .. 16
+ *          RECEIVE    CC                                        ON / OFF
+ *          SEND       CC                                        ON / OFF
  *          PORTS      USB IN, TRS IN (the 3.5 mm MIDI IN jack)  ON / OFF
- *   AUDIO  USB                                                   STEREO (the mix) / TRACKS (the six, each mono):
- *                                                                the FM-1 leaves the USB a moment and comes back
+ *   AUDIO  USB                                                   STEREO (the output) / CHANNELS (the six, each mono)
  *   SETTINGS  SCREEN READER                                      ON / OFF: the screen's words spoken (voice.c)
- *             SPEECH RATE                                        1 (slowest) .. 5 (fastest), 2 at first
- * (SHIFT + the 8th black key, the 4th from the right: the SCREEN READER on or off from anywhere, without sight.)
+ *             SPEECH RATE                                        1 (slowest) .. 5 (fastest)
  *
- * And what the settings do in the main loop: MIDI in routed by channel to the tracks (midi_take), its CCs set the
- * tracks' level, pan, macros, filter and sends; the same sent out when they change (midi_poll). */
+ * A channel answers to, and sends, these CCs on its channels: 7 LEVEL, 10 PAN, 16 GAIN, 17 FREQ, 18 LIMIT, 19 SEND 1,
+ * 74 MIDDLE (peak gain or width), 91 SEND 2, 92 NOISE. */
 
 #define SET_NUM (PRE_NUM + 2u)                   /* (the record's number: after the presets' two) */
 #define SET_FORMAT 1u
@@ -26,15 +23,15 @@
 enum { SK_ONOFF, SK_CHAN, SK_USBA, SK_RATE };   /* (a value: ON / OFF; OFF, 1 .. 16; STEREO / TRACKS; 1 .. 5) */
 typedef struct { const char *name; uint8_t off, kind; } set_row_t;
 #define SR(n, f, k) {n, (uint8_t)__builtin_offsetof(midi_cfg_t, f), k}
-static const set_row_t SET_IN[] = {SR("TRACK 1", in_ch[0], SK_CHAN), SR("TRACK 2", in_ch[1], SK_CHAN),
-                                   SR("TRACK 3", in_ch[2], SK_CHAN), SR("TRACK 4", in_ch[3], SK_CHAN),
-                                   SR("TRACK 5", in_ch[4], SK_CHAN), SR("TRACK 6", in_ch[5], SK_CHAN),
+static const set_row_t SET_IN[] = {SR("CH 1", in_ch[0], SK_CHAN), SR("CH 2", in_ch[1], SK_CHAN),
+                                   SR("CH 3", in_ch[2], SK_CHAN), SR("CH 4", in_ch[3], SK_CHAN),
+                                   SR("CH 5", in_ch[4], SK_CHAN), SR("CH 6", in_ch[5], SK_CHAN),
                                    SR("AUTO", auto_ch, SK_CHAN)};
-static const set_row_t SET_OUT[] = {SR("TRACK 1", out_ch[0], SK_CHAN), SR("TRACK 2", out_ch[1], SK_CHAN),
-                                    SR("TRACK 3", out_ch[2], SK_CHAN), SR("TRACK 4", out_ch[3], SK_CHAN),
-                                    SR("TRACK 5", out_ch[4], SK_CHAN), SR("TRACK 6", out_ch[5], SK_CHAN)};
-static const set_row_t SET_RCV[] = {SR("NOTES", rcv_note, SK_ONOFF), SR("CC", rcv_cc, SK_ONOFF)};
-static const set_row_t SET_SND[] = {SR("NOTES", send_note, SK_ONOFF), SR("CC", send_cc, SK_ONOFF)};
+static const set_row_t SET_OUT[] = {SR("CH 1", out_ch[0], SK_CHAN), SR("CH 2", out_ch[1], SK_CHAN),
+                                    SR("CH 3", out_ch[2], SK_CHAN), SR("CH 4", out_ch[3], SK_CHAN),
+                                    SR("CH 5", out_ch[4], SK_CHAN), SR("CH 6", out_ch[5], SK_CHAN)};
+static const set_row_t SET_RCV[] = {SR("CC", rcv_cc, SK_ONOFF)};
+static const set_row_t SET_SND[] = {SR("CC", send_cc, SK_ONOFF)};
 static const set_row_t SET_PORT[] = {SR("USB IN", usb_in, SK_ONOFF), SR("TRS IN", trs_in, SK_ONOFF)};
 static const set_row_t SET_AUD[] = {SR("USB", usb_aud, SK_USBA)};
 static const set_row_t SET_GEN[] = {SR("SCREEN READER", reader, SK_ONOFF), SR("SPEECH RATE", rate, SK_RATE)};
@@ -111,7 +108,7 @@ static uint8_t *set_ptr(const set_row_t *r) { return (uint8_t *)&mcfg + r->off; 
 static void set_text(const set_row_t *r, int32_t v, char *b)
 {
     if (r->kind == SK_USBA)
-        str_cpy(b, v ? "TRACKS" : "STEREO", 10);   /* (6 TRACKS: wider than the row leaves) */
+        str_cpy(b, v ? "CHANNELS" : "STEREO", 10);
     else if (r->kind == SK_ONOFF)
         str_cpy(b, v ? "ON" : "OFF", 4);
     else if (r->kind == SK_RATE)
@@ -126,7 +123,6 @@ static void setup_open(void)
     ui.set_page = 1;
     set.lvl = 0;
     set.edit = 0;
-    ui.rv_page = ui.ses_page = ui.snap_page = ui.sc_page = ui.env_page = ui.bb_page = ui.bl_page = ui.pre_page = ui.mod_page = ui.rx_page = 0;
     ui.force = 1;
 }
 /* SAVE (SHIFT: back) on the page */
@@ -168,8 +164,6 @@ static void setup_press(int sh)
         uint8_t *p = set_ptr(&SET_PART[set.part].rows[set.row - 1u]);
         set.edit = 0;
         if (*p != (uint8_t)set.val) {
-            if (p == &mcfg.send_note && !set.val)
-                ev_post(EV_MIDI_OFF, 0, 0, 0);   /* (the notes sent on: off, before nothing is sent) */
             *p = (uint8_t)set.val;
             set.dirty = 1;
         }
@@ -314,53 +308,34 @@ static void setup_draw(void)
 }
 
 /* ------------------------------------------------------------ MIDI --- */
-/* the CCs a track answers to, and sends: its level, pan, the four macros (EDIT's, on its engine's sound), the filter,
- * the reverb and delay sends */
 #define MCC_N 9u
 static const uint8_t MIDI_CC[MCC_N] = {7, 10, 16, 17, 18, 19, 74, 91, 92};
+static const uint8_t MCC_P[MCC_N] = {P_LEVEL, P_PAN, P_GAIN, P_MFREQ, P_LIM, P_SEND1, P_MGAIN, P_SEND2, P_NOISE};
 static uint8_t mcc_last[NLAYER][MCC_N];          /* (each one's value as last sent or received: no echo) */
-static uint32_t mcc_val(uint32_t t, uint32_t i)  /* track t's parameter i as a CC value, 0 .. 127 */
+static uint32_t mcc_val(uint32_t t, uint32_t i)  /* channel t's parameter i as a CC value, 0 .. 127 */
 {
-    int32_t v;
-    if (i == 0u)
-        v = ui.level[t] * 127 / LEVEL_MAX;
-    else if (i == 1u)
-        v = 64 + ui.pan[t] * 63 / PAN_MAX;
-    else if (i < 6u)
-        v = 64 + ui.mac[t][ui.engine[t]][i - 2u] * 63 / MAC_MAX;
-    else if (i == 6u)
-        v = 64 + ui.flt[t] * 63 / FLT_MAX;
-    else
-        v = (i == 7u ? ui.send[t] : ui.dsend[t]) * 127 / 100;
-    return (uint32_t)clampi(v, 0, 127);
+    uint32_t keep = ui.sel, v;
+    ui.sel = (uint8_t)t;
+    v = MCC_P[i] == P_PAN ? (uint32_t)((p_get(P_PAN) + 500) * 127 / 1000) : (uint32_t)(p_get(MCC_P[i]) * 127 / PMAX);
+    ui.sel = (uint8_t)keep;
+    return v > 127u ? 127u : v;
 }
 static void mcc_set(uint32_t t, uint32_t cc, uint32_t v)
 {
-    uint32_t i;
-    int32_t c = (int32_t)v - 64;
+    uint32_t i, keep = ui.sel;
     for (i = 0; i < MCC_N && MIDI_CC[i] != cc; i++)
         ;
     if (i == MCC_N)
         return;
-    if (i == 0u)
-        ui.level[t] = (int8_t)((v * LEVEL_MAX + 63u) / 127u);
-    else if (i == 1u)
-        ui.pan[t] = (int8_t)clampi(c * PAN_MAX / 63, -PAN_MAX, PAN_MAX);
-    else if (i < 6u) {
-        ui.mac[t][ui.engine[t]][i - 2u] = (int8_t)clampi(c * MAC_MAX / 63, -MAC_MAX, MAC_MAX);
-        mac_apply(t);
-    } else if (i == 6u)
-        ui.flt[t] = (int8_t)clampi(c * FLT_MAX / 63, -FLT_MAX, FLT_MAX);
-    else if (i == 7u)
-        ui.send[t] = (int8_t)((v * 100u + 63u) / 127u);
-    else
-        ui.dsend[t] = (int8_t)((v * 100u + 63u) / 127u);
-    level_pan_apply(t);
+    ui.sel = (uint8_t)t;
+    p_set(MCC_P[i], MCC_P[i] == P_PAN ? (int32_t)v * 1000 / 127 - 500 : (int32_t)v * PMAX / 127);
+    ui.sel = (uint8_t)keep;
     mcc_last[t][i] = (uint8_t)mcc_val(t, i);      /* (as it now reads: not sent back) */
     if (t == ui.sel)
         ui.force = 1;
 }
-/* the MIDI in: by port, then by channel to the tracks (each its IN channel; AUTO's to the chosen one) */
+/* the MIDI in: by port, then by channel to the channels (each its IN channel; AUTO's to the chosen one). Only CCs:
+ * Lilliput plays no notes */
 static void midi_take(void)
 {
     while (mi_r != mi_w) {
@@ -375,24 +350,7 @@ static void midi_take(void)
         for (t = 0; t < NLAYER; t++)
             if (mcfg.in_ch[t] == ch)
                 m |= 1u << t;
-        if (cin == 9u && d2) {
-            if (!mcfg.rcv_note || !m)
-                continue;
-            for (t = 0; t < NLAYER; t++)
-                if (ui.midi_mask[d1] >> t & 1u)
-                    note_release(t, d1);
-            ui.midi_mask[d1] = (uint8_t)m;
-            press_vel = (uint8_t)(d2 < 127u ? d2 : 0u);
-            for (t = 0; t < NLAYER; t++)
-                if (m >> t & 1u)
-                    note_press(t, d1);
-            press_vel = 0;
-        } else if (cin == 8u || cin == 9u) {
-            for (t = 0; t < NLAYER; t++)
-                if (ui.midi_mask[d1] >> t & 1u)
-                    note_release(t, d1);
-            ui.midi_mask[d1] = 0;
-        } else if (cin == 0xBu && mcfg.rcv_cc)
+        if (cin == 0xBu && mcfg.rcv_cc)
             for (t = 0; t < NLAYER; t++)
                 if (m >> t & 1u)
                     mcc_set(t, d1, d2);

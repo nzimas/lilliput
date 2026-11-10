@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-# TONITOR build, after SLOOP's / Felucca's tools/build.py (Leo Kuroshita, GPL-3.0): the same toolchain, the
+# LILLIPUT build (Tonitor's), after SLOOP's / Felucca's tools/build.py (Leo Kuroshita, GPL-3.0): the same toolchain, the
 # same update loader, the same checks and the same package format.
-"""Build TONITOR: the app, the update loader and an installable .fwsc package.
+"""Build LILLIPUT: the app, the update loader and an installable .fwsc package.
 
   tools/build.py [--release X.Y]
 
-Outputs in build/: tonitor.bin (app), loader/ota.bin (update loader), tonitor.fwsc (package).
+Outputs in build/: lilliput.bin (app), loader/ota.bin (update loader), lilliput.fwsc (package).
 The JieLi toolchain is Linux x86-64 only: JIELI_TOOLCHAIN points at it; on macOS each tool runs in a
 linux/amd64 container (Docker). AC79_SDK points at the JieLi AC79 SDK (three of its files go in the package).
 """
@@ -37,8 +37,8 @@ DOCKER_IMAGE = os.environ.get("JIELI_DOCKER_IMAGE", "debian:bookworm-slim")
 CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
 
-PRODUCT = "FM-1_700"                # package identity; release builds are FM-1_7XY
-VERSION = "74"
+PRODUCT = "FM-1_800"                # package identity; release builds are FM-1_8XY
+VERSION = "1"
 
 
 def toolchain():
@@ -142,16 +142,16 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen",
-             f'-DTONITOR_ID="{PRODUCT}"', f'-DTONITOR_VERSION="{VERSION}"']
-    if os.environ.get("TONITOR_TELEMETRY") == "1":      # a diagnostic build: timing over USB, the chip's own benchmark
+             f'-DLILLIPUT_ID="{PRODUCT}"', f'-DLILLIPUT_VERSION="{VERSION}"']
+    if os.environ.get("LILLIPUT_TELEMETRY") == "1":      # a diagnostic build: timing over USB, the chip's own benchmark
         flags.append("-DTELEMETRY=1")
     tc_all(("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
            ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),
            ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
-           ("cc", *flags, "-c", FW / "src" / "tonitor.c", "-o", OUT / "tonitor.o"))
-    elf = OUT / "tonitor.elf"
+           ("cc", *flags, "-c", FW / "src" / "lilliput.c", "-o", OUT / "lilliput.o"))
+    elf = OUT / "lilliput.elf"
     tc("pi32v2/bin/ld", "-T", FW / "app.ld", OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o",
-       OUT / "tonitor.o", "-o", elf)
+       OUT / "lilliput.o", "-o", elf)
     for sect in ("text.bin", "data.bin", "ramtext.bin", "fasttext.bin"):
         (OUT / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, OUT / "text.bin"),
@@ -161,7 +161,7 @@ def build_app():
                                ("common/bin/objdump", "-t", elf),
                                ("common/bin/objdump", "-d", elf),
                                ("common/bin/objdump", "-d", "-j", ".ram_text", elf))
-    (OUT / "tonitor.dis").write_text(dis)
+    (OUT / "lilliput.dis").write_text(dis)
 
     def symv(name):
         return int(re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M).group(1), 16)
@@ -177,7 +177,7 @@ def build_app():
             img += b"\xff" * (load - APP_XIP - len(img))
             img += blob
     img += b"\xff" * (-len(img) % 4)
-    (OUT / "tonitor.bin").write_bytes(img)
+    (OUT / "lilliput.bin").write_bytes(img)
     return bytes(img), syms, dis, rt
 
 
@@ -254,17 +254,17 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_7XY, version string X.Y")
+    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_8XY, version string X.Y")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
-    name = "tonitor.fwsc"
+    name = "lilliput.fwsc"
     if a.release:
         m = re.fullmatch(r"(\d)\.(\d)", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y, one digit each")
-        PRODUCT = "FM-1_7" + m[1] + m[2]
+        PRODUCT = "FM-1_8" + m[1] + m[2]
         VERSION = a.release
-        name = f"tonitor-{a.release}.fwsc"
+        name = f"lilliput-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk or os.environ.get("AC79_SDK", str(Path.home() / "fw-AC79_AIoT_SDK"))
     fm1pkg_make.sdk_file("uboot.boot")          # fail early without the SDK
     OUT.mkdir(parents=True, exist_ok=True)
@@ -284,7 +284,7 @@ def main():
         raise SystemExit("build: checks failed")
     pkg = fm1pkg_make.ufw(fm1pkg_make.flash_image(img, fm1pkg_make.KEY), ota, PRODUCT)
     (OUT / name).write_bytes(pkg)
-    print(f"app      {OUT / 'tonitor.bin'}  {len(img)} B")
+    print(f"app      {OUT / 'lilliput.bin'}  {len(img)} B")
     print(f"package  {OUT / name}  {len(pkg)} B, identity {PRODUCT}, version {VERSION}")
     return 0
 

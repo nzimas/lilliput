@@ -1,33 +1,28 @@
-# Tonitor licensing
+# Lilliput licensing
 
-The Tonitor **firmware** is free software, licensed under the GNU General Public License, version 3 only
+The Lilliput **firmware** is free software, licensed under the GNU General Public License, version 3 only
 (`GPL-3.0-only`, full text in `LICENSE`). If you distribute it, or firmware built from it, give your
 recipients its complete corresponding source under the same licence.
 
-The **website, logo and documentation** written for Tonitor are under the MIT licence
-(`LICENSES/MIT.txt`): see the table below for exactly which files.
+The **documentation** written for Lilliput is under the MIT licence (`LICENSES/MIT.txt`).
 
-It is a work based on **Felucca** (Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton
-Instruments) and **SLOOP** (isod89), both GPL-3.0-only. Files taken from them keep their copyright
-headers; changes are noted in each file.
+Lilliput is a work based on **Tonitor** (Nuno Zimas), itself based on **Felucca** (Copyright (C) 2026 Leo
+Kuroshita (@kurogedelic), Hügelton Instruments) and **SLOOP** (isod89), all GPL-3.0-only. Files taken from
+them keep their copyright headers; changes are noted in each file. No sound engine of Tonitor or Bigorna is
+in it.
+
+Lilliput follows the signal flow and the controls of **NoInputMixer** (Igor Vasiliev), as its manual and
+block diagram describe them. No code of that app is in this tree: the mixer is written anew, in fixed point,
+for the FM-1.
 
 | What | Licence | Where |
 | --- | --- | --- |
-| Tonitor's own code: `firmware/src/{tonitor,anima,fm,fm_dx7,gran,reverb,layers,ui,balls,bricks,delay,react,sessions,backup,gfx,main}.c`, `dsp.h`, `tools/{build,gen_tables,gen_font,sdk_from_package}.py`, `tests/`, the scripts | GPL-3.0-only | |
+| Lilliput's own code: `firmware/src/{lilliput,mixer,patch,lui,lses,logo}.c`, `tests/host/host.c` | GPL-3.0-only | |
+| From Tonitor: `firmware/src/{reverb,gfx,voice,setup,backup,midi,main}.c`, `dsp.h`, `tools/{build,gen_tables,gen_font,gen_voice,sdk_from_package}.py`, `tests/`, the scripts (adapted) | GPL-3.0-only | |
 | From **Melodee** 1.4.5 (Copyright (C) 2026 Kerem Kilic (Ellic Studio), keremimo/melodee), as adapted in BIGORNA (Nuno Zimas): the dual-core start, hold and fault handling, its job mailbox and the stock supply setup -- `firmware/hal/{fm1_multicore,fm1_core1_stop,fm1_core1_bar,fm1_power}.h`, `firmware/src/audio_worker.h`, the CPU1 parts of `firmware/hal/{fm1_irq,fm1_sys}.h`, `fm1_vec.S` and `crt0.S` | GPL-3.0-only | <https://github.com/keremimo/melodee> |
 | The browser installer, a port of `tools/fm1_install.py` (Felucca / SLOOP) to JavaScript | GPL-3.0-only | `docs/js/fm1ota.js` |
-| The backup page's scripts | GPL-3.0-only | `docs/js/backup.js`, `docs/js/fm1backup.js` |
-| The firmware package the installer writes, built from this tree (with the JieLi SDK files below) | GPL-3.0-only | `docs/firmware/tonitor.fwsc` |
-| The website, the logo, the documentation's text | MIT | `docs/` (except the rows above), `site/`, `README.md`, `CHANGELOG.md`, `LICENSES/MIT.txt` |
-| From Felucca / SLOOP: `firmware/hal/`, `firmware/loader/`, `firmware/crt0.S`, `firmware/app.ld`, `firmware/src/{usb,ota,recovery,lcd,libc}.c`, `firmware/src/uac_fir.h`, `bootguard.h`, `tools/{fm1pkg_make,lz4blk,fm1_install,gen_uac_fir}.py`, `tools/get_toolchain.sh`, parts of `tools/build.py` and `tools/gen_tables.py` | GPL-3.0-only | |
-| msfa (Google Inc., Pascal Gauthier), from Dexed, ported to integer C by Leo Kuroshita for Felucca; for TONITOR the modulation buses moved to the stack | Apache-2.0 | `firmware/src/fm6_core.c`, `LICENSES/Apache-2.0-msfa.txt` |
-| The ANIMA engine: a fixed-point port of the anima opcode (`AnimaCore.h`, `AnimaDesign.h`) of Vascular, Copyright (C) Nuno Zimas, contributed by its author to this firmware | GPL-3.0-only (in this firmware) | `firmware/src/anima.c`, `tools/gen_tables.py` |
-| The BAYAREA engine: a fixed-point port of the bayarea opcode of Vascular, Copyright (C) Nuno Zimas, contributed by its author to this firmware | GPL-3.0-only (in this firmware) | `firmware/src/bayarea.c` |
-| The OBRADOR engine: Tonitor's own code, written with OberVave (zvenson/obervave, an Oberheim-style firmware for the FM-1) as its frame of reference -- its voice's structure followed, no code copied | GPL-3.0-only (OberVave's, as the firmware's) | `firmware/src/obrador.c`, <https://github.com/zvenson/obervave> |
-| The HIVE engine: a fixed-point port of the SWARMER machine of DigiRust, Copyright (C) Nuno Zimas, contributed by its author to this firmware | GPL-3.0-only (in this firmware) | `firmware/src/hive.c` |
-| CALIGULA follows the architecture of LIRA-8 (Copyright (C) Miguel Moreno), a Pure Data emulation of SOMA's LYRA-8; rebuilt in fixed-point C, no Pd code copied | BSD 3-clause (LIRA-8's) | `firmware/src/cal.c`, `LICENSES/BSD-LIRA-8.txt` |
-| RUSSOLO re-makes the techniques of Noisferatu (Copyright (C) Robert Heel, rob-scape/noisferatu) in fixed-point C for the FM-1 | GPL-3.0 (Noisferatu's, as the firmware's) | `firmware/src/russolo.c` |
-| DRUID: a fixed-point port of the resonators of Mutable Instruments Rings (Copyright 2015 Emilie Gillet, pichenettes/eurorack, `rings/dsp`), in this GPL-3.0 firmware | MIT (Rings') | `firmware/src/druid.c`, `LICENSES/MIT-rings.txt` |
+| From Felucca / SLOOP: `firmware/hal/`, `firmware/loader/`, `firmware/crt0.S`, `firmware/app.ld`, `firmware/src/{usb,ota,recovery,lcd,libc,midi_uart}.c`, `firmware/src/uac_fir.h`, `bootguard.h`, `tools/{fm1pkg_make,lz4blk,fm1_install,gen_uac_fir}.py`, `tools/get_toolchain.sh`, parts of `tools/build.py` and `tools/gen_tables.py` | GPL-3.0-only | |
+| The documentation's text | MIT | `README.md`, `CHANGELOG.md`, `LICENSES/MIT.txt` |
 | Terminus Bold 8x16 (the screen's fallback font) | SIL OFL 1.1 | `assets/fonts/ter-u16b.bdf`, `assets/fonts/Terminus-LICENSE.txt` |
-| Atkinson Hyperlegible Bold (the screen's type) | SIL OFL 1.1 | `assets/fonts/AtkinsonHyperlegible-Bold.ttf`, `assets/fonts/AtkinsonHyperlegible-OFL.txt` |
+| Atkinson Hyperlegible Bold (the screen's type, if `./setup.sh --font` fetched it) | SIL OFL 1.1 | `assets/fonts/` |
 | JieLi AC79 SDK: `uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin` are read from your SDK checkout at build time and placed in the package; no SDK file is in this tree | Apache-2.0 | <https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK> |

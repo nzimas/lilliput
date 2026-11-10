@@ -164,25 +164,25 @@ async function run(dev, fm1) {
 }
 
 {   /* a whole install, from the running firmware */
-  const fm1 = new FakeFM1("FM-1_700", "FM-1_700");
+  const fm1 = new FakeFM1("FM-1_800", "FM-1_800");
   const r = await run(null, fm1);
-  check(r.text === "FM-1_700", `install: ${r.err || ""} ${r.msg || ""}`);
+  check(r.text === "FM-1_800", `install: ${r.err || ""} ${r.msg || ""}`);
   check(JSON.stringify(Array.from(fm1.written)) === JSON.stringify(Array.from(image)), "install: the loader was not given the image");
   check(["start", "check", "loader", "write", "reboot", "done"].every((s) => r.steps.includes(s)), `install: steps ${[...new Set(r.steps)]}`);
 }
 {   /* an FM-1 left in update mode: the write is finished */
-  const fm1 = new FakeFM1("ota-FM-1_900", "FM-1_700");
+  const fm1 = new FakeFM1("ota-FM-1_900", "FM-1_800");
   const r = await run(null, fm1);
-  check(r.text === "FM-1_700" && !r.steps.includes("check"), `resume: ${r.err || ""} ${r.steps}`);
+  check(r.text === "FM-1_800" && !r.steps.includes("check"), `resume: ${r.err || ""} ${r.steps}`);
 }
 {   /* another model, another firmware's loader, a stop before anything is written, a cable pulled while writing,
      * another identity after it */
   const cases = [
     [new FakeFM1("FM-2_100", "FM-2_100"), "model"],
-    [new FakeFM1("ota-FM-1_500", "FM-1_700"), "foreign"],
-    [new FakeFM1("FM-1_700", "FM-1_700", { stopInCheck: true }), "stopped"],
-    [new FakeFM1("FM-1_700", "FM-1_700", { unplugAt: 0x8000 }), "lost"],
-    [new FakeFM1("FM-1_700", "FM-1_906"), "mismatch"],
+    [new FakeFM1("ota-FM-1_500", "FM-1_800"), "foreign"],
+    [new FakeFM1("FM-1_800", "FM-1_800", { stopInCheck: true }), "stopped"],
+    [new FakeFM1("FM-1_800", "FM-1_800", { unplugAt: 0x8000 }), "lost"],
+    [new FakeFM1("FM-1_800", "FM-1_906"), "mismatch"],
   ];
   for (const [fm1, want] of cases) {
     const r = await run(null, fm1);

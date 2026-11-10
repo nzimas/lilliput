@@ -16,7 +16,7 @@ const MAXDATA = 512, BLOCKS = 20, BLK = 0x30, KEEP = 0x2F;
 const LOADER_MARK = "FELUCCA-LOADER-1";
 // never probe other gear: the FM-1 under TONITOR (or ACOUSMA, its working name), SLOOP / Felucca, CLIPPER,
 // the update loaders, the stock firmware
-export const PORT_RE = /fm-1|tonitor|acousma|felucca|sloop|clipper|ota|composite|sinco|usb-midi/i;
+export const PORT_RE = /fm-1|lilliput|tonitor|acousma|felucca|sloop|clipper|ota|composite|sinco|usb-midi/i;
 
 // milliseconds; the tests shorten them
 export const DELAY = {
@@ -102,7 +102,7 @@ export function parseIdentity(pkt) {
 
 // --------------------------------------------------------------- package ---
 
-/** the package identity ("FM-1_700"): one marker byte after each of the first 20 blocks */
+/** the package identity ("FM-1_800"): one marker byte after each of the first 20 blocks */
 export function productOf(raw) {
   if (raw.length < BLOCKS * BLK) throw new InstallError("badpkg", "not an FM-1 package (too short)");
   let s = "";
