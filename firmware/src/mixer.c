@@ -57,6 +57,24 @@ enum { SP_ROOM, SP_HALL, SP_PLATE, SP_CAVE, SP_ABYSS, SP_VOID, SP_N };
  * The continuous ones 0 .. PMAX (a thousand steps: the smallest turn can matter here, as the app's manual says);
  * the choices their enum. The main loop writes them; the ISR reads each as a whole (16 bits). */
 #define PMAX 1000
+#define LVL_MAX 721              /* LEVEL in tenths of a dB: 1 = -60.0 dB .. 601 = 0 dB .. 721 = +12.0 dB; 0 off */
+#define LVL_0DB 601
+#define PAN_MAX 50               /* PAN: -50 (left) .. +50 (right), a step a detent */
+
+/* each channel's modulation (mod.c): two LFOs, four slots */
+enum { MS_SINE, MS_TRI, MS_SAWU, MS_SAWD, MS_SQR, MS_STEPS, MS_DRIFT, MS_N };
+enum { MM_FREE, MM_ONSET, MM_ONCE, MM_N };
+enum { MSRC_OFF, MSRC_L1, MSRC_L2, MSRC_LEVEL, MSRC_OUT, MSRC_RAND, MSRC_N };
+enum { MD_GAIN, MD_NOISE, MD_FREQ, MD_MID, MD_HIGH, MD_LOW, MD_LIM, MD_OVER, MD_LEVEL, MD_PAN, MD_SEND1, MD_SEND2,
+       MD_FX1, MD_FX2, MD_FXMIX, MD_RATE1, MD_RATE2, MD_N };
+typedef struct { uint8_t shape, rate, mode, fade; } mlfo_t;
+typedef struct { uint8_t src, dst; int8_t amt; } mslot_t;
+#define NMSLOT 4u
+typedef struct {
+    mlfo_t lfo[2];
+    mslot_t s[NMSLOT];
+} mod_t;                                         /* (a channel's: 20 bytes) */
+
 typedef struct {
     int16_t src;                 /* SRC_* */
     int16_t gain;                /* the preamp: 0 .. +48 dB */
@@ -71,10 +89,11 @@ typedef struct {
     int16_t mtype;               /* MT_* */
     int16_t mgain;               /* peak: 500 flat, -18 .. +18 dB; notch, band-pass: wide .. narrow */
     int16_t mfreq;               /* 30 Hz .. 16 kHz */
-    int16_t level;               /* 0 off, -60 .. +12 dB */
-    int16_t pan;                 /* -500 (left) .. 500 (right) */
+    int16_t level;               /* 0 off, then tenths of a dB from -60 (LVL_MAX, LVL_0DB) */
+    int16_t pan;                 /* -PAN_MAX (left) .. PAN_MAX (right) */
     int16_t send1, send2;        /* 0 off, -60 .. +6 dB */
     uint8_t mute, mainmix;       /* mainmix 0: nothing to the mix bus (the sends still fed) */
+    mod_t mod;                   /* its LFOs and modulation slots */
 } ch_par_t;
 typedef struct {
     int16_t fx, p1, p2, pres;    /* FX_*; its two parameters; how much of it is heard */
@@ -223,9 +242,9 @@ static int32_t db10_q15(int32_t db10)
         return 0;
     return (int32_t)(exp2_q16(db10 * 1089) >> 1);   /* log2 = dB / 6.0206: (dB x 10) x 65536 / 60.206 = x 1088.5 */
 }
-static int32_t lvl_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(-600 + v * 720 / PMAX); }   /* LEVEL */
+static int32_t lvl_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(v - LVL_0DB); }               /* LEVEL */
 static int32_t snd_q15(int32_t v) { return v <= 0 ? 0 : db10_q15(-600 + v * 660 / PMAX); }   /* SEND, RETURN */
-static int32_t lvl_db10(int32_t v) { return -600 + v * 720 / PMAX; }
+static int32_t lvl_db10(int32_t v) { return v - LVL_0DB; }
 static int32_t snd_db10(int32_t v) { return -600 + v * 660 / PMAX; }
 static int32_t main_db10(int32_t v) { return -300 + v * 600 / PMAX; }        /* the main level: -30 .. +30 dB */
 /* a frequency on a log scale: lo * 2^(v / PMAX * oct) */
@@ -264,11 +283,12 @@ AINL int32_t line_rd(const int16_t *b, uint32_t w, int32_t d)
 }
 
 /* ------------------------------------------ the parameters, made usable --- */
+static ch_par_t eff_ch[NCH];                     /* (each channel's parameters as the sound has them: modulated) */
+static slot_par_t eff_slot[NSLOT];
 static void ch_coef(uint32_t c)
 {
     ch_rt_t *k = &chr[c];
-    const ch_par_t *p = &par.ch[c];
-    ch_par_t now = *p;
+    ch_par_t now = eff_ch[c];
     if (!k->fresh && !memcmp(&now, &k->seen, sizeof now))
         return;
     k->fresh = 0;
@@ -337,7 +357,7 @@ static void ch_coef(uint32_t c)
 static void slot_coef(uint32_t s)
 {
     slot_rt_t *k = &slr[s];
-    slot_par_t now = par.slot[s];
+    slot_par_t now = eff_slot[s];
     int32_t p1, p2;
     if (!k->fresh && !memcmp(&now, &k->seen, sizeof now))
         return;
@@ -825,6 +845,8 @@ static void out_job(void *ctx)
     out_stage_p();
 }
 
+#include "mod.c"
+
 /* ---------------------------------------------- a block, from the ISR --- */
 /* the gains a channel glides to this block, and their steps */
 static void ch_gains(uint32_t c)
@@ -832,7 +854,7 @@ static void ch_gains(uint32_t c)
     ch_rt_t *k = &chr[c];
     const ch_par_t *p = &k->seen;
     int32_t on = !p->mute, tp, tl, tpl, tpr, t1, t2;
-    uint32_t ph = (uint32_t)(clampi(p->pan, -500, 500) + 500) * (0x40000000u / 1000u);
+    uint32_t ph = (uint32_t)(clampi(p->pan, -PAN_MAX, PAN_MAX) + PAN_MAX) * (0x40000000u / (2u * PAN_MAX));
     tp = db10_q15(clampi(p->gain, 0, PMAX) * 480 / PMAX);
     tl = on ? lvl_q15(p->level) : 0;
     tpl = p->mainmix ? sin_ph(ph + 0x40000000u) : 0;
@@ -875,7 +897,12 @@ static void mix_block(int32_t *out)
     int any1 = 0, voice;
     int32_t mt = par.out.mute ? 0 : Q15, dm;
     midi_main_drain();
-    for (c = 0; c < NCH; c++) {
+    for (c = 0; c < NSLOT; c++)
+        eff_slot[c] = par.slot[c];
+    for (c = 0; c < NCH; c++) {                  /* the modulation, then what it means */
+        mod_block(c);
+        eff_ch[c] = par.ch[c];
+        mod_apply(c, &eff_ch[c], &eff_slot[c]);
         ch_coef(c);
         ch_gains(c);
     }

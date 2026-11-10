@@ -25,8 +25,11 @@ fixed point.
 - **A rack of seven effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
   on its channel, or fed from a send bus, or from the slot before it, into a return bus.
 - **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with six spaces.
-- **HOME draws a new patch**: new connections and new settings for the whole mixer, from recipes no-input
-  players use. Every patch drawn sounds at once.
+- **HOME draws a new patch** from sixteen **families** — DRONE, WHISTLE, SIREN, CHIRP, STATIC, GEIGER, SWARM,
+  BEATING, PULSE, CAVERN, VOICES, BROKEN RADIO, SUBTERRANEAN, SCREAM, GLITCH, TIDES —: new connections, new settings
+  and new motion for the whole mixer. Every patch drawn sounds at once, and moves.
+- **Each channel has two LFOs and four modulation slots** (Tonitor's matrix), so its parameters move by
+  themselves.
 - Sixteen factory patches, sixty-four sessions, MIDI CCs, USB audio (the output, or the six channels).
 
 The screen is Tonitor's, made for **low vision**: very few words, in very large type, with high contrast, and
@@ -62,15 +65,19 @@ going back to Tonitor erases Lilliput's sessions.)
 | Control | What it does |
 | --- | --- |
 | **6 top buttons** | choose channel **1–6** (lit: chosen; glowing: sounding). On a channel's page, another channel shows the same page; the chosen channel again: its main view. From any other page, back to the channel. |
-| **SELECT** knob | the chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. |
-| **ALGORITHM** knob | its **PAN**. In a loop through the mix bus it is part of the loop. |
+| **SELECT** knob | the chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
+| **ALGORITHM** knob | its **PAN**, **one step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through the mix bus it is part of the loop. |
 | **KNOB 1–4** | on the main view: **GAIN**, **FREQ** (the middle filter's), **LIMIT** (the loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (the middle filter's gain or width), **PROTECT** (the overload protection), **SEND 2**. A dial covers the screen while you turn. On a page: its four rows. |
-| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on the output's pages: OUT, OUT EQ, OUT FX). Their lights: a page that way. |
+| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX, MOD (on the output's pages: OUT, OUT EQ, OUT FX). Their lights: a page that way. |
+| **SHIFT** held on a page | its rows show the page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
 | **SEQ** | the output's pages: OUT, OUT EQ, OUT FX, then back. |
+| **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and two to four slots, at random. |
 | **ARP** | the **OVERVIEW**: the six channels, their inputs and levels at once. |
-| **HOME** | a **new patch**: the whole mixer drawn again (see [New patches](#new-patches)). |
-| **SHIFT + HOME** | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | the factory's patches; **SAVE** loads the one shown. |
+| **HOME** | a **new patch** of another family (see [New patches](#new-patches)). |
+| **SHIFT + HOME** | a new patch of the **same family**. |
+| **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
+| **PRESETS** knob | the factory's patches; **SAVE** loads the one shown. On the MOD page: its entry. |
+| **SHIFT + PRESETS** | a new patch of the **family before or after**. |
 | **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
 | **PLAY** | the output muted, or back (it blinks while muted). The loops keep going, unheard. |
@@ -103,6 +110,10 @@ brickwall limiter → mute → SEND 1, SEND 2 → LEVEL → insert effect → PA
 | **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), the middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
 | **SEND** | INPUT, SEND 1, SEND 2, MAIN MIX | |
 | **FX** | the channel's slot: EFFECT, its two parameters, PRESENCE | KNOB 1: IN; KNOB 2: OUT; KNOB 3: LO-FI; KNOB 4: BYPASS |
+| **MOD** | its modulation, an entry at a time (PRESETS): **LFO 1, LFO 2** — SHAPE, RATE, MODE, FADE; **MOD A–D** — FROM, TO, AMOUNT, and NOW (what it does this moment) | |
+
+A page's rows show each parameter's name small, with a bar, and its value large under it. Hold **SHIFT** to see the
+page's switches in place of its rows.
 
 **The input** is what makes the loop:
 
@@ -161,24 +172,53 @@ At the top, SPACE MIX leaves the reverb alone.
 
 ## New patches
 
-**HOME** draws a new patch: how the channels are connected — each one's input, the rack's slots and their
-effects — and how each one is set. A patch is drawn from one of the shapes no-input players reach for:
+**HOME** draws a new patch, from one of sixteen **families**: kinds of no-input sound, each with its own way of
+connecting the channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own
+**motion**, LFOs on the parameters that make its character, drawn anew for each channel:
 
-- **SOLO**: each channel in a loop of its own (PRE, or POST through its insert), voices side by side;
-- **RING**: channels feeding each other round a ring;
-- **WEB**: channels fed from the mix bus, everything heard in one tangle;
-- **SEND**: loops through the send buses;
-- **RETURN**: loops through the rack — the sends into an effect, its return into the channels;
-- **HYBRID**: a bit of each, channel by channel.
+| Family | What it is | How it moves |
+| --- | --- | --- |
+| DRONE | low loops of their own or in a ring, slow limiters, resonant lows; caves and abysses | the filters drift; the pans wander |
+| WHISTLE | high, clean tones: fast limiters, narrow band-passes | a slight vibrato; the levels breathe |
+| SIREN | tones in their own loops | the filters sweep up and down, every channel in step |
+| CHIRP | quick loops | the limiters and filters jump on fast saws and squares |
+| STATIC | low overload thresholds: the protection trips and crackles; dust, crushers, glitches | the threshold and the levels jump |
+| GEIGER | GEIGER noise pinging resonant loops at their edge | the clicks' rate wanders |
+| SWARM | four to six channels on the mix bus, saturated | the pans — inside the loop — wander |
+| BEATING | channels in rings, their filters close together | slow drifts: the beating changes |
+| PULSE | loops gated by square and stepped LFOs | in step: a rhythm |
+| CAVERN | loops through long delays into deep spaces | the delay times bend |
+| VOICES | formant filters on inserts and returns | the vowels move |
+| BROKEN RADIO | band-passes, crackle and hum, tremolo | the tuning jumps |
+| SUBTERRANEAN | the lowest loops, dark cuts, slow op-amps | the limiters drift |
+| SCREAM | saturated tubes, high gain, notches | the notches sweep |
+| GLITCH | glitch and crush on inserts and returns | stepped limiters and effects |
+| TIDES | loops through the sends | the sends swell and ebb, in step |
+
+**HOME** draws from another family than the one playing; **SHIFT + HOME** draws again from the same family;
+**SHIFT + PRESETS** goes to the family before or after. The patch's name, on the main view, is its family's.
 
 The faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
-where the playing is. Some channels are drawn with their fader down: brought up, they join in. For its first
-two seconds Lilliput plays into a new patch as a player would: a channel whose fader is up but which stays
-silent has its GAIN raised until it sings. Then it listens to the output for a second and sets the main LEVEL so
-that every patch comes out about as loud. The faders are never touched.
+where the playing is. Some channels come with their fader down: brought up, they join in. For its first two
+seconds Lilliput plays into a new patch as a player would: a channel whose fader is up but which stays silent has
+its GAIN raised until it sings. Then it listens to the output and sets the main LEVEL so that every patch comes out
+about as loud, its peaks under −4 dB. After that a guard stays on: if the output holds at its ceiling, the main
+LEVEL comes down a dB at a time. The faders are never touched.
 
-**SHIFT + HOME** moves every channel's GAIN, NOISE, filters, LIMIT and PROTECT a little, the connections and
+**HOME** held 0.8 s moves every channel's GAIN, NOISE, filters, LIMIT and PROTECT a little, the connections and
 levels kept: the same patch, elsewhere.
+
+## Modulation
+
+Each channel has two **LFOs** and four **slots** (Tonitor's modulation matrix). An LFO has a SHAPE (SINE, TRI, SAW
+UP, SAW DN, SQUARE, STEPS — a new random value each cycle —, DRIFT — smooth random), a RATE (0.01 … 20 Hz), a MODE
+(FREE; ONSET: from the start each time the channel's loop bursts into sound; ONCE: one cycle from each onset) and a
+FADE (in over up to 10 s from an onset). A slot takes a source — LFO 1, LFO 2, LEVEL (the channel's own loudness: a
+loop that moves itself as it grows), OUTPUT (the whole mix's), RANDOM (drawn at each onset) — to a destination —
+GAIN, NOISE, FREQ, MID, HIGH, LOW, LIMIT, PROTECT, LEVEL, PAN, SEND 1, SEND 2, the channel's slot's two parameters
+and its mix, or either LFO's rate — by an amount, −100 … +100. The panel's values stay where you set them; the
+sound moves round them. Every new patch comes with its family's motion; **SHIFT + SEQ** throws the chosen channel's
+modulation anew.
 
 ## Presets and sessions
 
@@ -218,7 +258,10 @@ builds a release (identity FM-1_8XY).
 `tests/run_tests.sh` compiles the whole firmware for the computer and runs it:
 
 - the target check: nothing that needs a runtime the chip lacks (no float, no 64-bit division);
-- **check**: 200 patches HOME draws, each must sing, none clip or sit on DC;
+- **check**: 200 patches HOME draws, each must sing, none clip or sit on DC; each family's pitch, movement and
+  loudness reported;
+- **fits**: every page's words in their place — each name and every value any parameter can take, every family's
+  and preset's name, whole, without being squeezed;
 - **flows**: the panel — channels, pages, input keys, mutes, HOME, PLAY, sessions saved and loaded back, presets,
   GLOBAL SETUP, another firmware's data left alone;
 - **screens**: every page, as images in `build/screens`;

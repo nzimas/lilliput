@@ -20,7 +20,7 @@
 #define SES_SECT 4096u
 #define SES_NSECT ((SES_HI - SES_LO) / SES_SECT)
 #define SES_MAGIC 0x314C494Cu    /* "LIL1" */
-#define SES_FORMAT 1u
+#define SES_FORMAT 2u           /* 2: LEVEL in tenths of a dB, PAN -50 .. 50, each channel's modulation */
 #define SES_MAX 73u              /* records in the list (one a sector at most) */
 #define SES_BUF (32u + 24u + (uint32_t)sizeof(lil_par_t))   /* the largest record: a session */
 #define PRE_NUM 1000u            /* (records 1000, 1001: Tonitor's presets, not used here; 1002: GLOBAL SETUP) */
@@ -359,6 +359,7 @@ static void ses_emit(void)
     ses_glob_t g;
     memset(&g, 0, sizeof g);
     g.sel = ui.sel;
+    g.rsv[0] = ui.fam;                           /* (the family: SHIFT + HOME draws again from it) */
     str_cpy(g.patch, ui.patch, sizeof g.patch);
     ses_out(&g, sizeof g);
     ses_out(&par, sizeof par);
@@ -408,7 +409,7 @@ static int ses_load(uint32_t num)
         return SES_FAIL;
     ss_begin(SS_READ, SES_LO + ses.sect[i] * SES_SECT);
     ses_in(&h, sizeof h);
-    if (!ses_head_ok(&h) || h.par_size != sizeof(lil_par_t) || h.len != sizeof h + sizeof g + sizeof q)
+    if (!ses_head_ok(&h) || h.format != SES_FORMAT || h.par_size != sizeof(lil_par_t) || h.len != sizeof h + sizeof g + sizeof q)
         return SES_FAIL;
     ses_in(&g, sizeof g);
     ses_in(&q, sizeof q);
@@ -416,6 +417,12 @@ static int ses_load(uint32_t num)
         return SES_FAIL;
     g.patch[sizeof g.patch - 1u] = 0;
     ui.sel = (uint8_t)(g.sel < NCH ? g.sel : 0u);
+    ui.fam = (uint8_t)(g.rsv[0] < NFAM ? g.rsv[0] : 0u);
+    {
+        uint32_t c;
+        for (c = 0; c < NCH; c++)
+            mod_check(&q.ch[c].mod);
+    }
     patch_set(&q, g.patch);
     ses.current = (uint16_t)num;
     return SES_OK;

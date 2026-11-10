@@ -219,7 +219,6 @@ guide	G AY1 D
 half	HH AE1 F
 harmonic	HH AA0 R M AA1 N IH0 K
 harmony	HH AA1 R M AH0 N IY0
-harp	HH AA1 R P
 haze	HH EY1 Z
 hirajoshi	HH IH2 R AH0 JH OW1 SH IY0
 hiss	HH IH1 S
@@ -507,3 +506,22 @@ weatherstation	W EH1 DH ER0 S T EY2 SH AH0 N
 web	W EH1 B
 white	W AY1 T
 wide	W AY1 D
+beating	B IY1 T IH0 NG
+birds	B ER1 D Z
+broken	B R OW1 K AH0 N
+cavern	K AE1 V ER0 N
+chirp	CH ER1 P
+crickets	K R IH1 K AH0 T S
+mid	M IH1 D
+night	N AY1 T
+nudged	N AH1 JH D
+onset	AA1 N S EH2 T
+pulse	P AH1 L S
+raid	R EY1 D
+scream	S K R IY1 M
+shift	SH IH1 F T
+siren	S AY1 R AH0 N
+sky	S K AY1
+subterranean	S AH2 B T ER0 EY1 N IY0 AH0 N
+voices	V OY1 S AH0 Z
+whistle	W IH1 S AH0 L

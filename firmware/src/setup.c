@@ -316,7 +316,7 @@ static uint32_t mcc_val(uint32_t t, uint32_t i)  /* channel t's parameter i as a
 {
     uint32_t keep = ui.sel, v;
     ui.sel = (uint8_t)t;
-    v = MCC_P[i] == P_PAN ? (uint32_t)((p_get(P_PAN) + 500) * 127 / 1000) : (uint32_t)(p_get(MCC_P[i]) * 127 / PMAX);
+    v = (uint32_t)((p_get(MCC_P[i]) - p_lo(MCC_P[i])) * 127 / (p_hi(MCC_P[i]) - p_lo(MCC_P[i])));
     ui.sel = (uint8_t)keep;
     return v > 127u ? 127u : v;
 }
@@ -328,7 +328,7 @@ static void mcc_set(uint32_t t, uint32_t cc, uint32_t v)
     if (i == MCC_N)
         return;
     ui.sel = (uint8_t)t;
-    p_set(MCC_P[i], MCC_P[i] == P_PAN ? (int32_t)v * 1000 / 127 - 500 : (int32_t)v * PMAX / 127);
+    p_set(MCC_P[i], p_lo(MCC_P[i]) + (int32_t)v * (p_hi(MCC_P[i]) - p_lo(MCC_P[i])) / 127);
     ui.sel = (uint8_t)keep;
     mcc_last[t][i] = (uint8_t)mcc_val(t, i);      /* (as it now reads: not sent back) */
     if (t == ui.sel)

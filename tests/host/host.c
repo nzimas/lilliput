@@ -283,11 +283,13 @@ static void wav_write(const char *path, const int16_t *s, uint32_t frames)
     fclose(f);
 }
 
-typedef struct { double rms, peak, dc, zc_hz, clip, late_rms; } stats_t;
+typedef struct { double rms, peak, dc, zc_hz, clip, late_rms, move; } stats_t;
+static double db(double x);
 /* render secs of the patch now (par), the output at MASTER unity; figures from the last part */
 static stats_t render(double secs, int16_t *keep, uint32_t keep_max)
 {
-    uint32_t blocks = (uint32_t)(secs * FS / CTL), b, i, n = 0, zc = 0, clip = 0;
+    uint32_t blocks = (uint32_t)(secs * FS / CTL), b, i, n = 0, zc = 0, clip = 0, wn = 0, nw = 0;
+    double w2 = 0, mv1 = 0, mv2 = 0;
     int32_t out[2 * CTL], prev = 0;
     double s2 = 0, s1 = 0, pk = 0, l2 = 0;
     stats_t st;
@@ -319,6 +321,15 @@ static stats_t render(double secs, int16_t *keep, uint32_t keep_max)
                     clip++;
                 if (b >= blocks * 5 / 6)
                     l2 += x * x;
+                w2 += x * x;                     /* (50 ms windows: how much the loudness moves) */
+                if (++wn == 2205u) {
+                    double d = db(sqrt(w2 / wn) + 1e-6);
+                    mv1 += d;
+                    mv2 += d * d;
+                    nw++;
+                    wn = 0;
+                    w2 = 0;
+                }
             }
             prev = l;
         }
@@ -331,6 +342,7 @@ static stats_t render(double secs, int16_t *keep, uint32_t keep_max)
         st.zc_hz = zc / 2.0 / (m / FS);
         st.clip = clip / m;
         st.late_rms = sqrt(l2 / ((double)(blocks - blocks * 5 / 6) * CTL));
+        st.move = nw > 1 ? sqrt(fmax(0, mv2 / nw - (mv1 / nw) * (mv1 / nw))) : 0;
     }
     return st;
 }
@@ -377,7 +389,7 @@ static int cmd_render(const char *dir, int verbose)
             name = FACTORY[i].name;
         } else {
             uint32_t rc = patch_draw(&par, 9000u + i * 37u, -1);
-            snprintf(nm, sizeof nm, "DRAWN %u %s", i - NFACTORY, RC_NAME[rc]);
+            snprintf(nm, sizeof nm, "DRAWN %u %s", i - NFACTORY, FAM[rc].name);
             name = nm;
         }
         st = render(12.0, buf, FS * 12u);
@@ -460,27 +472,35 @@ static int cmd_ring(void)
 /* 200 patches HOME draws: each must sound (above -45 dB), none clip for long, none sit on DC */
 static int cmd_check(void)
 {
-    uint32_t i, bad = 0, quiet = 0;
-    double lo = 0, hi = -200;
+    uint32_t i, bad = 0, quiet = 0, fn[32] = {0};
+    double lo = 0, hi = -200, fzc[32] = {0}, fmv[32] = {0}, frms[32] = {0};
     for (i = 0; i < 200u; i++) {
         stats_t st;
         uint32_t rc;
         fresh_mixer();
         rc = patch_draw(&par, 0xC0FFEEu + i * 7919u, -1);
-        st = render(5.0, 0, 0);
+        st = render(8.0, 0, 0);
+        fn[rc]++;
+        fzc[rc] += log2(st.zc_hz + 1);
+        fmv[rc] += st.move;
+        frms[rc] += db(st.late_rms);
         if (db(st.late_rms) < lo || i == 0)
             lo = db(st.late_rms);
         if (db(st.late_rms) > hi)
             hi = db(st.late_rms);
         if (db(st.late_rms) < -45) {
             quiet++;
-            printf("  quiet: patch %u (%s) %.1f dB\n", i, RC_NAME[rc], db(st.late_rms));
+            printf("  quiet: patch %u (%s) %.1f dB\n", i, FAM[rc].name, db(st.late_rms));
         }
         if (st.clip > 0.02 || fabs(st.dc) > 0.02) {
             bad++;
-            printf("  bad: patch %u (%s) clip %.2f%% dc %+.3f\n", i, RC_NAME[rc], st.clip * 100, st.dc);
+            printf("  bad: patch %u (%s) clip %.2f%% dc %+.3f\n", i, FAM[rc].name, st.clip * 100, st.dc);
         }
     }
+    for (i = 0; i < NFAM; i++)
+        if (fn[i])
+            printf("  %-13s %3u patches  pitch ~%6.0f Hz  movement %4.1f dB  loudness %6.1f dB\n", FAM[i].name, fn[i],
+                   exp2(fzc[i] / fn[i]), fmv[i] / fn[i], frms[i] / fn[i]);
     printf("check: 200 patches, loudness %.1f .. %.1f dB, %u quiet, %u bad\n", lo, hi, quiet, bad);
     return bad || quiet > 4u ? 1 : 0;
 }
@@ -518,12 +538,27 @@ static int cmd_screens(const char *dir)
     press_btn(B_OCTUP);
     run_ms(60);
     SHOT("07_fx");
+    key(KEY_SHIFT, 1);
+    run_ms(60);
+    SHOT("07a_fx_shift");
+    key(KEY_SHIFT, 0);
+    press_btn(B_OCTUP);
+    run_ms(300);
+    SHOT("07b_mod_lfo");
+    turn(EN_PRESET, 2);
+    run_ms(300);
+    SHOT("07c_mod_slot");
     press_btn(B_SEQ);
     run_ms(60);
     SHOT("08_out");
     press_btn(B_SEQ);
     run_ms(60);
     SHOT("09_out_eq");
+    press_btn(B_SEQ);
+    run_ms(60);
+    SHOT("09b_out_fx");
+    press_btn(B_SEQ);
+    run_ms(60);
     press_btn(B_ARP);
     run_ms(300);
     SHOT("10_overview");
@@ -590,12 +625,29 @@ static int cmd_flows(void)
     tap_key(KEY_MUTE[4]);
     EXPECT(!par.ch[4].mute, "and back");
     /* level and pan */
-    {
-        int16_t lv = par.ch[1].level, pn = par.ch[1].pan;
+    {   /* LEVEL: 1 dB a detent up to -5 dB, then 0.1 dB; PAN: 1 a detent */
+        int16_t pn;
+        par.ch[1].level = LVL_0DB - 123;         /* -12.3 dB */
         turn(EN_SELECT, 1);
-        EXPECT(par.ch[1].level == lv + 2, "SELECT: the level, a fine step");
+        EXPECT(par.ch[1].level == LVL_0DB - 120, "SELECT up from -12.3 dB: -12 dB");
+        turn(EN_SELECT, 1);
+        EXPECT(par.ch[1].level == LVL_0DB - 110, "SELECT: -11 dB, a dB a detent");
+        par.ch[1].level = LVL_0DB - 60;
+        turn(EN_SELECT, 1);
+        EXPECT(par.ch[1].level == LVL_0DB - 50, "SELECT: -6 to -5 dB");
+        turn(EN_SELECT, 1);
+        EXPECT(par.ch[1].level == LVL_0DB - 49, "SELECT: then -4.9 dB, a tenth a detent");
+        turn(EN_SELECT, -1);
+        turn(EN_SELECT, -1);
+        EXPECT(par.ch[1].level == LVL_0DB - 60, "SELECT down: -4.9, -5, then -6 dB");
+        par.ch[1].level = 2;                     /* -59.9 dB */
+        turn(EN_SELECT, -1);
+        turn(EN_SELECT, -1);
+        EXPECT(par.ch[1].level == 0, "SELECT: below -60 dB, off");
+        par.ch[1].level = LVL_0DB;
+        pn = par.ch[1].pan;
         turn(EN_ALGO, -3);
-        EXPECT(par.ch[1].pan < pn, "ALGORITHM: the pan");
+        EXPECT(par.ch[1].pan == pn - 3, "ALGORITHM: the pan, 1 a detent");
     }
     /* KNOB 1 on the main view: GAIN, its dial */
     {
@@ -610,24 +662,60 @@ static int cmd_flows(void)
     turn(EN_K1, 1);
     key(KEY_SHIFT, 0);
     EXPECT(par.slot[1].in != FI_NON || par.slot[1].in == FI_INS, "SHIFT + KNOB 1: the slot's input");
-    /* HOME: a new patch; SHIFT + HOME: nudged */
+    /* HOME: a new patch of another family; SHIFT + HOME: of the same; SHIFT + PRESETS: the next family; held: nudged */
     press_btn(LAYER_BTN[0]);
     keep_src = par.ch[0].src;
     before = par;
-    press_btn(B_HOME);
-    EXPECT(memcmp(&before, &par, sizeof par) != 0, "HOME draws a new patch");
+    {
+        uint32_t f0 = ui.fam;
+        press_btn(B_HOME);
+        EXPECT(memcmp(&before, &par, sizeof par) != 0 && ui.fam != f0, "HOME draws a new patch, of another family");
+        EXPECT(str_eq(ui.patch, FAM[ui.fam].name), "the patch named after its family");
+    }
     run_ms(3600);
     EXPECT(out_meter > 300, "the new patch sounds");
+    {
+        uint32_t f0 = ui.fam;
+        before = par;
+        key(KEY_SHIFT, 1);
+        press_btn(B_HOME);
+        key(KEY_SHIFT, 0);
+        EXPECT(ui.fam == f0 && memcmp(&before, &par, sizeof par) != 0, "SHIFT + HOME: a new patch of the same family");
+        key(KEY_SHIFT, 1);
+        turn(EN_PRESET, 1);
+        key(KEY_SHIFT, 0);
+        EXPECT(ui.fam == (f0 + 1u) % NFAM, "SHIFT + PRESETS: the next family");
+    }
     before = par;
-    key(KEY_SHIFT, 1);
-    press_btn(B_HOME);
-    key(KEY_SHIFT, 0);
+    hold_btn(B_HOME, 900);
     {
         uint32_t c, same = 1;
         for (c = 0; c < NCH; c++)
             same &= before.ch[c].src == par.ch[c].src && before.ch[c].level == par.ch[c].level;
-        EXPECT(same && memcmp(&before, &par, sizeof par) != 0, "SHIFT + HOME: the tone moved, the connections kept");
+        EXPECT(same && memcmp(&before, &par, sizeof par) != 0, "HOME held: the tone moved, the connections kept");
     }
+    /* the MOD page: LFO 1's rate; MOD A; SHIFT + SEQ throws the channel's modulation anew */
+    press_btn(LAYER_BTN[2]);
+    {
+        uint32_t i;
+        for (i = 0; i < 7u; i++)
+            press_btn(B_OCTUP);
+    }
+    EXPECT(ui.page == PG_MOD, "OCT+ to the MOD page");
+    {
+        uint8_t r0 = par.ch[2].mod.lfo[0].rate;
+        turn(EN_K2, r0 < 100 ? 1 : -1);
+        EXPECT(par.ch[2].mod.lfo[0].rate != r0, "KNOB 2 there: LFO 1's rate");
+        turn(EN_PRESET, 2);
+        EXPECT(ui.mod_ix == 2, "PRESETS there: MOD A");
+        before = par;
+        key(KEY_SHIFT, 1);
+        press_btn(B_SEQ);
+        key(KEY_SHIFT, 0);
+        EXPECT(memcmp(&before.ch[2].mod, &par.ch[2].mod, sizeof(mod_t)) != 0, "SHIFT + SEQ: the modulation thrown anew");
+    }
+    press_btn(LAYER_BTN[0]);
+    press_btn(LAYER_BTN[0]);
     (void)keep_src;
     /* PLAY: the output muted */
     press_btn(B_PLAY);
@@ -688,6 +776,52 @@ static int cmd_flows(void)
     return 0;
 }
 
+/* ---------------------------------------------------------------- fits --- *
+ * no words over other words: every page's title, every row's name and every value any parameter can take, every
+ * patch's name -- each must fit where it is drawn, whole, without being squeezed */
+static int cmd_fits(void)
+{
+    uint32_t pg, j, bad = 0, f;
+    char t[24];
+#define FIT(cond, what, txt) do { if (!(cond)) { printf("  does not fit: %s '%s'\n", what, txt); bad++; } } while (0)
+    fresh_mixer();
+    ui_init();
+    for (pg = 0; pg <= PG_OFX; pg++)
+        for (j = 0; j < 8u; j++) {
+            uint32_t id = j < 4u ? PG_ROW[pg][j] : PG_SHROW[pg][j - 4u];
+            int32_t v;
+            if (id == P_NONE)
+                continue;
+            ui.page = (uint8_t)pg;
+            FIT(text_w(&FONT_XS, p_name(id)) <= 150, "a row's name", p_name(id));
+            for (v = p_lo(id); v <= p_hi(id); v++) {
+                uint32_t ft, fx, mt;
+                for (ft = 0; ft < FT_N; ft++)
+                    for (mt = 0; mt < MT_N; mt++)
+                        for (fx = 0; fx < FX_N; fx += (id == P_P1 || id == P_P2) ? 1 : FX_N) {
+                            par.ch[0].ftype = par.out.ftype = (int16_t)ft;
+                            par.ch[0].mtype = (int16_t)mt;
+                            par.slot[0].fx = par.slot[SLOT_OUT].fx = (int16_t)fx;
+                            ui.sel = 0;
+                            p_text(id, v, t);
+                            FIT(text_w(&FONT_S, t) <= 228, p_name(id), t);
+                            if (!(text_w(&FONT_S, t) <= 228))
+                                goto next_id;
+                        }
+            }
+        next_id:;
+        }
+    for (f = 0; f < NFAM; f++)
+        FIT(text_w(&FONT_XS, FAM[f].name) <= 236, "a family's name", FAM[f].name);
+    for (f = 0; f < NFACTORY; f++)
+        FIT(text_w(&FONT_XS, FACTORY[f].name) <= 236, "a preset's name", FACTORY[f].name);
+    for (f = 0; f < MD_N; f++)
+        FIT(text_w(&FONT_S, MD_NAME[f]) <= 228, "a destination", MD_NAME[f]);
+    printf("fits: %s\n", bad ? "FAILED" : "every word in its place");
+    return bad ? 1 : 0;
+#undef FIT
+}
+
 /* --------------------------------------------------------------- cores --- */
 static int cmd_cores(int n)
 {
@@ -711,6 +845,46 @@ int main(int argc, char **argv)
         return cmd_check();
     if (argc >= 3 && str_eq(argv[1], "screens"))
         return cmd_screens(argv[2]);
+    if (argc >= 3 && str_eq(argv[1], "one")) {   /* one drawn patch (its seed as check draws it: 0xC0FFEE + i x 7919) */
+        stats_t st;
+        fresh_mixer();
+        printf("family %s\n", FAM[patch_draw(&par, 0xC0FFEEu + (uint32_t)atoi(argv[2]) * 7919u, -1)].name);
+        print_patch();
+        setenv("DBG", "1", 1);
+        st = render(12.0, 0, 0);
+        printf("rms %.1f late %.1f clip %.2f%%\n", db(st.rms), db(st.late_rms), st.clip * 100);
+        return 0;
+    }
+    if (argc >= 3 && str_eq(argv[1], "fam")) {   /* a patch of family F (by number), its channels traced */
+        uint32_t b, c;
+        int32_t out[2 * CTL];
+        fresh_mixer();
+        patch_draw(&par, 1234u, atoi(argv[2]));
+        print_patch();
+        for (c = 0; c < NCH; c++)
+            if (par.ch[c].level)
+                printf("    ch%u mod: lfo0 shape %u rate %u  slot0 %s -> %s %d | lfo1 rate %u slot1 %s %d\n", c + 1,
+                       par.ch[c].mod.lfo[0].shape, par.ch[c].mod.lfo[0].rate, MSRC_NAME[par.ch[c].mod.s[0].src],
+                       MD_NAME[par.ch[c].mod.s[0].dst], par.ch[c].mod.s[0].amt, par.ch[c].mod.lfo[1].rate,
+                       MD_NAME[par.ch[c].mod.s[1].dst], par.ch[c].mod.s[1].amt);
+        fm1_ms = 0;
+        trim_start();
+        for (b = 0; b < 44100u * 8u / CTL; b++) {
+            fm1_ms = (uint32_t)((uint64_t)b * CTL * 1000u / FS);
+            trim_poll();
+            mix_block(out);
+            if (b > 44100u * 4u / CTL && b % 100u == 0) {
+                printf("  %5.2f s out %6d |", b * CTL / 44100.0, out_meter);
+                for (c = 0; c < NCH; c++)
+                    if (par.ch[c].level)
+                        printf(" ch%u m%6d lv%+5d g%3d", c + 1, ch_meter[c], mst[c].off[MD_LEVEL], par.ch[c].gain);
+                printf("\n");
+            }
+        }
+        return 0;
+    }
+    if (argc >= 2 && str_eq(argv[1], "fits"))
+        return cmd_fits();
     if (argc >= 2 && str_eq(argv[1], "flows"))
         return cmd_flows();
     if (argc >= 3 && str_eq(argv[1], "cores"))

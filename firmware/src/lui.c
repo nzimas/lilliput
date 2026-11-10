@@ -50,11 +50,11 @@ static const uint16_t LAYER_COL[NCH] = {RGB(255, 214, 0), RGB(0, 214, 255), RGB(
 #define C_REC RGB(255, 30, 30)
 
 /* the pages */
-enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX,       /* a channel's (OCT- / OCT+) */
+enum { PG_MAIN, PG_AMP, PG_DYN, PG_EQ, PG_SEND, PG_FX, PG_MOD,   /* a channel's (OCT- / OCT+) */
        PG_OUT, PG_OEQ, PG_OFX,                               /* the output's (SEQ) */
        PG_VIEW, PG_PRESET, PG_SES, PG_ASK, PG_SET, PG_N };
-#define PG_CH_LAST PG_FX
-static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "OUT", "OUT EQ", "OUT FX", "", "", "", "",
+#define PG_CH_LAST PG_MOD
+static const char *const PG_TITLE[PG_N] = {"", "AMP", "NOISE", "EQ", "SEND", "FX", "MOD", "OUT", "OUT EQ", "OUT FX", "", "", "", "",
                                            ""};
 
 /* every parameter the panel reaches: on the chosen channel, its slot, or the output */
@@ -66,10 +66,12 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
 static const uint8_t PG_ROW[PG_N][4] = {
     {P_GAIN, P_MFREQ, P_LIM, P_SEND1}, {P_TUBE, P_TMODE, P_GAIN, P_OPAMP}, {P_NOISE, P_NTYPE, P_LIM, P_OVER},
     {P_HIGH, P_LOW, P_MGAIN, P_MFREQ}, {P_SRC, P_SEND1, P_SEND2, P_MAINMIX}, {P_FX, P_P1, P_P2, P_PRES},
+    {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
+    {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_NONE, P_NONE, P_NONE, P_SPACE}, {P_OFTYPE, P_NONE, P_OWIDE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP}};
 
 static struct {
@@ -83,7 +85,12 @@ static struct {
     uint32_t msg_until;
     uint32_t home_until;
     uint32_t seed;
-    char patch[16];              /* the patch's name: the factory's, SESSION n, or the recipe drawn */
+    char patch[16];              /* the patch's name: the factory's, or the family drawn */
+    uint8_t fam;                 /* the family of the patch playing (HOME, SHIFT + HOME, SHIFT + PRESETS) */
+    uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
+    uint32_t home_t0;
+    uint8_t mod_ix;              /* the MOD page's entry: LFO 1, LFO 2, MOD A .. D */
+    uint32_t mod_drawn_at;
     uint32_t keys;               /* the keys down last time */
     uint32_t flash_t0;
     uint8_t flash_on, flash_phase;
@@ -196,7 +203,7 @@ static int32_t p_count(uint32_t id)
     case P_FIN: return FI_N;
     case P_FOUT: return FO_N;
     case P_SPACE: return SP_N;
-    case P_PAN: return -1;
+    case P_PAN: return -1;                       /* (-PAN_MAX .. PAN_MAX) */
     default: return 0;
     }
 }
@@ -206,7 +213,7 @@ static void p_set(uint32_t id, int32_t v)
     slot_par_t *s = &par.slot[pslot()];
     out_par_t *o = &par.out;
     int32_t n = p_count(id);
-    v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -500, 500) : clampi(v, 0, PMAX);
+    v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX) : clampi(v, 0, id == P_LEVEL ? LVL_MAX : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -251,13 +258,38 @@ static void p_set(uint32_t id, int32_t v)
     default: break;
     }
 }
-/* a knob's turn of s detents: a choice a step a detent; a value faster the faster it turns */
+static int32_t p_hi(uint32_t id) { return id == P_LEVEL ? LVL_MAX : id == P_PAN ? PAN_MAX : p_count(id) > 0 ? p_count(id) - 1 : PMAX; }
+static int32_t p_lo(uint32_t id) { return id == P_PAN ? -PAN_MAX : 0; }
+/* LEVEL, a detent: 1 dB a step up to -5 dB (on whole dBs), 0.1 dB a step above it; below -60 dB, off */
+static int32_t level_step(int32_t v, int up)
+{
+    int32_t db;
+    if (!v)
+        return up ? 1 : 0;
+    db = v - LVL_0DB;
+    if (up)
+        db = db < -50 ? db - ((db % 10 + 10) % 10) + 10 : db + 1;
+    else if (db > -50)
+        db -= 1;
+    else
+        db = (db % 10 + 10) % 10 ? db - ((db % 10 + 10) % 10) : db - 10;
+    return db < -600 ? 0 : db + LVL_0DB;
+}
+/* a knob's turn of s detents: a choice a step a detent; LEVEL by dB then tenths; PAN a step a detent; any other value
+ * faster the faster it turns */
 static void p_turn(uint32_t id, int32_t s)
 {
     int32_t n = p_count(id), a = s < 0 ? -s : s;
     if (!s || id == P_NONE)
         return;
-    if (n > 0)
+    if (id == P_LEVEL) {
+        int32_t v = p_get(id);
+        for (; a > 0; a--)
+            v = level_step(v, s > 0);
+        p_set(id, v);
+    } else if (id == P_PAN)
+        p_set(id, p_get(id) + s);
+    else if (n > 0)
         p_set(id, p_get(id) + (s > 0 ? 1 : -1));
     else
         p_set(id, p_get(id) + s * (a >= 3 ? 14 : a == 2 ? 6 : 2));
@@ -314,15 +346,16 @@ static const char *p_name(uint32_t id)
 static void db_text(char *b, int32_t db10)
 {
     int32_t a = db10 < 0 ? -db10 : db10;
-    b[0] = db10 < 0 ? '-' : '+';
-    if (a >= 100)
-        fmt_int(b + 1, (a + 5) / 10);
-    else {                                       /* (0.5, not .5) */
-        b[1] = (char)('0' + a / 10);
-        b[2] = '.';
-        b[3] = (char)('0' + a % 10);
-        b[4] = 0;
+    b[0] = db10 < 0 ? '-' : db10 > 0 ? '+' : ' ';
+    fmt_int(b + 1, a / 10);                      /* (whole dBs as they are: -12 DB; tenths when there are: -4.9 DB) */
+    if (a % 10) {
+        uint32_t n = str_len(b);
+        b[n] = '.';
+        b[n + 1] = (char)('0' + a % 10);
+        b[n + 2] = 0;
     }
+    if (b[0] == ' ')
+        str_cpy(b, b + 1, 12);
     str_cpy(b + str_len(b), " DB", 4);
 }
 static void hz_text(char *b, int32_t hz)
@@ -402,12 +435,12 @@ static void p_text(uint32_t id, int32_t v, char *b)
         break;
     case P_OLEVEL: db_text(b, main_db10(v)); break;
     case P_PAN:
-        if (v > -10 && v < 10)
+        if (!v)
             str_cpy(b, "CENTRE", 12);
         else {
             b[0] = v < 0 ? 'L' : 'R';
             b[1] = ' ';
-            fmt_int(b + 2, (v < 0 ? -v : v) / 10);
+            fmt_int(b + 2, v < 0 ? -v : v);
         }
         break;
     case P_SRC: str_cpy(b, SRC_NAME[v], 12); break;
@@ -429,7 +462,7 @@ static void p_text(uint32_t id, int32_t v, char *b)
     }
 }
 static int p_is_bar(uint32_t id) { return p_count(id) == 0; }
-static int32_t p_bar(uint32_t id, int32_t v) { return p_count(id) < 0 ? (v + 500) * 228 / 1000 : v * 228 / PMAX; }
+static int32_t p_bar(uint32_t id, int32_t v, int32_t w) { return (v - p_lo(id)) * w / (p_hi(id) - p_lo(id)); }
 
 /* ---------------------------------------------------------- patches --- */
 static void ch_fresh_all(void)                    /* (a new patch: what the ISR worked out, out of date) */
@@ -448,11 +481,19 @@ static void patch_set(const lil_par_t *q, const char *name)
     trim_start();
     ui.force = 1;
 }
-static void new_patch(void)
+/* a new patch: of family fam, or (-1) of another family than the one playing */
+static void new_patch(int fam)
 {
     static lil_par_t q;
-    uint32_t rc = patch_draw(&q, next_seed(), -1);
-    patch_set(&q, RC_NAME[rc]);
+    uint32_t f;
+    if (fam < 0) {
+        fam = (int)(next_seed() % (NFAM - 1u));
+        if (fam >= (int)ui.fam)
+            fam++;
+    }
+    f = patch_draw(&q, next_seed(), fam);
+    ui.fam = (uint8_t)f;
+    patch_set(&q, FAM[f].name);
     say("NEW PATCH", 1200);
     ui.home_until = fm1_ms + 400u;
 }
@@ -511,6 +552,7 @@ static void save_short(void)
     if (ui.page == PG_PRESET) {                  /* the factory patch shown: loaded */
         static lil_par_t q;
         factory_load(&q, ui.pre_ix);
+        ui.fam = FACTORY[ui.pre_ix].fam;
         patch_set(&q, FACTORY[ui.pre_ix].name);
         flash("PRESET", FACTORY[ui.pre_ix].name, C_PRE);
         page_back();
@@ -539,6 +581,7 @@ static int32_t white_ix(uint32_t k)
     return (int32_t)o * 7 + w - (4 * 7 + 3);     /* F3 = 0 */
 }
 static void setup_open(void);
+static void mod_knob(uint32_t ix, uint32_t j, int32_t s);
 static void setup_press(int sh);
 static void setup_preset(int32_t s);
 static void setup_draw(void);
@@ -605,14 +648,24 @@ static void ui_input(void)
         (void)enc_take(EN_K4);
         goto knobs_lp;
     }
-    /* HOME: a new patch; SHIFT + HOME: the patch nudged */
+    /* HOME: a new patch (another family); SHIFT + HOME: of the same family; held 0.8 s: the patch nudged */
     if (btn_bit(press, B_HOME)) {
-        if (sh) {
+        ui.home_down = 1;
+        ui.home_sh = (uint8_t)sh;
+        ui.home_done = 0;
+        ui.home_t0 = fm1_ms;
+    }
+    if (ui.home_down) {
+        if (!btn_bit(fm1_in.buttons, B_HOME)) {
+            ui.home_down = 0;
+            if (!ui.home_done)
+                new_patch(ui.home_sh ? (int)ui.fam : -1);
+        } else if (!ui.home_done && (uint32_t)(fm1_ms - ui.home_t0) >= 800u) {
+            ui.home_done = 1;
             patch_shift(&par, next_seed());
-            say("SHIFTED", 1000);
+            say("NUDGED", 1000);
             ui.home_until = fm1_ms + 250u;
-        } else
-            new_patch();
+        }
     }
     /* the pages */
     if (btn_bit(press, B_OCTDN) || btn_bit(press, B_OCTUP)) {
@@ -622,7 +675,11 @@ static void ui_input(void)
         else if (ui.page >= PG_OUT && ui.page <= PG_OFX)
             goto_page(up ? (ui.page < PG_OFX ? ui.page + 1u : ui.page) : (ui.page > PG_OUT ? ui.page - 1u : ui.page));
     }
-    if (btn_bit(press, B_SEQ)) {
+    if (btn_bit(press, B_SEQ) && sh) {          /* SHIFT + SEQ: the chosen channel's modulation thrown anew */
+        mod_random(&par.ch[ui.sel].mod, next_seed());
+        say("NEW MOTION", 1000);
+        ui.force = 1;
+    } else if (btn_bit(press, B_SEQ)) {
         if (ui.page >= PG_OUT && ui.page < PG_OFX)
             goto_page(ui.page + 1u);
         else if (ui.page == PG_OFX)
@@ -704,8 +761,15 @@ static void ui_input(void)
     ui.cpu_page = (uint8_t)(sh && ((keys >> KEY_CPU) & 1u));
     /* PRESETS: the factory's, or the SESSIONS page's slot, or the question's answer */
     s = enc_take(EN_PRESET);
+    if (s && sh) {                               /* SHIFT + PRESETS: a patch of the family before or after */
+        new_patch((int)((ui.fam + NFAM + (s > 0 ? 1u : NFAM - 1u)) % NFAM));
+        s = 0;
+    }
     if (s) {
-        if (ui.page == PG_SES)
+        if (ui.page == PG_MOD) {
+            ui.mod_ix = (uint8_t)clampi(ui.mod_ix + s, 0, 5);
+            ui.force = 1;
+        } else if (ui.page == PG_SES)
             ui.ses_ix = (uint8_t)clampi(ui.ses_ix + (s > 0 ? 1 : -1), 1, (int32_t)SES_SLOTS);
         else if (ui.page == PG_ASK)
             ui.ses_yes = (uint8_t)(s > 0);
@@ -715,7 +779,13 @@ static void ui_input(void)
             goto_page(PG_PRESET);
     }
     /* KNOB 1 .. 4 */
-    if (ui.page <= PG_OFX) {
+    if (ui.page == PG_MOD) {
+        for (k = 0; k < 4u; k++) {
+            s = enc_take(EN_K1 + k);
+            if (s)
+                mod_knob(ui.mod_ix, k, s);
+        }
+    } else if (ui.page <= PG_OFX) {
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
@@ -726,8 +796,8 @@ static void ui_input(void)
                 ui.dial = (uint8_t)id;
                 ui.dial_until = fm1_ms + 1000u;
             } else {
-                touch(sh && p_count(id) > 0 ? 4 + (int32_t)k : (int32_t)k);
-                if (sh || p_count(id) > 0)       /* (a switch's new value: said in the title) */
+                touch((int32_t)k);
+                if (p_count(id) > 0)             /* (a choice: the rows may name things anew -- HI CUT, NOTCH Q) */
                     ui.force = 1;
             }
         }
@@ -838,9 +908,26 @@ static int32_t draw_batt(int32_t x, int32_t y)
             cv_rect(x0 + 3 + i * 4, y + 3, 3, 4, c);
     return x0 - 8;
 }
-static const font_t *band_font(const char *s)
+/* the largest size, from big down, that takes t whole in w pixels without squeezing it (XS at the least) */
+static const font_t *fit_font(const char *t, int32_t w, const font_t *big)
 {
-    return text_w(&FONT_M, s) - 6 * ((int32_t)str_len(s) - 1) <= 236 ? &FONT_M : &FONT_S;
+    static const font_t *const F[5] = {&FONT_XL, &FONT_L, &FONT_M, &FONT_S, &FONT_XS};
+    uint32_t i = 0;
+    while (i < 4u && F[i] != big)
+        i++;
+    for (; i < 4u; i++)
+        if (text_w(F[i], t) <= w)
+            return F[i];
+    return &FONT_XS;
+}
+/* t centred in the canvas at y, in the largest size up to big that fits; y is the top of a band hb high */
+static void text_fit_c(int32_t y, int32_t hb, const char *t, const font_t *big, uint16_t c)
+{
+    const font_t *f = fit_font(t, (int32_t)cv_w - 4, big);
+    if (text_w(f, t) <= (int32_t)cv_w - 4)
+        cv_text_c(y + (hb - (int32_t)f->h) / 2, f, t, c);
+    else
+        cv_text_fit(y + (hb - (int32_t)f->h) / 2, f, t, c);   /* (still too wide at XS: squeezed, the last resort) */
 }
 static void draw_number(void)
 {
@@ -866,9 +953,8 @@ static void draw_band_c(const char *t, int kind)
 {
     static const uint16_t BG[3] = {C_BLACK, C_WHITE, RGB(220, 0, 0)};
     uint16_t fg = kind == 0 ? LAYER_COL[ui.sel] : kind == 1 ? C_BLACK : C_WHITE;
-    const font_t *f = band_font(t);
     cv_begin(240, 44, BG[kind]);
-    cv_text_fit((44 - f->h) / 2, f, t, fg);
+    text_fit_c(0, 44, t, &FONT_M, fg);
     cv_blit(0, BAND_C);
 }
 #define METER_X 6
@@ -890,7 +976,7 @@ static void draw_meter(int32_t px)
     if (px)
         cv_rect(METER_X, 5, px, 12, par.ch[ui.sel].mute ? C_GREY : LAYER_COL[ui.sel]);
     if (lv)                                      /* the fader: a white bar across, -60 .. +12 dB along the meter */
-        cv_rect(METER_X + lv * (METER_LEN - 2) / PMAX - 1, 0, 5, 22, C_WHITE);
+        cv_rect(METER_X + lv * (METER_LEN - 2) / LVL_MAX - 1, 0, 5, 22, C_WHITE);
     else
         cv_rect(METER_X - 2, 0, 5, 22, C_REC);
     cv_blit(0, BAND_M);
@@ -899,7 +985,7 @@ static void draw_meter(int32_t px)
 }
 static void draw_pan(void)
 {
-    int32_t pn = par.ch[ui.sel].pan, x = 120 + pn * 104 / 500;
+    int32_t pn = par.ch[ui.sel].pan, x = 120 + pn * 104 / PAN_MAX;
     cv_begin(240, 240 - BAND_D, C_BLACK);
     cv_rect(6, 10, 228, 4, C_GREY);
     cv_rect(6, 4, 3, 16, C_GREY);
@@ -913,84 +999,177 @@ static void draw_pan(void)
 
 /* a page: its title (and what its switches are), then four rows -- name, value, a bar under a value */
 static uint16_t page_col(void) { return ui.page >= PG_OUT ? C_OUT : LAYER_COL[ui.sel]; }
+#define TITLE_H 36               /* a page's title band, then four rows of ROW_H */
+#define ROW_H 51
+static int show_shift(void)              /* SHIFT held on a page with switches: its rows show them */
+{
+    uint32_t j;
+    if (!((ui.keys >> KEY_SHIFT) & 1u) || ui.page > PG_OFX || ui.page == PG_MOD)
+        return 0;
+    for (j = 0; j < 4u; j++)
+        if (PG_SHROW[ui.page][j] != P_NONE)
+            return 1;
+    return 0;
+}
+static uint32_t row_id(uint32_t j)       /* the parameter row j shows now */
+{
+    return show_shift() && PG_SHROW[ui.page][j] != P_NONE ? PG_SHROW[ui.page][j] : PG_ROW[ui.page][j];
+}
 static void draw_title(void)
 {
-    char t[24], sub[28];
-    sub[0] = 0;
+    char t[24];
     str_cpy(t, PG_TITLE[ui.page], sizeof t);
+    if (ui.page == PG_MOD) {                     /* the MOD page: the entry (PRESETS chooses it) */
+        static const char *const ME[6] = {"LFO 1", "LFO 2", "MOD A", "MOD B", "MOD C", "MOD D"};
+        str_cpy(t, ME[ui.mod_ix % 6u], sizeof t);
+    }
     if (ui.page <= PG_CH_LAST) {                 /* the channel's number after the page's name */
         uint32_t n = str_len(t);
-        t[n] = ' ';
-        t[n + 1] = (char)('1' + ui.sel);
-        t[n + 2] = 0;
+        str_cpy(t + n, "  CH ", 6);
+        t[n + 5] = (char)('1' + ui.sel);
+        t[n + 6] = 0;
     }
-    if (ui.page == PG_EQ) {
-        str_cpy(sub, par.ch[ui.sel].ftype == FT_CUT ? "CUT  " : "SHELF  ", sizeof sub);
-        str_cpy(sub + str_len(sub), MT_NAME[clampi(par.ch[ui.sel].mtype, 0, MT_N - 1)], 10);
-    } else if (ui.page == PG_OEQ) {
-        str_cpy(sub, par.out.ftype == FT_CUT ? "CUT  " : "SHELF  ", sizeof sub);
-        str_cpy(sub + str_len(sub), par.out.wide ? "WIDE" : "NARROW", 10);
-    } else if (ui.page == PG_FX || ui.page == PG_OFX) {
-        const slot_par_t *s = &par.slot[pslot()];
-        str_cpy(sub, "IN ", sizeof sub);
-        str_cpy(sub + 3, FI_NAME[clampi(s->in, 0, FI_N - 1)], 8);
-        str_cpy(sub + str_len(sub), "  OUT ", 7);
-        str_cpy(sub + str_len(sub), FO_NAME[clampi(s->out, 0, FO_N - 1)], 8);
-        if (s->lofi)
-            str_cpy(sub + str_len(sub), " LOFI", 6);
-        if (s->bypass)
-            str_cpy(sub + str_len(sub), " BYP", 5);
-    } else if (ui.page == PG_OUT)
-        str_cpy(sub, SP_NAME[clampi(par.out.space, 0, SP_N - 1)], sizeof sub);
-    cv_begin(240, 52, C_BLACK);
-    if (sub[0]) {
-        cv_text_fit(0, &FONT_S, t, page_col());
-        cv_text_fit(28, &FONT_XS, sub, RGB(200, 200, 200));
-    } else
-        cv_text_fit(3, &FONT_L, t, page_col());
+    if (show_shift())                            /* (SHIFT held: the switches) */
+        str_cpy(t + str_len(t), "  SHIFT", 8);
+    cv_begin(240, TITLE_H, C_BLACK);
+    text_fit_c(0, TITLE_H - 2, t, &FONT_M, page_col());
+    cv_rect(0, TITLE_H - 1, 240, 1, RGB(60, 60, 60));
     cv_blit(0, 0);
+}
+/* a row, on two lines: the name small and grey, a bar beside it (0 none; 1 from the left, v 0 .. 1000; 2 from the
+ * middle, v -1000 .. 1000), the value large under it -- the value always whole, never sharing its line */
+static void draw_row2(uint32_t j, const char *name, const char *val, int bar, int32_t v, int touched)
+{
+    uint16_t bg = touched ? C_WHITE : C_BLACK, fg = touched ? C_BLACK : C_WHITE, col = page_col();
+    cv_begin(240, ROW_H, bg);
+    cv_text(6, 2, &FONT_XS, name, touched ? C_BLACK : RGB(175, 175, 175));
+    if (bar) {
+        int32_t x0 = 6 + text_w(&FONT_XS, name) + 12, w0 = 234 - x0, y0 = 8;
+        cv_rect(x0, y0, w0, 7, touched ? C_GREY : RGB(60, 60, 60));
+        if (bar == 1)
+            cv_rect(x0, y0, clampi(v, 0, 1000) * w0 / 1000, 7, touched ? C_BLACK : col);
+        else {
+            int32_t c = x0 + w0 / 2, w = clampi(v, -1000, 1000) * (w0 / 2) / 1000;
+            cv_rect(w >= 0 ? c : c + w, y0, w >= 0 ? w : -w, 7, touched ? C_BLACK : col);
+            cv_rect(c - 1, y0 - 2, 2, 11, touched ? C_BLACK : C_WHITE);
+        }
+    }
+    if (val && val[0])
+        cv_text(6, ROW_H - (int32_t)FONT_S.h - 1, fit_font(val, 228, &FONT_S), val, fg);
+    cv_rect(0, ROW_H - 1, 240, 1, RGB(50, 50, 50));
+    cv_blit(0, TITLE_H + ROW_H * j);
 }
 static void draw_row(uint32_t j, int touched)
 {
-    uint32_t id = PG_ROW[ui.page][j];
+    uint32_t id = row_id(j);
     int32_t v = p_get(id);
     char t[16];
-    uint16_t bg = touched ? C_WHITE : C_BLACK, fg = touched ? C_BLACK : C_WHITE;
-    int32_t y = (37 - (int32_t)FONT_S.h) / 2;
-    cv_begin(240, 47, bg);
+    int bar = id == P_PAN ? 2 : p_is_bar(id) || id == P_LEVEL ? 1 : 0;
     p_text(id, v, t);
-    {   /* (a name and its value too wide for the row together: the name a size smaller) */
-        const char *nm = p_name(id);
-        int32_t vw = text_w(&FONT_S, t);
-        if (text_w(&FONT_S, nm) + vw + 14 <= 228)
-            cv_text(6, y, &FONT_S, nm, fg);
-        else
-            cv_text(6, y + ((int32_t)FONT_S.h - (int32_t)FONT_XS.h) / 2, &FONT_XS, nm, fg);
-        cv_text(234 - vw, y, &FONT_S, t, fg);
-    }
-    if (p_is_bar(id) || p_count(id) < 0) {
-        cv_rect(6, 38, 228, 6, touched ? C_GREY : RGB(60, 60, 60));
-        cv_rect(6, 38, p_bar(id, v), 6, touched ? C_BLACK : page_col());
-    }
-    cv_blit(0, 52 + 47 * j);
+    draw_row2(j, p_name(id), t, bar, bar == 2 ? v * 1000 / PAN_MAX : p_bar(id, v, 1000), touched);
     ui.shown_row[j] = v;
+}
+/* the MOD page: the chosen channel's modulation, an entry at a time (PRESETS): LFO 1, LFO 2, the slots MOD A .. D;
+ * KNOB 1 .. 4 its rows (Tonitor's) */
+static void mod_knob(uint32_t ix, uint32_t j, int32_t s)
+{
+    mod_t *m = &par.ch[ui.sel].mod;
+    if (ix < 2u) {
+        mlfo_t *f = &m->lfo[ix];
+        if (j == 0u)
+            f->shape = (uint8_t)clampi(f->shape + s, 0, MS_N - 1);
+        else if (j == 1u)
+            f->rate = (uint8_t)clampi(f->rate + s, 0, 100);
+        else if (j == 2u)
+            f->mode = (uint8_t)clampi(f->mode + s, 0, MM_N - 1);
+        else
+            f->fade = (uint8_t)clampi(f->fade + 2 * s, 0, 100);
+    } else {
+        mslot_t *q = &m->s[ix - 2u];
+        if (j == 0u)
+            q->src = (uint8_t)clampi(q->src + s, 0, MSRC_N - 1);
+        else if (j == 1u)
+            q->dst = (uint8_t)clampi(q->dst + s, 0, MD_N - 1);
+        else if (j == 2u)
+            q->amt = (int8_t)clampi(q->amt + 2 * s, -100, 100);
+        else
+            return;
+    }
+    touch((int32_t)j);
+    ui.force = 1;
+}
+static void lead_zero(char *v)                   /* ".05" -> "0.05" */
+{
+    uint32_t n = str_len(v);
+    if (v[0] != '.')
+        return;
+    for (; n + 1u > 0u; n--)
+        v[n + 1u] = v[n];
+    v[0] = '0';
+}
+static void draw_mod_page(void)
+{
+    uint32_t c = ui.sel, ix = ui.mod_ix;
+    int32_t t = (int32_t)(ui.touch_until - fm1_ms) > 0 ? ui.touched : -1;
+    const mod_t *m = &par.ch[c].mod;
+    char v[16];
+    ui.mod_drawn_at = fm1_ms;
+    if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel)
+        draw_title();
+    if (ix < 2u) {
+        const mlfo_t *f = &m->lfo[ix];
+        uint32_t ch = (uint32_t)(((uint64_t)100u * exp2_q16(f->rate * 7189)) >> 16);   /* (0.01 Hz units, x 100) */
+        if (!ui.force && ui.shown_page == PG_MOD && ui.shown_sel == ui.sel)
+            return;                              /* (an LFO's rows change only with its knobs) */
+        draw_row2(0, "SHAPE", MS_NAME[f->shape % MS_N], 0, 0, t == 0);
+        fmt_fix(v, (int32_t)(ch < 100000u ? ch / 100u : ch / 1000u), ch < 100000u ? 2 : 1);
+        lead_zero(v);                            /* (0.05, not .05) */
+        str_cpy(v + str_len(v), " HZ", 4);
+        draw_row2(1, "RATE", v, 1, f->rate * 10, t == 1);
+        draw_row2(2, "MODE", MM_NAME[f->mode % MM_N], 0, 0, t == 2);
+        if (f->fade) {
+            fmt_fix(v, f->fade, 1);
+            lead_zero(v);
+            str_cpy(v + str_len(v), " S", 3);
+        } else
+            str_cpy(v, "OFF", 4);
+        draw_row2(3, "FADE", v, 1, f->fade * 10, t == 3);
+        return;
+    }
+    {
+        const mslot_t *q = &m->s[ix - 2u];
+        int32_t now = 0;
+        if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel) {
+            draw_row2(0, "FROM", MSRC_NAME[q->src % MSRC_N], 0, 0, t == 0);
+            draw_row2(1, "TO", MD_NAME[q->dst % MD_N], 0, 0, t == 1);
+            if (q->amt > 0) {
+                v[0] = '+';
+                fmt_int(v + 1, q->amt);
+            } else
+                fmt_int(v, q->amt);
+            draw_row2(2, "AMOUNT", v, 2, q->amt * 10, t == 2);
+        }
+        if (q->src && q->amt && q->dst < MD_N)   /* (what it does now) */
+            now = clampi(mst[c].off[q->dst] * 1000 / MD_SPAN[q->dst], -1000, 1000);
+        draw_row2(3, "NOW", "", 2, now, 0);
+    }
 }
 static void draw_page(void)
 {
     uint32_t j;
     int32_t t = (int32_t)(ui.touch_until - fm1_ms) > 0 ? ui.touched : -1;
-    if (ui.force || ui.shown_page != ui.page || ui.shown_sel != ui.sel) {
+    static int8_t shown_shift;
+    if (ui.force || ui.shown_page != ui.page || ui.shown_sel != ui.sel || shown_shift != show_shift()) {
+        shown_shift = (int8_t)show_shift();
         draw_title();
         for (j = 0; j < 4u; j++)
-            draw_row(j, (int32_t)j == t);
+            draw_row(j, (int32_t)j == t % 4);
         ui.shown_touch = (int8_t)t;
         return;
     }
     for (j = 0; j < 4u; j++)
-        if (ui.shown_row[j] != p_get(PG_ROW[ui.page][j]) || (((int32_t)j == t) != ((int32_t)j == ui.shown_touch)))
-            draw_row(j, (int32_t)j == t);
-    if (t >= 4 && t != ui.shown_touch)           /* (a switch turned: the title says it) */
-        draw_title();
+        if (ui.shown_row[j] != p_get(row_id(j)) || (((int32_t)j == t % 4) != ((int32_t)j == ui.shown_touch % 4)))
+            draw_row(j, (int32_t)j == t % 4);
     ui.shown_touch = (int8_t)t;
 }
 
@@ -1038,7 +1217,7 @@ static void draw_dial(void)
             }
             dial_dot(oy, DIAL_CX, DIAL_CY, 10, C_WHITE);
             if (b >= 1)
-                cv_text_fit(200 - oy, &FONT_M, m, C_WHITE);
+                cv_text_c(200 - oy, fit_font(m, 232, &FONT_M), m, C_WHITE);
         }
     }
     ui.shown_dial = v + (int32_t)id * 4096;
@@ -1103,7 +1282,7 @@ static int draw_flash(void)
         if (digits)
             cv_text_c(4, &FONT_XL, ui.flash_l2, fg);
         else
-            cv_text_fit(30, &FONT_M, ui.flash_l2, fg);
+            text_fit_c(0, 112, ui.flash_l2, &FONT_L, fg);
     }
     cv_begin(240, 28, bg);
     cv_blit(0, 212);
@@ -1145,7 +1324,7 @@ static void draw_list_page(void)
         CV_AREA(0, 60, 240, 100, C_BLACK)
             cv_text_c(0, &FONT_XL, n, C_WHITE);
         CV_AREA(0, 160, 240, 80, C_BLACK) {
-            cv_text_fit(4, band_font(FACTORY[ui.pre_ix].name), FACTORY[ui.pre_ix].name, C_PRE);
+            text_fit_c(0, 44, FACTORY[ui.pre_ix].name, &FONT_M, C_PRE);
             cv_text_c(50, &FONT_XS, "SAVE TO LOAD", RGB(175, 175, 175));
         }
         return;
@@ -1263,6 +1442,14 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
+    if (ui.page == PG_MOD) {
+        if (ui.force || ui.shown_page != PG_MOD || ui.shown_sel != ui.sel || (uint32_t)(fm1_ms - ui.mod_drawn_at) >= 40u)
+            draw_mod_page();
+        ui.shown_page = PG_MOD;
+        ui.shown_sel = ui.sel;
+        ui.force = 0;
+        return;
+    }
     if (ui.page != PG_MAIN) {
         draw_page();
         ui.shown_page = ui.page;
@@ -1321,6 +1508,7 @@ static void ui_init(void)
     ui.seed = fm1_ticks() ^ 0x5EEDu;
 #endif
     factory_load(&q, 0);                         /* the first factory patch: something sounding at once */
+    ui.fam = FACTORY[0].fam;
     patch_set(&q, FACTORY[0].name);
     ui.shown_sel = 0xFF;
     ui.force = 1;
