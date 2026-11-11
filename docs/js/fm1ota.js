@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments (the update protocol, tools/fm1_install.py)
-// TONITOR: the FM-1 update over Web MIDI, in the browser -- a port of tools/fm1_install.py.
+// LILLIPUT (as NORILSK's, TONITOR's and BIGORNA's): the FM-1 update over Web MIDI, in the browser -- a port of tools/fm1_install.py.
 //
 // Step 1: the running firmware reads parts of the package and starts the update loader. Step 2: the loader
 // reads the whole package and writes it. In both the device asks (SysEx read requests on the logical image)
@@ -14,9 +14,9 @@ export const UPGRADE = [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7];
 export const FINISH_CHECK = 0xE0000000, FINISH_WRITE = 0xF0000000;
 const MAXDATA = 512, BLOCKS = 20, BLK = 0x30, KEEP = 0x2F;
 const LOADER_MARK = "FELUCCA-LOADER-1";
-// never probe other gear: the FM-1 under TONITOR (or ACOUSMA, its working name), SLOOP / Felucca, CLIPPER,
-// the update loaders, the stock firmware
-export const PORT_RE = /fm-1|lilliput|tonitor|acousma|felucca|sloop|clipper|ota|composite|sinco|usb-midi/i;
+// never probe other gear: the FM-1 under NORILSK (Molecular before build 18), BIGORNA (DigiRust), TONITOR (or ACOUSMA),
+// SLOOP / Felucca, CLIPPER, the update loaders, the stock firmware
+export const PORT_RE = /fm-1|lilliput|norilsk|molecular|bigorna|digirust|tonitor|acousma|felucca|sloop|clipper|ota|composite|sinco|usb-midi/i;
 
 // milliseconds; the tests shorten them
 export const DELAY = {
@@ -102,7 +102,7 @@ export function parseIdentity(pkt) {
 
 // --------------------------------------------------------------- package ---
 
-/** the package identity ("FM-1_800"): one marker byte after each of the first 20 blocks */
+/** the package identity ("FM-1_700"): one marker byte after each of the first 20 blocks */
 export function productOf(raw) {
   if (raw.length < BLOCKS * BLK) throw new InstallError("badpkg", "not an FM-1 package (too short)");
   let s = "";
@@ -287,11 +287,12 @@ export class Updater {
     return [...this.access.outputs.values()].filter((p) => p.state !== "disconnected");
   }
 
-  /** the first FM-1-looking port that answers the handshake (and want(identity)) -> {link, id} or null */
-  async find(want = null) {
+  /** the first FM-1-looking port (whose name matches only too, if given) that answers the handshake (and
+   * want(identity)) -> {link, id, name} or null */
+  async find(want = null, only = null) {
     const outs = this.outputs();
     for (const inp of this.inputs()) {
-      if (!PORT_RE.test(inp.name || "")) continue;
+      if (!PORT_RE.test(inp.name || "") || (only && !only.test(inp.name || ""))) continue;
       const out = pairOutput(inp.name, outs);
       if (!out) continue;
       let link;
@@ -304,7 +305,7 @@ export class Updater {
       }
       await sleep(DELAY.open);   // CoreMIDI may drop a message sent just after opening
       const id = await handshake(link, 2);
-      if (id && (!want || want(id))) return { link, id };
+      if (id && (!want || want(id))) return { link, id, name: inp.name || "" };
       link.close();
     }
     return null;

@@ -784,6 +784,64 @@ static int cmd_drums(void)
     printf("%sdrums: %u sounds, %u rhythms\n", bad ? "FAIL " : "", (unsigned)NDKIT, (unsigned)DS_N);
     return bad ? 1 : 0;
 }
+/* the website's demos (tools/make_demos.sh): three pieces rendered from the machine, 48 s each */
+static int fam_of(const char *name)
+{
+    uint32_t i;
+    for (i = 0; i < NFAM; i++)
+        if (str_eq(FAM[i].name, name))
+            return (int)i;
+    return -1;
+}
+static int cmd_demo(const char *dir)
+{
+    static int16_t buf[2 * FS * 48];
+    static const struct { const char *file, *fam; uint32_t seed; int drums, dstyle, rstyle; uint32_t bpm, comp; } D[3] = {
+        {"beating", "BEATING", 31u, 0, 0, -1, 120, 0},
+        {"under-the-kick", "ENGINE", 7u, 1, DS_POWER, -1, 136, 85},
+        {"ritual", "CAVERN", 12u, 1, DS_TRIBAL, RS_TRIBAL, 118, 45}};
+    uint32_t i;
+    char path[512];
+    for (i = 0; i < 3u; i++) {
+        stats_t st;
+        fresh_mixer();
+        patch_draw(&par, D[i].seed * 7919u + 11u, fam_of(D[i].fam));
+        par.rhy.bpm = (uint16_t)D[i].bpm;
+        if (D[i].rstyle >= 0) {
+            rhythm_draw(&par, D[i].seed + 4242u, D[i].rstyle);
+            par.rhy.on = 1;
+            rhy_reset = 1;
+        }
+        drm_init(D[i].seed + 99u);
+        drm.on = 0;
+        if (D[i].drums) {
+            drm_draw_rhythm(D[i].seed + 5u, D[i].dstyle);
+            drm.on = 1;
+        }
+        drm_coef_all();
+        drm_reset = 1;
+        clk_run = 0;
+        memset(dvs, 0, sizeof dvs);
+        cmp.amount = (uint8_t)D[i].comp;
+        cmp.sc = 1;
+        cmp.thresh = 600;
+        cmp.ratio = 2;
+        cmp.attack = 300;
+        cmp.release = 420;
+        cmp_coef();
+        cmpr.g = 1 << 16;
+        cmpr.env = cmpr.duck = 0;
+        st = render(48.0, buf, FS * 48u);
+        snprintf(path, sizeof path, "%s/demo-%s.wav", dir, D[i].file);
+        wav_write(path, buf, FS * 48u);
+        printf("demo %-16s %-8s rms %6.1f dB  peak %6.1f dB  movement %4.1f dB\n", D[i].file, D[i].fam, db(st.rms),
+               db(st.peak), st.move);
+    }
+    cmp.amount = 0;
+    cmp_coef();
+    drm.on = 0;
+    return 0;
+}
 /* FREE: anything goes, but never silence. 200 drawn, each heard 8 s: none quiet, none clipped */
 static int cmd_free(void)
 {
@@ -1774,6 +1832,8 @@ static int cmd_cores(int n)
 int main(int argc, char **argv)
 {
     sine_init();                                 /* (as the firmware's boot: SINE from SINE_ROM) */
+    if (argc >= 3 && str_eq(argv[1], "demo"))
+        return cmd_demo(argv[2]);
     if (argc >= 2 && str_eq(argv[1], "drums"))
         return cmd_drums();
     if (argc >= 2 && str_eq(argv[1], "free"))
