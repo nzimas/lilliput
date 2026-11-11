@@ -2,24 +2,24 @@
 
 ## Build 18 (2026-11-11)
 
-- The logo: the name drawn on one grid -- "lilliput" from bare strokes, squares and two arcs, every stroke one gap from
+- The logo: the name drawn on a single grid -- "lilliput" from bare strokes, squares and 2 arcs, every stroke 1 gap from
   the next, so the word reads as a pulse train; its icon, "li". In assets/logo (SVG: the logotype in white, in black
-  and with the channels' colours; the icon), made by tools/gen_logo.py. The splash draws it one unit to a pixel, the
+  and with the channels' colours; the icon), made by tools/gen_logo.py. The splash draws it 1 unit to a pixel, the
   build under it; the README opens with it.
 
 ## Build 17 (2026-11-11)
 
-- A new RHYTHM for the mixer no longer restarts the drums (it did, audibly). One beat clock runs the two: whichever
+- A new RHYTHM for the mixer no longer restarts the drums (it did, audibly). A single beat clock runs both: whichever
   starts, or gets a new pattern, comes in on the next beat; the other plays on untouched.
 - The drums' rhythms anew, after the genre (Bigorna's generator; Attack Magazine's industrial and dark Berlin techno
   breakdowns; the genre's descriptions): POWER 4/4, PISTON, MARCH, OFFBEAT, RUMBLE, BROKEN, 3 AGAINST 4, TRIBAL,
-  SHUFFLE, DIST BREAK, HALF RITUAL, BURST FILL. Every lane in sixteenths, 16 or 32 steps: the pace is always the
-  tempo's (before, kicks on every sixteenth read as double time, and 7-, 9- and 10-step lanes or a hat at 1/8 lost
+  SHUFFLE, DIST BREAK, HALF RITUAL, BURST FILL. Every lane in 16ths, 16 or 32 steps: the pace is always the
+  tempo's (before, kicks on every 16th read as double time, and 7-, 9- and 10-step lanes or a hat at 1/8 lost
   the pace). Swing only where the genre swings.
-- A fourth voice, **PERC**: struck metal (ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND), white key 4 on the
+- A 4th voice, **PERC**: struck metal (ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND), white key 4 on the
   drums' pages.
 - A voice's white key held 0.7 s mutes it (its key blinks, dim; its page says MUTED); held again, back.
-- The drums' own LEVEL is gone from their third page: a voice's LEVEL is the only one.
+- The drums' own LEVEL is gone from their 3rd page: a voice's LEVEL is the only one.
 - **COMPRESSOR**, SEQ's first page: on the mixer's sound, before the drums; AMOUNT compresses, brings the mix forward
   and, with SIDECHAIN on KICK, ducks it under each kick (up to 18 dB) -- more AMOUNT, more lift and more pump.
   THRESH, RELEASE; with SHIFT, ATTACK and RATIO. Sessions keep it.
@@ -29,14 +29,14 @@
 
 ## Build 16 (2026-11-10)
 
-- **DRUMS**: a drum section beside the mixer, after Ruismaker Noir (Bram Bos): KICK, SNARE and HATS, one engine
+- **DRUMS**: a drum section beside the mixer, after Ruismaker Noir (Bram Bos): KICK, SNARE and HATS, a single engine
   (a swept tone and filtered noise, ATTACK from a hard transient to 100 ms, DECAY, CLICK, METAL, DRIVE), each with
   its lane of steps (accents, pitches, ALT) on the RHYTHM's tempo, coming in on its beat. Black key 9 (3rd from the
   right): short, their pages; SHIFT +, a new drum rhythm; held, on or off. On their pages white keys 1-3 choose the
   voice (SHIFT +: a new sound), PRESETS the rhythms. 21 sound recipes (7 a voice), 12 rhythm recipes. A REVERB send
   a voice into SPACE; the dry drums after the reverb. Sessions keep them; older sessions load without touching them.
   They run on CPU1 with the output stage.
-- The MASTER knob is read before any sound: the splash played for about a second at half volume, the knob down or
+- The MASTER knob is read before any sound: the splash played for about 1 second at half volume, the knob down or
   not.
 - tools/fm1_bench.py patches-drums: the load with the drums at their densest.
 
@@ -49,14 +49,14 @@
 ## Build 14 (2026-11-10)
 
 - No more silence under the RHYTHM: in the host's test every recipe with every style (400 pairs) now sounds, the
-  quietest at -33 dB (build 13: six near silent, down to -58 dB). Three causes, three fixes:
+  quietest at -33 dB (build 13: 6 near silent, down to -58 dB). 3 causes, 3 fixes:
   - A channel in a ring was choked by KICK and CHOKE: the ring died between the hits and never grew back. Now its
     gate cuts what is heard, and the ring runs on.
-  - A sparse lane (a hit or two a bar, short) left its channel all but silent: it is chopped now, over a bed 14 dB
+  - A sparse lane (a hit or 2 a bar, short) left its channel all but silent: it is chopped now, over a bed 14 dB
     down.
   - The trim measured a quiet output, chopped by the RHYTHM, as silence, and never brought it up (32 dB short in
-    one case). Its measure is finer now.
-- The RHYTHM's test plays every recipe with every style, and fails under -40 dB (before: every third recipe, -50).
+    1 case). Its measure is finer now.
+- The RHYTHM's test plays every recipe with every style, and fails under -40 dB (before: every 3rd recipe, -50).
 
 ## Build 13 (2026-11-10)
 
@@ -73,8 +73,8 @@
 
 - A gesture loop for each channel, each on its own (as Tonitor's looper is a layer's): REC and PLAY act on the
   chosen channel; a channel's loop records only that channel (its parameters and its effect slot) and replaces the
-  loop it had (no overdubs). The loops play together, each its own length. One records at a time: REC on another
-  channel ends the recording and arms that one. Sessions keep each channel's loop; a session saved before, with one
+  loop it had (no overdubs). The loops play together, each its own length. Only 1 records at a time: REC on another
+  channel ends the recording and arms that one. Sessions keep each channel's loop; a session saved before, with 1
   loop for all, loads as a loop for each channel it touched (the output's and the RHYTHM's changes left out).
 - HOME draws from **any** recipe until PRESETS chooses one (as on Tonitor). PRESETS has a position for that, **ANY**,
   before the first recipe and after the last. SHIFT + HOME: another recipe than the one playing. A session loaded:
@@ -92,13 +92,13 @@
 
 ## Build 10 (2026-11-10)
 
-- PRESETS are gone: there were sixteen fixed "factory patches" and a page of them. The knob now shows the **RECIPE**
+- PRESETS are gone: there were 16 fixed "factory patches" and a page of them. The knob now shows the **RECIPE**
   (an archetype, never a fixed patch): its name, flashed, and nothing else changes. **HOME** draws a new patch from
   the recipe shown, otherwise each time; **SHIFT + HOME** from another recipe, at random. No page of its own.
-- Eight new recipes, twenty-four in all: CHOIR, ENGINE, INSECTS, ORGAN, MORSE, FURNACE, AURORA, SONAR. They reach
-  for the effects the first sixteen use little (RESONATOR, XMOD, SAG, OCTAVER, REED, DIFFUSER, GATE, CUTS). A session
-  keeps its recipe as before (the first sixteen keep their numbers).
-- The RHYTHM's pages: OCT+ / OCT- between TEMPO SWING CHAOS LENGTH and a second page, **MIX**: how much of the gates
+- 8 new recipes, 24 in all: CHOIR, ENGINE, INSECTS, ORGAN, MORSE, FURNACE, AURORA, SONAR. They reach
+  for the effects the first 16 use little (RESONATOR, XMOD, SAG, OCTAVER, REED, DIFFUSER, GATE, CUTS). A session
+  keeps its recipe as before (the first 16 keep their numbers).
+- The RHYTHM's pages: OCT+ / OCT- between TEMPO SWING CHAOS LENGTH and a 2nd page, **MIX**: how much of the gates
   is heard against the loops as they run on (100 %: all gate, as before; 0 %: the loops alone). KICK's bursts and
   ACCENT's pushes follow it. Stored in the rhythm's spare byte: older sessions load at 100 %.
 - GATES is now LENGTH (the gates' length; "GATE LENGTH" does not fit beside its bar).
@@ -107,12 +107,12 @@
 ## Build 9 (2026-11-10)
 
 - CPU0 made room: over the same 30 drawn patches (tools/fm1_bench.py), a block's load is 64 % on average (build 8:
-  76 %, build 7: 91 %), 82 % at worst (build 8: 102 %), and no patch runs late (build 8: three did, all six channels
+  76 %, build 7: 91 %), 82 % at worst (build 8: 102 %), and no patch runs late (build 8: 3 did, all 6 channels
   live). The sound is unchanged: the host's renders are build 8's, bit for bit.
   - Each channel's strip runs inside the sample loop, not called (the call, a channel a sample, cost more than the
     tube); its input is read through a pointer set once a block; sends and pan worked out only when not 0.
   - The parameters copied each block a halfword at a time, in RAM (the compiler's copy went bytewise, to the flash).
-  - USB's six channel lanes are made on CPU1 with the output stage, and now line up with the output (before, they
+  - USB's 6 channel lanes are made on CPU1 with the output stage, and now line up with the output (before, they
     came a block ahead of it).
   - The tanh, exp2, log2 and filter tables in RAM, off the flash's cache.
 - tools/fm1_bench.py costs-of I: a drawn patch's costs, a block in parts (copies, modulation, coefficients, gains,
@@ -123,11 +123,11 @@
 ## Build 8 (2026-11-10)
 
 - The screen reader removed, whole: its voice, its words, GLOBAL SETUP's SETTINGS (SCREEN READER, SPEECH RATE) and
-  SHIFT + black key 8. A stored GLOBAL SETUP still loads (its two bytes kept, unused). The image 15 KiB smaller.
+  SHIFT + black key 8. A stored GLOBAL SETUP still loads (its 2 bytes kept, unused). The image 15 KiB smaller.
 - CPU0, measured on the FM-1 (tools/fm1_bench.py): every drawn patch ran at 85 .. 100 % (half of them late), CPU1 at
-  20 %. The effects are not the cause (most ~3 % of a sample each; RESONATOR 8.6, DIFFUSER 4.8): the six channel
+  20 %. The effects are not the cause (most ~3 % of a sample each; RESONATOR 8.6, DIFFUSER 4.8): the 6 channel
   strips are (~9 % each, run whether heard or not), and the coefficients worked out anew each block (16 %).
-  - A channel's coefficients now each anew only when what they are made of moves (the modulation moved one value,
+  - A channel's coefficients now each anew only when what they are made of moves (the modulation moved 1 value,
     the whole channel was redone).
   - A channel that reaches nothing (muted, or LEVEL and both SENDs off, no RHYTHM on it) is not run; back, it starts
     from silence. Its insert, if any, runs on.
@@ -148,8 +148,8 @@
 
 ## Build 6 (2026-11-10)
 
-- The RHYTHM, stage one: a lane a channel (up to 32 steps, eight step lengths, accents, gate, depth, chance, rolls,
-  mutation), played CHOP, CHOKE, KICK or ACCENT; sixteen styles (INDUSTRIAL, POWER NOISE, BROKEN, AKSAK, POLYMETER,
+- The RHYTHM, stage 1: a lane a channel (up to 32 steps, 8 step lengths, accents, gate, depth, chance, rolls,
+  mutation), played CHOP, CHOKE, KICK or ACCENT; 16 styles (INDUSTRIAL, POWER NOISE, BROKEN, AKSAK, POLYMETER,
   POLYRHYTHM, MARCH, HALFTIME, GABBER, ROLLS, CHOP, TRIBAL, TURING, ERRATIC, SPARSE, CLOCKWORK) drawn for the patch
   as it sounds. The 2nd black key from the right: on and off; SHIFT +: a new rhythm; held: the TEMPO page (10 .. 500
   BPM, SWING, CHAOS, GATES; PRESETS through the styles).
@@ -158,8 +158,8 @@
 
 ## Build 5 (2026-11-10)
 
-- Six effects in the rack, none moving pitch: CYCLES (WAVELOSS, SPUTTER, WAVESET), REED (a clarinet's bore, its
-  note a fixed step), OCTAVER (one or two octaves down), DIFFUSER (four allpasses), SAG (a power supply starving),
+- 6 effects in the rack, none moving pitch: CYCLES (WAVELOSS, SPUTTER, WAVESET), REED (a clarinet's bore, its
+  note a fixed step), OCTAVER (1 or 2 octaves down), DIFFUSER (4 allpasses), SAG (a power supply starving),
   CUTS (BBCut-style phrases of cuts and rolls; GLITCH unchanged). Their notes, modes, sizes and windows are steps,
   out of the modulation's reach. The families use them.
 - Sessions saved by build 4 load as they were.
@@ -168,7 +168,7 @@
 
 - FOLD in every channel, after the tube: a wavefolder (x 1.2 .. x 16), more harmonics as it is driven, never more
   level. On the AMP page (TUBE, GAIN, FOLD, OP-AMP; SHIFT: MODE), a modulation destination, in the families.
-- Four effects in the rack: RESONATOR (six tuned resonators, a root and a chord, fixed: no modulation reaches its
+- 4 effects in the rack: RESONATOR (6 tuned resonators, a root and a chord, fixed: no modulation reaches its
   tuning), XMOD (ring, XOR, fold, compare with another channel or bus), DUCK and GATE (keyed by another channel or
   bus). The families use them.
 - DELAY's and FLANGER's feedback keep their rounding error (after ChoralRoot's FM-1 delay): repeats fade as they
@@ -180,21 +180,21 @@
 
 ## Build 3 (2026-11-10)
 
-- The modulation on pages of its own, the channel's last: LFO 1, LFO 2, and the matrix -- now eight slots -- on
+- The modulation on pages of its own, the channel's last: LFO 1, LFO 2, and the matrix -- now 8 slots -- on
   MOD 1 TO 4 and MOD 5 TO 8 (KNOB: amount; SHIFT + KNOB: destination; PRESETS: source of the slot in hand).
 - SHIFT + black key 1: the chosen channel, every parameter at random (its mute kept).
 - The GESTURE loop: REC arms, the first change records, REC ends and plays; PLAY plays or stops it; REC held empties
   it. Every change on any channel. The output's mute moves to SHIFT + PLAY.
-- SNAPSHOTS: SAVE short opens them; sixteen whole-mixer states on the white keys (held: store; short: recall;
+- SNAPSHOTS: SAVE short opens them; 16 whole-mixer states on the white keys (held: store; short: recall;
   SHIFT: empty), with a morph time (KNOB 1, up to 30 s). Kept with the session, as is the gesture loop.
-- The screen: a second canvas (one band drawn while the last is sent), the panel's link at 20 MHz (was 12), the main
+- The screen: a 2nd canvas (1 band drawn while the last is sent), the panel's link at 20 MHz (was 12), the main
   view drawn without a wipe -- pages change about twice as fast.
 - Sessions saved by build 2 are not read.
 
 ## Build 2 (2026-11-10)
 
-- LEVEL: 1 dB a detent up to -5 dB, then 0.1 dB a detent; PAN: one step a detent, L 50 .. R 50.
-- Sixteen families of patches, as Tonitor's: each its connections, its voicing, its effects, its space and its
+- LEVEL: 1 dB a detent up to -5 dB, then 0.1 dB a detent; PAN: 1 step a detent, L 50 .. R 50.
+- 16 families of patches, as Tonitor's: each its connections, its voicing, its effects, its space and its
   motion. HOME: another family; SHIFT + HOME: the same family; SHIFT + PRESETS: the family before or after; HOME held:
   the nudge.
 - Tonitor's LFOs and modulation matrix on every channel: the MOD page (after FX), SHIFT + SEQ for a random one;
@@ -209,11 +209,11 @@
 The first build of Lilliput: a no-input mixer for the M-VAVE FM-1, after NoInputMixer, on Tonitor's screen and
 platform (Tonitor build 74), with none of Tonitor's engines.
 
-- Six channels a sample at a time: input selector (PRE, POST, MIX L/R, SEND 1/2, RET 1/2, NONE, CH 1-6), noise
-  generator (six types), preamp, six tubes, six op-amps, overload protection, shelves or cuts, peak, notch or
-  band-pass, brickwall limiter, two sends, level, pan, main mix.
-- A rack of seven slots: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH.
-- The output: returns, equaliser, insert, SPACE (six reverb spaces), main level; on CPU1.
-- HOME draws a new patch from six recipes; SHIFT + HOME nudges it; each patch woken up and trimmed to one loudness.
-- Sixteen factory patches, 64 sessions (their own record: other firmwares' data left alone), GLOBAL SETUP, MIDI
-  CCs, USB audio of the output or the six channels, the screen reader.
+- 6 channels a sample at a time: input selector (PRE, POST, MIX L/R, SEND 1/2, RET 1/2, NONE, CH 1-6), noise
+  generator (6 types), preamp, 6 tubes, 6 op-amps, overload protection, shelves or cuts, peak, notch or
+  band-pass, brickwall limiter, 2 sends, level, pan, main mix.
+- A rack of 7 slots: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH.
+- The output: returns, equaliser, insert, SPACE (6 reverb spaces), main level; on CPU1.
+- HOME draws a new patch from 6 recipes; SHIFT + HOME nudges it; each patch woken up and trimmed to a single loudness.
+- 16 factory patches, 64 sessions (their own record: other firmwares' data left alone), GLOBAL SETUP, MIDI
+  CCs, USB audio of the output or the 6 channels, the screen reader.
