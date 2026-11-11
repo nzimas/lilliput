@@ -56,6 +56,7 @@
 <a href="#modulation">Modulation</a>
 <a href="#rhythm">Rhythm</a>
 <a href="#drums">Drums</a>
+<a href="#break" class="sub">Break</a>
 <a href="#gestures">Gestures</a>
 <a href="#snapshots">Snapshots</a>
 <a href="#sessions">Sessions</a>
@@ -84,12 +85,12 @@
 <tr><td><b>PLAY</b></td><td>chosen channel's gesture loop played, or stopped (lit while it plays).</td></tr>
 <tr><td><b>SHIFT + PLAY</b></td><td>output muted, or back (OUT MUTED on screen). Loops keep going, unheard.</td></tr>
 <tr><td><b>White keys 1–15</b></td><td>chosen channel's <b>INPUT</b>: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has).</td></tr>
-<tr><td><b>White key 16</b></td><td>its <b>MAIN MIX</b> on or off.</td></tr>
+<tr><td><b>White key 16</b></td><td>its <b>MAIN MIX</b> on or off. On drums' pages, held: <b>BREAK</b> (see <a href="#break">Break</a>).</td></tr>
 <tr><td><b>Black keys 1–6</b></td><td>mute channels 1–6 (lit: muted).</td></tr>
 <tr><td><b>SHIFT + black key 1</b></td><td>chosen channel <b>at random</b>: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept.</td></tr>
-<tr><td><b>Black key 10</b> (2nd from right)</td><td><b>RHYTHM</b> on or off (first time: one drawn). Its light: on while it plays, dark a moment on each beat.</td></tr>
+<tr><td><b>Black key 10</b> (2nd from right)</td><td><b>RHYTHM</b> pages: TEMPO, then MIX (again: back). See <a href="#rhythm">Rhythm</a>.</td></tr>
 <tr><td><b>SHIFT + black key 10</b></td><td><b>new rhythm</b>, of another style, playing.</td></tr>
-<tr><td><b>Black key 10</b> held 0.8 s</td><td><b>TEMPO</b> page (again: back). See <a href="#rhythm">Rhythm</a>.</td></tr>
+<tr><td><b>Black key 10</b> held 0.8 s</td><td><b>RHYTHM</b> on or off (first time: one drawn). Its light: on while it plays, dark a moment on each beat.</td></tr>
 <tr><td><b>Black key 9</b> (3rd from right)</td><td><b>DRUMS</b> pages (again: back). See <a href="#drums">Drums</a>.</td></tr>
 <tr><td><b>SHIFT + black key 9</b></td><td><b>new drum rhythm</b>, of another style, playing.</td></tr>
 <tr><td><b>Black key 9</b> held 0.8 s</td><td><b>drums</b> on or off. Its light: on while they play.</td></tr>
@@ -233,7 +234,8 @@
 <tr><td>SPARSE</td><td>few hits, long choked swells</td></tr>
 <tr><td>CLOCKWORK</td><td>dividers — every 2, 3, 4, 6, 8 steps — gated hard</td></tr>
 </table>
-<p><b>TEMPO page</b> (key held 0.8 s): its title is the style playing (or RHYTHM OFF).</p>
+<p>Its key works as drums' key does: short, its pages (again: back); held 0.8 s, on or off; SHIFT + it, new rhythm.</p>
+<p><b>TEMPO page</b> (key, short): its title is the style playing (or RHYTHM OFF).</p>
 <table>
 <tr><th>KNOB</th><th></th></tr>
 <tr><td>1</td><td><b>TEMPO</b>, 10 … 500 BPM: a BPM a detent, 5 when turned fast</td></tr>
@@ -250,6 +252,7 @@
 <p><b>Black key 9</b> (3rd from right), short, opens their pages (again: back); held 0.8 s, they start or stop; <b>SHIFT +</b> it draws a new drum rhythm and plays it. On their pages:</p>
 <ul>
 <li><b>white keys 1–4</b> choose KICK, SNARE, HATS, PERC (lit: the one chosen); <b>SHIFT +</b> one draws <b>new sound</b> for it, from its recipes; <b>held 0.7 s</b>, it is <b>muted</b> (its key blinks, dim; its page says MUTED), held again, back;</li>
+<li><b>white key 16</b> (last, under SHIFT), <b>held</b>: <a href="#break">BREAK</a>, variation of rhythm playing, heard while held;</li>
 <li><b>PRESETS</b> goes through drum rhythms, a new one of each, playing;</li>
 <li><b>OCT− / OCT+</b> through 3 pages.</li>
 </ul>
@@ -262,6 +265,25 @@
 <p><b>A voice</b>: tone, swept down in pitch, and noise through a filter, mixed by NOISE; envelope rising over ATTACK and falling over DECAY; CLICK on top; then <b>DRIVE</b>, a tanh up to 32 times over: every voice has its own. The dry drums go to the output after the reverb, so SPACE never washes them away; each voice's <b>REVERB</b> sends it into SPACE's reverb, heard even when mixer's SPACE MIX is down. Their level is their own: the trim that sets mixer's main level never moves it.</p>
 <p><b>Sounds</b> (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (slow attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER, TICK, CYMBAL, DIRT; percussion ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND.</p>
 <p><b>Rhythms</b>, after the genre — rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts and metal rather than in denser kicks — every lane in 16ths, 1 or 2 bars, so the pace is always the tempo's: <b>POWER 4/4</b>, <b>PISTON</b> (8th-note kicks, beat accented), <b>MARCH</b>, <b>OFFBEAT</b> (off-beat crushed hat, low tom), <b>RUMBLE</b> (clap on 2, stab, push every other bar), <b>BROKEN</b> (jagged kicks over a backbeat), <b>3 AGAINST 4</b>, <b>TRIBAL</b> (toms out of the kick, anvil on the beat), <b>SHUFFLE</b> (the only one that swings much), <b>DIST BREAK</b> (straight), <b>HALF RITUAL</b> (half time: hats keep the tempo), <b>BURST FILL</b> (2 bars, noise burst ending the 2nd). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares).</p>
+<h3 id="break">Break</h3>
+<p>On drums' pages, <b>hold white key 16</b> (last, under SHIFT): drums play a <b>variation of their own rhythm</b> — fill, break, flams, beat repeat — for as long as it is held. Let go, rhythm carries on from where it would have been: nothing is written, each lane's steps run on underneath.</p>
+<p>Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it. A break is <b>quantized</b>: it starts on the rhythm's next beat (next half bar for HALF TIME and MIRROR), playing as written until then, and fills are measured against the bar, so they land on its next downbeat however late they start. Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:</p>
+<table>
+<tr><th>Way</th><th>What plays</th></tr>
+<tr><td>STUTTER</td><td>bar's busiest beat repeated: whole, then half, then a single step, ratcheting faster</td></tr>
+<tr><td>AVALANCHE</td><td>fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, rising in pitch, kick on beats; lands on downbeat, all accented, and builds again</td></tr>
+<tr><td>FLAMS</td><td>rhythm as written, each kick, snare and perc hit flammed (soft grace note before it); accented snares dragged (2 graces)</td></tr>
+<tr><td>DROP</td><td>kick and snare out; hats and perc on, hats' gaps filled with ghosts</td></tr>
+<tr><td>HALF TIME</td><td>kick, snare and perc at half speed; hats at full speed over them</td></tr>
+<tr><td>CELL 3, 5, 6 or 7</td><td>each lane loops a cell of that many of its own steps against the bar; kick keeps each downbeat</td></tr>
+<tr><td>SWAP</td><td>voices trade lanes: kick plays snare's steps, snare kick's, hats perc's, perc hats'</td></tr>
+<tr><td>MIRROR</td><td>each half bar backwards; kick keeps its first step</td></tr>
+<tr><td>TUMBLE</td><td>perc on every step, falling 2 octaves over 2 beats, again and again; kick as written</td></tr>
+<tr><td>INTERLOCK</td><td>kick and snare keep 1st half of each beat, hats and perc the 2nd; after a bar they trade whole beats</td></tr>
+<tr><td>SCATTER</td><td>bar's 8 pairs of steps in another order, first in place</td></tr>
+<tr><td>BUZZ</td><td>rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled</td></tr>
+<tr><td>GHOSTS</td><td>every gap filled with ghost notes, hats accented 3 3 2, kick pushing ahead of beat 4</td></tr>
+</table>
 <p>The drums are not part of a patch: HOME, snapshots and gesture loops leave them alone. A session keeps them.</p>
 <h2 id="gestures">Gestures</h2>
 <p>Each channel has its own gesture loop. It records what your hands do to that channel — its knobs, its input key, its mute, its effect slot, channel thrown at random, a MIDI CC to it — and plays it back, round and round, while you go on playing over it. Loops are independent: each its own length, each started and stopped on its own. REC and PLAY act on chosen channel, and their lights show its loop.</p>

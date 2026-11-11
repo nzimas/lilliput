@@ -65,6 +65,8 @@ typedef struct {
 } dvst_t;
 static dvst_t dvs[NDV];
 static uint32_t drm_rng = 0x2545F491u;
+typedef struct { uint8_t fire, acc, alt, rat, flam; int8_t pitch; } dhit_t;   /* a step's hit (drumseq.c): ACC 0, 1 (an
+                                                  * accent), 2 (a ghost); RAT its hits in the step; FLAM its grace notes */
 static volatile struct { uint8_t fire, acc, alt; int8_t pitch; } dtrig[NDV];   /* this block's hits (CPU0, for the stage) */
 static int32_t drm_l[CTL], drm_r[CTL], drm_s[CTL];   /* the drums this block: dry left, right; into the reverb */
 static uint8_t drm_wet;          /* (a voice sounding with a reverb send, or its tail: the stage's reverb runs with them) */
@@ -92,7 +94,7 @@ static FAST void drums_render(void)
             v->aenv = k->att ? 0u : 1u << 30;
             v->up = (uint8_t)(k->att != 0u);
             v->dec = dtrig[c].alt ? k->adec_alt : k->adec;
-            v->acc = dtrig[c].acc ? Q15 : 20000;
+            v->acc = dtrig[c].acc == 1u ? Q15 : dtrig[c].acc ? 7000 : 20000;   /* (2: a ghost, build 19) */
             v->live = 1;
         }
         if (!v->live)

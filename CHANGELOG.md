@@ -1,5 +1,15 @@
 # Changelog
 
+## Build 19 (2026-11-11)
+
+- RHYTHM's key (2nd black key from right) works as drums' key: short, its pages (TEMPO, MIX; again: back); held
+  0.8 s, rhythm on or off; SHIFT + it, new rhythm, as before.
+- **BREAK**: on drums' pages, white key 16 (last, under SHIFT), held, plays variation of drums' rhythm while held:
+  STUTTER, AVALANCHE, FLAMS, DROP, HALF TIME, CELL, SWAP, MIRROR, TUMBLE, INTERLOCK, SCATTER, BUZZ, GHOSTS. Each
+  press draws one, named on the page. Quantized: it starts on rhythm's next beat (half bar for HALF TIME and
+  MIRROR); fills land on bar's downbeat. Let go, rhythm carries on in place.
+- Drum steps can now be ghosts (soft), besides plain and accented: breaks' grace notes, rolls and fills use them.
+
 ## Build 18 (2026-11-11)
 
 - Logo: name drawn on a single grid -- "lilliput" from bare strokes, squares and 2 arcs, every stroke 1 gap from

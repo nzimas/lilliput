@@ -91,12 +91,12 @@ going back to Tonitor erases Lilliput's sessions.)
 | **PLAY** | chosen channel's gesture loop played, or stopped (lit while it plays). |
 | **SHIFT + PLAY** | output muted, or back (OUT MUTED on screen). Loops keep going, unheard. |
 | **White keys 1–15** | chosen channel's **INPUT**: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has). |
-| **White key 16** | its **MAIN MIX** on or off. |
+| **White key 16** | its **MAIN MIX** on or off. On drums' pages, held: **BREAK** (see [Break](#break)). |
 | **Black keys 1–6** | mute channels 1–6 (lit: muted). |
 | **SHIFT + black key 1** | chosen channel **at random**: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept. |
-| **Black key 10** (2nd from right) | **RHYTHM** on or off (first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
+| **Black key 10** (2nd from right) | **RHYTHM** pages: TEMPO, then MIX (again: back). See [Rhythm](#rhythm). |
 | **SHIFT + black key 10** | **new rhythm**, of another style, playing. |
-| **Black key 10** held 0.8 s | **TEMPO** page (again: back). See [Rhythm](#rhythm). |
+| **Black key 10** held 0.8 s | **RHYTHM** on or off (first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
 | **Black key 9** (3rd from right) | **DRUMS** pages (again: back). See [Drums](#drums). |
 | **SHIFT + black key 9** | **new drum rhythm**, of another style, playing. |
 | **Black key 9** held 0.8 s | **drums** on or off. Its light: on while they play. |
@@ -336,7 +336,9 @@ is chopped too, over a bed 14 dB down, so its channel is never all but silent. E
 | SPARSE | few hits, long choked swells |
 | CLOCKWORK | dividers — every 2, 3, 4, 6, 8 steps — gated hard |
 
-**TEMPO page** (key held 0.8 s): its title is the style playing (or RHYTHM OFF).
+Its key works as drums' key does: short, its pages (again: back); held 0.8 s, on or off; SHIFT + it, new rhythm.
+
+**TEMPO page** (key, short): its title is the style playing (or RHYTHM OFF).
 
 | KNOB | |
 | --- | --- |
@@ -366,6 +368,7 @@ RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 
 - **white keys 1–4** choose KICK, SNARE, HATS, PERC (lit: the one chosen); **SHIFT +** one draws **new sound** for
   it, from its recipes; **held 0.7 s**, it is **muted** (its key blinks, dim; its page says MUTED), held again, back;
+- **white key 16** (last, under SHIFT), **held**: [BREAK](#break), variation of rhythm playing, heard while held;
 - **PRESETS** goes through drum rhythms, a new one of each, playing;
 - **OCT− / OCT+** through 3 pages.
 
@@ -393,6 +396,33 @@ low tom), **RUMBLE** (clap on 2, stab, push every other bar), **BROKEN** (jagged
 much), **DIST BREAK** (straight), **HALF RITUAL** (half time: hats keep the tempo), **BURST FILL** (2 bars,
 noise burst ending the 2nd). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
 **ALT**, its decay cut to 1/5 (closed hats among open ones, ghost snares).
+
+### Break
+
+On drums' pages, **hold white key 16** (last, under SHIFT): drums play a **variation of their own rhythm** — fill,
+break, flams, beat repeat — for as long as it is held. Let go, rhythm carries on from where it would have been: nothing
+is written, each lane's steps run on underneath.
+
+Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it. A
+break is **quantized**: it starts on the rhythm's next beat (next half bar for HALF TIME and MIRROR), playing as
+written until then, and fills are measured against the bar, so they land on its next downbeat however late they start.
+Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:
+
+| Way | What plays |
+| --- | --- |
+| STUTTER | bar's busiest beat repeated: whole, then half, then a single step, ratcheting faster |
+| AVALANCHE | fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, rising in pitch, kick on beats; lands on downbeat, all accented, and builds again |
+| FLAMS | rhythm as written, each kick, snare and perc hit flammed (soft grace note before it); accented snares dragged (2 graces) |
+| DROP | kick and snare out; hats and perc on, hats' gaps filled with ghosts |
+| HALF TIME | kick, snare and perc at half speed; hats at full speed over them |
+| CELL 3, 5, 6 or 7 | each lane loops a cell of that many of its own steps against the bar; kick keeps each downbeat |
+| SWAP | voices trade lanes: kick plays snare's steps, snare kick's, hats perc's, perc hats' |
+| MIRROR | each half bar backwards; kick keeps its first step |
+| TUMBLE | perc on every step, falling 2 octaves over 2 beats, again and again; kick as written |
+| INTERLOCK | kick and snare keep 1st half of each beat, hats and perc the 2nd; after a bar they trade whole beats |
+| SCATTER | bar's 8 pairs of steps in another order, first in place |
+| BUZZ | rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled |
+| GHOSTS | every gap filled with ghost notes, hats accented 3 3 2, kick pushing ahead of beat 4 |
 
 The drums are not part of a patch: HOME, snapshots and gesture loops leave them alone. A session keeps them.
 

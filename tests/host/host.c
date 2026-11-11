@@ -702,6 +702,76 @@ static int cmd_drums(void)
             bad++;
         }
     }
+    /* BREAK (build 19): each way, held from mid-beat for 4 bars at 120 BPM over a written rhythm: as written until
+     * its quantum (the next beat, or half bar), something else after it, as written again from the step after it is
+     * let go; never a voice firing more than 4 times a step */
+    {
+        enum { NB2 = 12000 };
+        static uint8_t base[NB2], brk[NB2];
+        uint32_t w, b, pass;
+        int32_t out[2 * CTL];
+        for (w = 0; w < BK_N; w++) {
+            uint32_t press = 1000u, rel = 1000u + 5512u, q, firstdiff = 0, diffs = 0, after = 0, dense = 0, i3;
+            for (pass = 0; pass < 2u; pass++) {
+                uint8_t *rec = pass ? brk : base;
+                drm_quiet_mixer();
+                drm_init(9u);
+                drm_draw_rhythm(1u, DS_POWER);
+                dl_set(DV_KICK, "X...X...X..XX...", 100);
+                dl_set(DV_SNARE, "....X.......X.X.", 100);
+                dl_set(DV_HAT, "..X...X...X...XX", 100);
+                dl_set(DV_PERC, "...X.....X...X..", 100);
+                drm.l[DV_SNARE].acc = 1u << 12;
+                drm.on = 1;
+                drm.swing = 0;
+                par.rhy.bpm = 120;
+                brk_hold = 0;
+                brk_plan.way = (uint8_t)w;
+                brk_plan.cell = 5;
+                brk_plan.q = (uint8_t)(w == BK_HALF || w == BK_MIRROR ? 8u : 4u);
+                for (i3 = 0; i3 < 8u; i3++)
+                    brk_plan.ord[i3] = (uint8_t)((i3 * 5u) % 8u);
+                for (b = 0; b < NB2; b++) {
+                    if (pass && b == press) {
+                        brk_fill();
+                        brk_hold = 1;
+                    }
+                    if (pass && b == rel)
+                        brk_hold = 0;
+                    mix_block(out);
+                    rec[b] = 0;
+                    for (i3 = 0; i3 < NDV; i3++)
+                        rec[b] |= (uint8_t)(dtrig[i3].fire << i3);
+                }
+            }
+            q = brk_plan.q == 8u ? 1378u : 689u;    /* (blocks: a beat, half a bar at 120) */
+            q = (press / q + 1u) * q;
+            for (b = 0; b < NB2; b++)
+                if (base[b] != brk[b]) {
+                    if (!firstdiff)
+                        firstdiff = b;
+                    diffs++;
+                    if (b > rel + 400u)
+                        after++;
+                }
+            for (b = press; b + 172u < rel; b += 172u) {   /* (a step: 172 blocks) */
+                uint32_t n4[NDV] = {0}, v;
+                for (i3 = 0; i3 < 172u; i3++)
+                    for (v = 0; v < NDV; v++)
+                        n4[v] += brk[b + i3] >> v & 1u;
+                for (v = 0; v < NDV; v++)
+                    dense |= n4[v] > 4u;
+            }
+            printf("  BREAK %-10s from block %u (quantum %u): first change %u, %u blocks differ, %u after letting go\n",
+                   BK_NAME[w], press, q, firstdiff, diffs, after);
+            if (!diffs || firstdiff < q - 1u || firstdiff > q + 1400u || after || dense) {
+                printf("FAIL drums: BREAK %s: %s\n", BK_NAME[w], !diffs ? "nothing changed" : firstdiff < q - 1u ?
+                       "before its quantum" : firstdiff > q + 1400u ? "late" : after ? "not as written after" : "too dense");
+                bad++;
+            }
+        }
+        brk_hold = 0;
+    }
     /* the COMPRESSOR: AMOUNT brings the mix forward and ducks it under the kick, more with more */
     {
         static const uint8_t AM[3] = {0, 35, 90};
@@ -964,6 +1034,11 @@ static int cmd_screens(const char *dir)
     key(white_key(3), 1);
     run_ms(800);
     key(white_key(3), 0);
+    ui.brk_last = BK_AVALANCHE;                  /* (BREAK held: its way on the title -- any but AVALANCHE) */
+    key(white_key(15), 1);
+    run_ms(400);
+    SHOT("10g_drums_break");
+    key(white_key(15), 0);
     goto_page(PG_DRUM3);
     key(KEY_DRM, 1);
     run_ms(900);
@@ -1005,18 +1080,16 @@ static int cmd_screens(const char *dir)
     SHOT("17_rec");
     press_btn(B_REC);
     press_btn(B_PLAY);
-    tap_key(KEY_RHY);
     key(KEY_RHY, 1);
     run_ms(900);
     key(KEY_RHY, 0);
+    tap_key(KEY_RHY);
     run_ms(100);
     SHOT("18_tempo");
     press_btn(B_OCTUP);
     run_ms(100);
     SHOT("19_rhythm_mix");
-    key(KEY_RHY, 1);
-    run_ms(900);
-    key(KEY_RHY, 0);
+    tap_key(KEY_RHY);
     press_btn(B_REC);
     hold_btn(B_SAVE, 900);
     run_ms(60);
@@ -1353,12 +1426,14 @@ static int cmd_flows(void)
         press_btn(B_SAVE);
         EXPECT(ui.page != PG_SNAP, "SAVE again: back");
     }
-    /* the RHYTHM: its key on and off; SHIFT + it a new one; held, the TEMPO page */
+    /* the RHYTHM (build 19, as the DRUMS' key): held, on and off; SHIFT + it a new one; short, its pages */
     press_btn(LAYER_BTN[0]);
     if (ui.page != PG_MAIN)
         press_btn(LAYER_BTN[0]);
-    tap_key(KEY_RHY);
-    EXPECT(par.rhy.on, "the RHYTHM's key: on (a rhythm drawn)");
+    key(KEY_RHY, 1);
+    run_ms(900);
+    key(KEY_RHY, 0);
+    EXPECT(par.rhy.on && ui.page == PG_MAIN, "the RHYTHM's key held: on (a rhythm drawn), the page kept");
     {
         uint8_t st = par.rhy.style;
         key(KEY_SHIFT, 1);
@@ -1366,12 +1441,12 @@ static int cmd_flows(void)
         key(KEY_SHIFT, 0);
         EXPECT(par.rhy.on && par.rhy.style != st, "SHIFT + it: a new rhythm, of another style");
     }
-    tap_key(KEY_RHY);
-    EXPECT(!par.rhy.on, "and off");
     key(KEY_RHY, 1);
     run_ms(900);
     key(KEY_RHY, 0);
-    EXPECT(ui.page == PG_TEMPO && !par.rhy.on, "held: the TEMPO page (the rhythm left as it was)");
+    EXPECT(!par.rhy.on, "held again: off");
+    tap_key(KEY_RHY);
+    EXPECT(ui.page == PG_TEMPO && !par.rhy.on, "short: the TEMPO page (the rhythm left as it was)");
     {
         uint16_t b0 = par.rhy.bpm;
         turn(EN_K1, 1);
@@ -1394,10 +1469,8 @@ static int cmd_flows(void)
         press_btn(B_OCTDN);
         EXPECT(ui.page == PG_TEMPO, "OCT- : back to TEMPO");
     }
-    key(KEY_RHY, 1);
-    run_ms(900);
-    key(KEY_RHY, 0);
-    EXPECT(ui.page != PG_TEMPO, "held again: back");
+    tap_key(KEY_RHY);
+    EXPECT(ui.page != PG_TEMPO && !rhy_page(), "short again: back");
     {
         rhy_par_t keep = par.rhy;
         press_btn(B_HOME);
@@ -1518,6 +1591,31 @@ static int cmd_flows(void)
         run_ms(800);
         key(white_key(0), 0);
         EXPECT(!(drm.mute & 1u), "held again: back");
+        /* BREAK (build 19): the last white key held, a way drawn and played; let go, the rhythm as written */
+        {
+            uint32_t w0, k2, same = 0;
+            uint16_t mm = drm.mute;
+            uint8_t ds = ui.dsel;
+            drm.mute = 0;
+            key(white_key(15), 1);
+            run_ms(300);
+            EXPECT(ui.brk_on && brk_hold && ui.dsel == ds, "the last white key held: BREAK, the voice chosen kept");
+            EXPECT(host_led[14u + KEY_BRK], "its key lit");
+            w0 = brk_plan.way;
+            key(white_key(15), 0);
+            run_ms(30);
+            EXPECT(!ui.brk_on && !brk_hold, "let go: off");
+            for (k2 = 0; k2 < 12u; k2++) {
+                key(white_key(15), 1);
+                run_ms(40);
+                same += brk_plan.way == w0;
+                w0 = brk_plan.way;
+                key(white_key(15), 0);
+                run_ms(20);
+            }
+            EXPECT(!same, "each press another way");
+            drm.mute = mm;
+        }
         drm.mute = 2;                            /* (the SNARE muted, to be saved) */
         tap_key(KEY_DRM);
         EXPECT(ui.page == PG_MAIN, "the key again: back to the channel");
@@ -1829,6 +1927,56 @@ static int cmd_cores(int n)
     return 0;
 }
 
+/* host breaks: each BREAK way over 2 bars of a written rhythm, as a grid of steps (x a hit, X an accent, o a ghost,
+ * a digit: its hits in the step) -- to look at */
+static int cmd_breaks(void)
+{
+    uint32_t w, b, v;
+    int32_t out[2 * CTL];
+    static const char *const RH[NDV] = {"X...X...X..XX...", "....X.......X.X.", "..X...X...X...XX", "...X.....X...X.."};
+    for (w = 0; w <= BK_N; w++) {
+        char g[NDV][33];
+        drm_quiet_mixer();
+        drm_init(9u);
+        drm_draw_rhythm(1u, DS_POWER);
+        for (v = 0; v < NDV; v++)
+            dl_set(v, RH[v], 100);
+        drm.l[DV_SNARE].acc = 1u << 12;
+        drm.on = 1;
+        drm.swing = 0;
+        par.rhy.bpm = 120;
+        brk_hold = 0;
+        if (w < BK_N) {
+            brk_plan.way = (uint8_t)w;
+            brk_plan.cell = 5;
+            brk_plan.q = 4;
+            for (v = 0; v < 8u; v++)
+                brk_plan.ord[v] = (uint8_t)((v * 5u) % 8u);
+            brk_fill();
+            brk_hold = 1;
+        }
+        memset(g, '.', sizeof g);
+        for (b = 0; b < 32u * 172u + 86u; b++) {
+            mix_block(out);
+            for (v = 0; v < NDV; v++)
+                if (dtrig[v].fire) {
+                    uint32_t st = (b + 40u) / 172u;
+                    char *c = &g[v][st < 32u ? st : 31u];
+                    if (*c == '.')
+                        *c = dtrig[v].acc == 1u ? 'X' : dtrig[v].acc == 2u ? 'o' : 'x';
+                    else
+                        *c = *c >= '2' && *c < '9' ? (char)(*c + 1) : '2';
+                }
+        }
+        printf("%s\n", w < BK_N ? BK_NAME[w] : "(as written)");
+        for (v = 0; v < NDV; v++) {
+            g[v][32] = 0;
+            printf("  %-6s %.16s %.16s\n", DV_NAME[v], g[v], g[v] + 16);
+        }
+    }
+    brk_hold = 0;
+    return 0;
+}
 int main(int argc, char **argv)
 {
     sine_init();                                 /* (as the firmware's boot: SINE from SINE_ROM) */
@@ -1836,6 +1984,8 @@ int main(int argc, char **argv)
         return cmd_demo(argv[2]);
     if (argc >= 2 && str_eq(argv[1], "drums"))
         return cmd_drums();
+    if (argc >= 2 && str_eq(argv[1], "breaks"))
+        return cmd_breaks();
     if (argc >= 2 && str_eq(argv[1], "free"))
         return cmd_free();
     if (argc >= 2 && str_eq(argv[1], "check"))

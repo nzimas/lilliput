@@ -22,10 +22,13 @@
  *   HOME held                 the patch nudged: every channel's tone a little elsewhere, the connections kept
  *   SAVE held                 save the session: over the one loaded at once, else a new one (asked)
  *   SHIFT + SAVE              the SESSIONS page (PRESETS chooses, SAVE loads); held 0.8 s: GLOBAL SETUP
+ *   2nd black key from right  the RHYTHM (rhythm.c), as the DRUMS' key (build 19): short, its pages (again: back);
+ *                             SHIFT + short, a new rhythm, playing; held 0.8 s, the rhythm on or off
  *   3rd black key from right  the DRUMS (drums.c): short, their pages (again: back); SHIFT + short, a new drum rhythm,
- *                             playing; held 0.8 s, the drums on or off. On their pages the first three white keys
- *                             choose KICK, SNARE, HATS; SHIFT + one, a new sound for it; PRESETS, the drum rhythms;
- *                             OCT- / OCT+ through the three pages
+ *                             playing; held 0.8 s, the drums on or off. On their pages the first four white keys
+ *                             choose KICK, SNARE, HATS, PERC (held 0.7 s: muted, or back); SHIFT + one, a new sound for
+ *                             it; the last white key held, BREAK (drumbrk.c); PRESETS, the drum rhythms; OCT- / OCT+
+ *                             through the three pages
  *   REC / PLAY                the chosen channel's GESTURE loop: REC arms, ends; held, empties; PLAY plays or stops
  *                             it (one loop a channel, each on its own: perform.c)
  *   SHIFT + PLAY              the output muted, or back (a panic: the loops keep going, unheard)
@@ -44,10 +47,11 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 #define NKEY 27u
 #define KEY_SHIFT 25u            /* the rightmost black key */
 #define KEY_CPU 15u              /* the 7th black key: SHIFT + it held, the CPU page */
-#define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- on or off; SHIFT +: a new one; held: TEMPO */
+#define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- its pages; SHIFT +: a new one; held: on / off */
 #define KEY_DRM 20u              /* the 3rd from the right: the DRUMS -- their pages; SHIFT +: a new rhythm; held: on / off */
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
+#define KEY_BRK 26u              /* .. on the DRUMS' pages: BREAK, held (drumbrk.c) */
 
 static uint32_t boot_seed;                       /* (main.c, before ui_init: the ADCs' noise and the clock, mixed) */
 static int32_t batt_raw;                         /* the battery's divider, smoothed (main.c), 0 .. 1023; 0 none yet */
@@ -139,11 +143,12 @@ static struct {
     uint8_t browse;              /* PRESETS turned since the patch came: the main view names the recipe, not the patch */
     uint8_t home_down, home_sh, home_done;   /* HOME down (with SHIFT) since home_t0; held: the nudge done */
     uint32_t home_t0;
-    uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: TEMPO */
+    uint8_t rhy_down, rhy_sh, rhy_done;   /* the RHYTHM's key down (with SHIFT) since rhy_t0; held: on / off */
     uint32_t rhy_t0, beat_seen, beat_at;
     uint8_t dsel;                /* the DRUMS' voice chosen: KICK, SNARE, HATS */
     uint8_t drm_down, drm_sh, drm_done;
     uint32_t drm_t0;
+    uint8_t brk_on, brk_last;   /* BREAK's key held (since a press on the DRUMS' pages); the way drawn last */
     int8_t dkey;                 /* a voice's white key down on the DRUMS' pages (-1 none): held 0.7 s, muted or back */
     uint8_t dkey_done;
     uint32_t dkey_t0;
@@ -1124,31 +1129,33 @@ static void ui_input(void)
         ui.rhy_done = 0;
         ui.rhy_t0 = fm1_ms;
     }
-    if (ui.rhy_down) {
+    if (ui.rhy_down) {                           /* (build 19: as the DRUMS' key -- short, its pages; held, on or off) */
         if ((up >> KEY_RHY) & 1u) {
             ui.rhy_down = 0;
             if (!ui.rhy_done) {
                 if (ui.rhy_sh)                   /* SHIFT + it: a new rhythm (another style), playing */
                     rhy_new(-1);
-                else {                           /* on, or off */
-                    uint32_t c, any = 0;
-                    for (c = 0; c < NCH; c++)
-                        any |= par.rhy.lane[c].mode != RM_OFF;
-                    if (!par.rhy.on && !any)
-                        rhy_new(-1);             /* (none drawn yet: one) */
-                    else {
-                        par.rhy.on = (uint8_t)!par.rhy.on;
-                        rhy_reset = 1;
-                        say(par.rhy.on ? "RHYTHM ON" : "RHYTHM OFF", 900);
-                    }
+                else if (rhy_page())             /* short: its pages, or back */
+                    page_back();
+                else {
+                    if (ui.page <= PG_FX)
+                        ui.last_ch_page = ui.page;
+                    goto_page(PG_TEMPO);
                 }
             }
         } else if (!ui.rhy_done && !ui.rhy_sh && (uint32_t)(fm1_ms - ui.rhy_t0) >= 800u) {
-            ui.rhy_done = 1;                     /* held: the TEMPO page, or back */
-            if (rhy_page())
-                page_back();
-            else
-                goto_page(PG_TEMPO);
+            uint32_t c, any = 0;                 /* held: on, or off */
+            ui.rhy_done = 1;
+            for (c = 0; c < NCH; c++)
+                any |= par.rhy.lane[c].mode != RM_OFF;
+            if (!par.rhy.on && !any)
+                rhy_new(-1);                     /* (none drawn yet: one) */
+            else {
+                par.rhy.on = (uint8_t)!par.rhy.on;
+                rhy_reset = 1;
+                say(par.rhy.on ? "RHYTHM ON" : "RHYTHM OFF", 900);
+            }
+            ui.force = 1;
         }
     }
     if ((down >> KEY_DRM) & 1u) {                /* the DRUMS' key */
@@ -1190,6 +1197,36 @@ static void ui_input(void)
             ui.force = 1;
         }
     }
+    if (((down >> KEY_BRK) & 1u) && drm_page()) {   /* BREAK: a way drawn, played while the key is held (drumbrk.c) */
+        uint32_t r = next_seed(), i, w;
+        do {
+            r = r * 1664525u + 1013904223u;
+            w = (r >> 16) % BK_N;
+        } while (w == ui.brk_last);
+        ui.brk_last = (uint8_t)w;
+        brk_plan.way = (uint8_t)w;
+        brk_plan.cell = (uint8_t)(3u + (r >> 8) % 4u + ((r >> 8) % 4u ? 1u : 0u));   /* (3, 5, 6, 7) */
+        brk_plan.q = (uint8_t)(w == BK_HALF || w == BK_MIRROR ? 8u : 4u);
+        for (i = 0; i < 8u; i++)
+            brk_plan.ord[i] = (uint8_t)i;
+        for (i = 7; i > 1u; i--) {               /* (SCATTER: pairs 1 .. 7 shuffled, the first in place) */
+            uint32_t j;
+            r = r * 1664525u + 1013904223u;
+            j = 1u + (r >> 16) % i;
+            w = brk_plan.ord[i];
+            brk_plan.ord[i] = brk_plan.ord[j];
+            brk_plan.ord[j] = (uint8_t)w;
+        }
+        brk_r = r | 1u;
+        brk_fill();                              /* (each lane's steps under it, from its next quantum) */
+        ui.brk_on = 1;
+        ui.force = 1;
+    }
+    if (ui.brk_on && !((keys >> KEY_BRK) & 1u)) {   /* let go: the rhythm as written, from where it is */
+        ui.brk_on = 0;
+        ui.force = 1;
+    }
+    brk_hold = ui.brk_on;
     if (ui.page == PG_SNAP && ui.snap_key >= 0) {   /* a snapshot's key: let go soon, recalled; held, stored */
         uint32_t kk = (uint32_t)ui.snap_key, sw = (uint32_t)white_ix(kk);
         if ((up >> kk) & 1u) {
@@ -1373,6 +1410,11 @@ static void ui_leds(void)
         if (drm_page() && w >= 0) {              /* the DRUMS' pages: the voices, the one chosen lit; a muted one
                                                   * blinking, dim */
             int muted = w < (int32_t)NDV && (drm.mute >> w & 1u);
+            if (k == KEY_BRK) {                  /* BREAK's: glowing, lit while held */
+                fm1_led_key(14u + k, ui.brk_on);
+                led_dim_key(14u + k, 1);
+                continue;
+            }
             fm1_led_key(14u + k, w == ui.dsel && !muted);
             led_dim_key(14u + k, muted ? blink : w < (int32_t)NDV);
             continue;
@@ -1568,7 +1610,15 @@ static void draw_title(void)
                     sizeof t - str_len(t));
         }
     }
-    if (show_shift())                            /* (SHIFT held: the switches) */
+    if (drm_page() && ui.brk_on) {               /* BREAK held: its way */
+        str_cpy(t, BK_NAME[brk_plan.way % BK_N], sizeof t);
+        if (brk_plan.way == BK_CELL) {
+            uint32_t n = str_len(t);
+            t[n] = ' ';
+            t[n + 1] = (char)('0' + brk_plan.cell);
+            t[n + 2] = 0;
+        }
+    } else if (show_shift())                     /* (SHIFT held: the switches) */
         str_cpy(t + str_len(t), "  SHIFT", 8);
     cv_begin(240, TITLE_H, C_BLACK);
     text_fit_c(0, TITLE_H - 2, t, &FONT_M, page_col());
@@ -2067,6 +2117,7 @@ static void ui_init(void)
     ui.touched = -1;
     ui.snap_key = -1;
     ui.dkey = -1;
+    ui.brk_last = 0xFF;
 #if TELEMETRY
     ui.seed = 0x5EEDu;                           /* (a diagnostic build: the same patch each start) */
 #else

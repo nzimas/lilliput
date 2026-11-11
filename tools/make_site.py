@@ -258,7 +258,7 @@ def fragments():
 
 
 SCREENS = ["00_splash", "01_main", "02_dial_limit", "03_amp", "05_eq", "07_fx", "09c_lfo1", "09d_mod_1_4", "10_overview",
-           "07e_compressor", "08_out", "10b_drums_kick", "10d_drums_kick_2", "10e_drums_rhythm", "10f_drums_perc_muted",
+           "07e_compressor", "08_out", "10b_drums_kick", "10d_drums_kick_2", "10e_drums_rhythm", "10f_drums_perc_muted", "10g_drums_break",
            "18_tempo", "19_rhythm_mix", "16_snapshots", "17_rec", "12_recipe", "13_new_patch", "15_save_ask"]
 
 
