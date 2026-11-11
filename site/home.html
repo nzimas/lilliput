@@ -1,14 +1,14 @@
 <div class="hero">
-  <p class="eyebrow">Firmware for the M-VAVE FM-1</p>
-  <h1>A no-input mixer, with drums</h1>
-  <p>Lilliput turns the FM-1 into a no-input mixer: 6 channels with nothing plugged into them, feeding back into
+  <p class="eyebrow">Firmware for M-VAVE FM-1</p>
+  <h1>No-input mixer, with drums</h1>
+  <p>Lilliput turns FM-1 into a no-input mixer: 6 channels with nothing plugged into them, feeding back into
     themselves and into each other, through tubes, op-amps, filters, limiters and a rack of effects. The circuit is
     the instrument. You play it by finding where a loop starts to sing.</p>
-  <p class="sub">Beside it sits a 4-voice drum synthesizer and a rhythm engine on a single shared tempo, so the
+  <p class="sub">Beside it sits a 4-voice drum synthesizer and rhythm engine on a single shared tempo, so
     feedback can be played as drones, as texture, or chopped and pushed into rhythmic noise.</p>
   <div class="cta">
     <a class="btn primary" href="install.html">Install via browser</a>
-    <a class="btn" href="manual.html">Read the manual</a>
+    <a class="btn" href="manual.html">Read manual</a>
     <a class="btn" href="noinput.html">What is no-input mixing?</a>
   </div>
 </div>
@@ -16,7 +16,7 @@
 <section class="demo" id="demo" aria-label="Demos">
   <div class="demo-head">
     <p class="demo-title">Demos</p>
-    <p class="demo-state">3 pieces rendered from the firmware's own code, untouched but for a fade</p>
+    <p class="demo-state">3 pieces rendered from firmware's own code, untouched but for a fade</p>
   </div>
   <canvas class="demo-scope" aria-hidden="true"></canvas>
   <ol class="demo-list">
@@ -25,7 +25,7 @@
         <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
         <svg class="i-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11"/></svg>
       </button>
-      <span class="demo-name">Beating<small>BEATING recipe · the mixer alone, loops a few hertz apart</small></span>
+      <span class="demo-name">Beating<small>BEATING recipe · mixer alone, loops a few hertz apart</small></span>
       <span class="demo-bpm">0:48</span>
     </li>
     <li data-src="assets/demo/under-the-kick.mp3">
@@ -33,7 +33,7 @@
         <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
         <svg class="i-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11"/></svg>
       </button>
-      <span class="demo-name">Under the kick<small>ENGINE recipe · the drums in POWER 4/4 at 136 BPM</small></span>
+      <span class="demo-name">Under the kick<small>ENGINE recipe · drums in POWER 4/4 at 136 BPM</small></span>
       <span class="demo-bpm">0:48</span>
     </li>
     <li data-src="assets/demo/ritual.mp3">
@@ -50,34 +50,34 @@
 <h2 id="what">What it does</h2>
 <dl class="features">
   <dt>6 channels</dt>
-  <dd>Each with an input selector, noise, gain, a choice of tubes and op-amps, a wavefolder, high and low filters, a
-    resonant middle filter, a brickwall limiter whose look-ahead sets the loop's pitch, 2 sends, level and pan. Every
-    channel can feed itself, the mix bus, the sends or any other channel.</dd>
-  <dt>The rack</dt>
-  <dd>7 effect slots: on a channel, on a send loop, or on the output. Delay, flanger, chorus, bitcrusher,
-    resonator, ring and cross modulation, octaver, reed, sag, cuts and more. The output adds an equaliser and SPACE,
-    a reverb with 6 rooms.</dd>
+  <dd>Each with input selector, noise, gain, choice of tubes and op-amps, wavefolder, high and low filters,
+    resonant middle filter, brickwall limiter whose look-ahead sets the loop's pitch, 2 sends, level and pan. Every
+    channel can feed itself, mix bus, sends or any other channel.</dd>
+  <dt>Rack</dt>
+  <dd>7 effect slots: on channel, on send loop, or on output. Delay, flanger, chorus, bitcrusher,
+    resonator, ring and cross modulation, octaver, reed, sag, cuts and more. Output adds equaliser and SPACE,
+    reverb with 6 rooms.</dd>
   <dt>Recipes</dt>
   <dd>HOME draws a whole new patch: new connections, new settings and new motion, from any of 25 recipes
     (DRONE, SIREN, GEIGER, ENGINE, CAVERN, FREE and more). Every patch sounds at once. SHIFT + HOME stays in the recipe
-    on the screen.</dd>
+    on screen.</dd>
   <dt>Motion</dt>
-  <dd>2 LFOs and an 8-slot modulation matrix on every channel, so the patch moves by itself.</dd>
+  <dd>2 LFOs and 8-slot modulation matrix on every channel, so patch moves by itself.</dd>
   <dt>Rhythm</dt>
-  <dd>A rhythm engine that gates, chokes or strikes the loops in 16 styles, from 4-on-the-floor to Turing
+  <dd>Rhythm engine that gates, chokes or strikes loops in 16 styles, from 4-on-the-floor to Turing
     machines.</dd>
   <dt>Drums</dt>
-  <dd>4 synthesized voices, kick, snare, hats and metallic percussion, each with its own drive, on the rhythm's
+  <dd>4 synthesized voices, kick, snare, hats and metallic percussion, each with its own drive, on rhythm's
     tempo and beat. 28 sounds and 12 rhythms written for rhythmic noise and industrial techno.</dd>
   <dt>Performance</dt>
-  <dd>A gesture loop on every channel, 16 snapshots with morphing, and 64 sessions in the FM-1's flash,
+  <dd>Gesture loop on every channel, 16 snapshots with morphing, and 64 sessions in FM-1's flash,
     which you can <a href="backup.html">back up</a> to a computer.</dd>
 </dl>
 
 <h2 id="get">Getting it</h2>
 <p>Lilliput is free software (GPL-3.0). You need an M-VAVE FM-1, a USB cable that carries data, and a desktop
-  Chrome, Edge or Opera: the <a href="install.html">installer</a> runs in the browser and writes the firmware over USB
-  MIDI. It runs on both of the FM-1's processor cores. The <a href="manual.html">manual</a> covers every control, and
-  the <a href="changelog.html">changelog</a> every build.</p>
+  Chrome, Edge or Opera: <a href="install.html">installer</a> runs in the browser and writes the firmware over USB
+  MIDI. It runs on both of the FM-1's processor cores. <a href="manual.html">Manual</a> covers every control, and
+  <a href="changelog.html">changelog</a> every build.</p>
 <p class="note">Lilliput is unofficial: not made, endorsed or supported by M-VAVE. Installing it may void your
   device's warranty. Its design follows Igor Vasiliev's NoInputMixer app.</p>

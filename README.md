@@ -7,7 +7,7 @@
 
 # Lilliput
 
-**An alternative firmware for the M-VAVE FM-1: a no-input mixer. 6 channels feeding back into themselves and
+**Alternative firmware for the M-VAVE FM-1: a no-input mixer. 6 channels feeding back into themselves and
 each other, through tubes, op-amps, filters, limiters and a rack of effects.**
 
 > [!WARNING]
@@ -23,21 +23,21 @@ FM-1, after the iOS and macOS app **NoInputMixer** (Igor Vasiliev): its channel 
 selector that makes each kind of loop, its rack of effects and its output. It is written anew for the FM-1, in
 fixed point.
 
-- **6 channels**, each a mono channel strip: an input selector, a noise generator, a preamp with a choice of
-  tube (12AX7, 12AT7, 6C16, EF86, 6L6, 300B; linear or saturated), an op-amp (TL072, NE5532, 4558, 741, OP07,
-  CA3140) with an overload protection that breaks the signal with a crackle, high and low shelves or cuts, a
-  peak, notch or band-pass, a brickwall limiter whose look-ahead sets the loop's pitch, 2 sends, the level,
-  the pan.
-- **Everything runs a sample at a time**, so a loop's pitch is free from the lowest to the highest.
-- **A rack of 7 effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
-  on its channel, or fed from a send bus, or from the slot before it, into a return bus.
-- **The output**: the returns, an equaliser, an insert, and SPACE, a reverb with 6 spaces.
+- **6 channels**, each a mono channel strip: input selector, noise generator, preamp with a choice of
+  tube (12AX7, 12AT7, 6C16, EF86, 6L6, 300B; linear or saturated), op-amp (TL072, NE5532, 4558, 741, OP07,
+  CA3140) with overload protection that breaks the signal with a crackle, high and low shelves or cuts,
+  peak, notch or band-pass, brickwall limiter whose look-ahead sets the loop's pitch, 2 sends, level,
+  pan.
+- **Everything runs a sample at a time**, so a loop's pitch is free from lowest to highest.
+- **Rack of 7 effect slots**: DELAY, FLANGER, CHORUS, TREMOLO, FORMANT, BITCRUSH, GLITCH, each an insert
+  on its channel, or fed from a send bus, or from slot before it, into a return bus.
+- **Output**: returns, equaliser, insert, and SPACE, a reverb with 6 spaces.
 - **25 recipes**: archetypes, not presets. **HOME draws a new patch** from any recipe, **SHIFT + HOME**
-  from the one named on the screen — new connections, new settings and new motion for the whole mixer, different every time but always
+  from the one named on screen — new connections, new settings and new motion for the whole mixer, different every time but always
   in the recipe's direction. Every patch drawn sounds at once, and moves. Each start is a new patch too.
 - **Each channel has 2 LFOs and 4 modulation slots** (Tonitor's matrix), so its parameters move by
   themselves.
-- 64 sessions, MIDI CCs, USB audio (the output, or the 6 channels).
+- 64 sessions, MIDI CCs, USB audio (output, or 6 channels).
 
 The screen is Tonitor's, made for **low vision**: very few words, in very large type, with high contrast, and
 each channel in its own colour.
@@ -45,7 +45,7 @@ each channel in its own colour.
 > [!NOTE]
 > Lilliput is new. Its sound and its screens have been tested on the computer (see
 > [Testing without the FM-1](#testing-without-the-fm-1)); **its CPU load on the FM-1 has not been measured
-> yet**. 6 channels computed a sample at a time is far more work per sample than Tonitor's blocks: see the
+> yet**. 6 channels computed a sample at a time is far more work per sample than Tonitor's blocks: see
 > CPU page (SHIFT + black key 7) when you first run it.
 
 ## Installing
@@ -55,7 +55,7 @@ and switched on, `./install.sh`. It installs over whatever the FM-1 runs now —
 Bigorna or another alternative firmware. Do not unplug the FM-1 while it writes. `./install.sh --info` says what
 the connected FM-1 runs. Switch the FM-1 off and on once after installing.
 
-**If something goes wrong:** hold **OCT−** while switching on for the USB rescue mode (the screen says
+**If something goes wrong:** hold **OCT−** while switching on for USB rescue mode (screen says
 RESCUE), then install again. 2 failed starts in a row also enter it. Holding **OCT− and OCT+** for 5
 seconds enters the chip's own updater (UBOOT). If the FM-1 no longer starts at all, recovery needs
 [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
@@ -71,46 +71,46 @@ going back to Tonitor erases Lilliput's sessions.)
 
 | Control | What it does |
 | --- | --- |
-| **6 top buttons** | choose channel **1–6** (lit: chosen; glowing: sounding). On a channel's page, another channel shows the same page; the chosen channel again: its main view. From any other page, back to the channel. |
-| **SELECT** knob | the chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
-| **ALGORITHM** knob | its **PAN**, **1 step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through the mix bus it is part of the loop. |
-| **KNOB 1–4** | on the main view: **GAIN**, **FREQ** (the middle filter's), **LIMIT** (the loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (the middle filter's gain or width), **PROTECT** (the overload protection), **SEND 2**. A dial covers the screen while you turn. On a page: its 4 rows. |
-| **OCT− / OCT+** | the channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way. |
-| **SHIFT** held on a page | its rows show the page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
-| **SEQ** | **COMPRESSOR**, OUT, OUT EQ, OUT FX, then the chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to the channel's page. On LFO and MOD pages a channel's button shows the same page for that channel. |
-| **SHIFT + SEQ** | the chosen channel's modulation thrown anew: both LFOs and 2 to 4 slots, at random. |
-| **ARP** | the **OVERVIEW**: the 6 channels, their inputs and levels at once. |
-| **HOME** | a **new patch** from **any recipe** (see [New patches](#new-patches)). |
-| **SHIFT + HOME** | a new patch from **the recipe named** in the main view: the one playing, or the one PRESETS turned to. |
-| **HOME** held 0.8 s | the patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | the **recipe**, from the one playing: its name in place of the patch's, in the main view; nothing else changes until SHIFT + HOME. On the MOD pages: where the slot comes from; on the RHYTHM's: the styles. |
-| **SAVE** | the **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
-| **SAVE** held | save the session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
-| **SHIFT + SAVE** | the **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
-| **REC** | arm the chosen channel's **gesture loop**; REC again ends it and it plays. Held 1 s: empty it. See [Gestures](#gestures). |
-| **PLAY** | the chosen channel's gesture loop played, or stopped (lit while it plays). |
-| **SHIFT + PLAY** | the output muted, or back (OUT MUTED on the screen). The loops keep going, unheard. |
-| **White keys 1–15** | the chosen channel's **INPUT**: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has). |
+| **6 top buttons** | choose channel **1–6** (lit: chosen; glowing: sounding). On a channel's page, another channel shows same page; chosen channel again: its main view. From any other page, back to channel. |
+| **SELECT** knob | chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
+| **ALGORITHM** knob | its **PAN**, **1 step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through mix bus it is part of the loop. |
+| **KNOB 1–4** | on main view: **GAIN**, **FREQ** (middle filter's), **LIMIT** (loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (middle filter's gain or width), **PROTECT** (overload protection), **SEND 2**. Dial covers screen while you turn. On a page: its 4 rows. |
+| **OCT− / OCT+** | channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way. |
+| **SHIFT** held on a page | its rows show page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them. |
+| **SEQ** | **COMPRESSOR**, OUT, OUT EQ, OUT FX, then chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to channel's page. On LFO and MOD pages a channel's button shows same page for that channel. |
+| **SHIFT + SEQ** | chosen channel's modulation thrown anew: both LFOs and 2 to 4 slots, at random. |
+| **ARP** | **OVERVIEW**: 6 channels, their inputs and levels at once. |
+| **HOME** | **new patch** from **any recipe** (see [New patches](#new-patches)). |
+| **SHIFT + HOME** | new patch from **recipe named** in main view: the one playing, or the one PRESETS turned to. |
+| **HOME** held 0.8 s | patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
+| **PRESETS** knob | **recipe**, from the one playing: its name in place of patch's, in main view; nothing else changes until SHIFT + HOME. On MOD pages: where slot comes from; on RHYTHM's: styles. |
+| **SAVE** | **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
+| **SAVE** held | save session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
+| **SHIFT + SAVE** | **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
+| **REC** | arm chosen channel's **gesture loop**; REC again ends it and it plays. Held 1 s: empty it. See [Gestures](#gestures). |
+| **PLAY** | chosen channel's gesture loop played, or stopped (lit while it plays). |
+| **SHIFT + PLAY** | output muted, or back (OUT MUTED on screen). Loops keep going, unheard. |
+| **White keys 1–15** | chosen channel's **INPUT**: PRE, POST, MIX L, MIX R, SEND 1, SEND 2, RET 1, RET 2, NONE, CH 1 … CH 6 (lit: the one it has). |
 | **White key 16** | its **MAIN MIX** on or off. |
 | **Black keys 1–6** | mute channels 1–6 (lit: muted). |
-| **SHIFT + black key 1** | the chosen channel **at random**: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept. |
-| **Black key 10** (2nd from the right) | the **RHYTHM** on or off (the first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
-| **SHIFT + black key 10** | a **new rhythm**, of another style, playing. |
-| **Black key 10** held 0.8 s | the **TEMPO** page (again: back). See [Rhythm](#rhythm). |
-| **Black key 9** (3rd from the right) | the **DRUMS** pages (again: back). See [Drums](#drums). |
-| **SHIFT + black key 9** | a **new drum rhythm**, of another style, playing. |
-| **Black key 9** held 0.8 s | the **drums** on or off. Its light: on while they play. |
-| **SHIFT + black key 7**, held | the CPU page. |
+| **SHIFT + black key 1** | chosen channel **at random**: every parameter — its input, voice, filters, sends, slot, LFOs and matrix, fader and pan (set so it sings); its mute kept. |
+| **Black key 10** (2nd from right) | **RHYTHM** on or off (first time: one drawn). Its light: on while it plays, dark a moment on each beat. |
+| **SHIFT + black key 10** | **new rhythm**, of another style, playing. |
+| **Black key 10** held 0.8 s | **TEMPO** page (again: back). See [Rhythm](#rhythm). |
+| **Black key 9** (3rd from right) | **DRUMS** pages (again: back). See [Drums](#drums). |
+| **SHIFT + black key 9** | **new drum rhythm**, of another style, playing. |
+| **Black key 9** held 0.8 s | **drums** on or off. Its light: on while they play. |
+| **SHIFT + black key 7**, held | CPU page. |
 | **Black key 11** (last) | **SHIFT**. |
-| **MASTER** knob | the level after everything. |
-| **OCT− and OCT+**, held 5 s | UBOOT, the chip's own updater. |
+| **MASTER** knob | level after everything. |
+| **OCT− and OCT+**, held 5 s | UBOOT, chip's own updater. |
 
 ## The main view
 
-The chosen channel's number, very large, in its colour — in grey when the channel is not in the patch (muted, or
-nothing of it reaches anything: its LEVEL and SENDs off, with no RHYTHM); under it its **input**; under that the **patch's name**
+Chosen channel's number, very large, in its colour — in grey when the channel is not in the patch (muted, or
+nothing of it reaches anything: its LEVEL and SENDs off, with no RHYTHM); under it its **input**; under that **patch's name**
 (or a message, black on white; or MUTED, white on red); its **meter**, with a white bar where its fader is
-(red at the left when the fader is down); its **pan** along the bottom.
+(red at left when fader is down); its **pan** along the bottom.
 
 ## A channel
 
@@ -123,87 +123,87 @@ brickwall limiter → mute → SEND 1, SEND 2 → LEVEL → insert effect → PA
 | --- | --- | --- |
 | **AMP** | TUBE, GAIN (0 … +48 dB), FOLD (off, ×1.2 … ×16), OP-AMP | KNOB 1: MODE (LINEAR, SATURATED) |
 | **NOISE** | NOISE (off, −90 … −18 dB; GEIGER: its clicks' rate), TYPE (WHITE, PINK, RED, CRACKLE, GEIGER, HUM), LIMIT, PROTECT | |
-| **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), the middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
+| **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
 | **SEND** | INPUT, SEND 1, SEND 2, MAIN MIX | |
-| **FX** | the channel's slot: EFFECT, its 2 parameters, PRESENCE | KNOB 1: IN; KNOB 2: OUT; KNOB 3: LO-FI; KNOB 4: BYPASS |
+| **FX** | channel's slot: EFFECT, its 2 parameters, PRESENCE | KNOB 1: IN; KNOB 2: OUT; KNOB 3: LO-FI; KNOB 4: BYPASS |
 | **LFO 1**, **LFO 2** | SHAPE, RATE (a step a detent), MODE, FADE | |
-| **MOD 1 TO 4**, **MOD 5 TO 8** | the matrix's 8 slots, 4 a page: each row a slot — its number and where it comes FROM, small; where it goes TO and by how much, large; the amount a bar from the middle. KNOB 1–4: the AMOUNT (an amount on an empty slot takes it from LFO 1) | KNOB 1–4: TO. **PRESETS**: FROM, of the slot in hand (the last turned, its row lit) |
+| **MOD 1 TO 4**, **MOD 5 TO 8** | matrix's 8 slots, 4 a page: each row a slot — its number and where it comes FROM, small; where it goes TO and by how much, large; amount a bar from middle. KNOB 1–4: AMOUNT (amount on an empty slot takes it from LFO 1) | KNOB 1–4: TO. **PRESETS**: FROM, of slot in hand (last turned, its row lit) |
 
-A page's rows show each parameter's name small, with a bar, and its value large under it. Hold **SHIFT** to see the
+A page's rows show each parameter's name small, with a bar, and its value large under it. Hold **SHIFT** to see
 page's switches in place of its rows.
 
 **The input** is what makes the loop:
 
-| Input | The loop | What makes it sing |
+| Input | Loop | What makes it sing |
 | --- | --- | --- |
-| **PRE** | the channel alone, from after its level | its LEVEL |
-| **POST** | the channel and its insert effect | its LEVEL; the effect shapes the loop |
-| **MIX L / MIX R** | a side of the mix bus: every channel feeding it, and the returns | its LEVEL and PAN — and every other channel's |
-| **SEND 1 / SEND 2** | a send bus: every channel feeding it | its SEND |
-| **RET 1 / RET 2** | a return bus: through the rack's effects on the sends | its SEND, through the effects |
-| **NONE** | no loop: the noise generator alone, through the channel | |
-| **CH 1 … CH 6** | another channel's output (after its insert): channels in a chain or a ring | each channel's LEVEL round the ring |
+| **PRE** | channel alone, from after its level | its LEVEL |
+| **POST** | channel and its insert effect | its LEVEL; effect shapes the loop |
+| **MIX L / MIX R** | side of mix bus: every channel feeding it, and returns | its LEVEL and PAN — and every other channel's |
+| **SEND 1 / SEND 2** | send bus: every channel feeding it | its SEND |
+| **RET 1 / RET 2** | return bus: through rack's effects on sends | its SEND, through effects |
+| **NONE** | no loop: noise generator alone, through channel | |
+| **CH 1 … CH 6** | another channel's output (after its insert): channels in a chain or ring | each channel's LEVEL round the ring |
 
-**GAIN** amplifies the noise and the loop. The **tube** shapes the sound as it rises (SATURATED drives it
-harder). The **op-amp** amplifies it again and adds its own colour: the 741 and OP07 are slow and dark, the 4558
-warm, the CA3140 lopsided, the TL072 and NE5532 clean. **PROTECT** sets the threshold of the overload
-protection: when the op-amp's signal goes over it, the protection breaks the signal for a few milliseconds and
+**GAIN** amplifies noise and loop. The **tube** shapes the sound as it rises (SATURATED drives it
+harder). The **op-amp** amplifies it again and adds its own colour: 741 and OP07 are slow and dark, 4558
+warm, CA3140 lopsided, TL072 and NE5532 clean. **PROTECT** sets threshold of overload
+protection: when op-amp's signal goes over it, the protection breaks the signal for a few milliseconds and
 the loop starts again from the noise, with the crackle no-input players know. Higher, it lets more through and
 the op-amp saturates more.
 
-**FOLD** drives the signal after the tube into a wavefolder: past full scale it folds back instead of clipping, so
-the harder it is driven — by FOLD, by GAIN, by a loop growing — the more harmonics, never more level. It changes the
-timbre only, never the pitch.
+**FOLD** drives signal after tube into a wavefolder: past full scale it folds back instead of clipping, so
+the harder it is driven — by FOLD, by GAIN, by a loop growing — the more harmonics, never more level. It changes
+timbre only, never pitch.
 
-**LIMIT** is the brickwall limiter's speed. Its look-ahead is the delay that sets the base pitch of a loop: fast
+**LIMIT** is brickwall limiter's speed. Its look-ahead is the delay that sets base pitch of a loop: fast
 (a fraction of a millisecond) gives high tones, slow (tens of milliseconds) low ones. The page shows it in
 milliseconds.
 
-The filters set where a loop rings: a loop sings where its gain is highest, and a peak or a band-pass is where
+Filters set where a loop rings: a loop sings where its gain is highest, and a peak or band-pass is where
 you tune it. A loop can only ring at pitches its delay allows, so a narrow band-pass between them can keep a
 loop silent.
 
 ## The rack
 
-7 slots: slot 1–6 are the channels', slot 7 the output's (OUT FX). A slot's **IN** is OFF, INSERT (its
-channel's insert; slot 7: the output's), SEND 1, SEND 2 or PREV (the slot before it); its **OUT** is NONE, RET 1
+7 slots: slot 1–6 are channels', slot 7 output's (OUT FX). A slot's **IN** is OFF, INSERT (its
+channel's insert; slot 7: output's), SEND 1, SEND 2 or PREV (slot before it); its **OUT** is NONE, RET 1
 or RET 2. An insert's output goes on through its channel, and to a return too if OUT says so.
 
 | Effect | Parameter 1 | Parameter 2 |
 | --- | --- | --- |
-| DELAY | TIME (1 ms … 0.37 s; 0.74 s in LO-FI) — turned, it bends the pitch as a tape would | FEEDBACK |
+| DELAY | TIME (1 ms … 0.37 s; 0.74 s in LO-FI) — turned, it bends pitch as a tape would | FEEDBACK |
 | FLANGER | DEPTH | RATE |
 | CHORUS | INTENSITY | RATE |
 | TREMOLO | RATE | VIBRATO |
 | FORMANT | VOWEL (A E I O U) | WIDTH |
-| BITCRUSH | ALGORITHM (fewer bits; a lower rate; the bits folded on themselves) | OFFSET |
-| GLITCH | LENGTH of the part that sticks | REPEATS |
+| BITCRUSH | ALGORITHM (fewer bits; lower rate; bits folded on themselves) | OFFSET |
+| GLITCH | LENGTH of part that sticks | REPEATS |
 | RESONATOR | ROOT, C2 … B5, a semitone a step | CHORD: OCTAVES, FIFTHS, MAJOR, MINOR, SUS, CLUSTER, PELOG, HARMONICS |
-| XMOD | MODE: RING (a diode ring), XOR (the 2 signals' bits), FOLD (their sum and product, folded), COMPARE (the louder of the 2 signals) | WITH: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 |
+| XMOD | MODE: RING (diode ring), XOR (2 signals' bits), FOLD (their sum and product, folded), COMPARE (louder of 2 signals) | WITH: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 |
 | DUCK | DEPTH | KEY: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 — the louder it is, the quieter this |
 | GATE | DEPTH | KEY: as DUCK's — the louder it is, the more this opens |
 
-| CYCLES | MODE: WAVELOSS (the first n of every 8 cycles silent), SPUTTER (a half-cycle now and then turned over or silent), WAVESET (each cycle repeated) | AMOUNT |
+| CYCLES | MODE: WAVELOSS (first n of every 8 cycles silent), SPUTTER (half-cycle now and then turned over or silent), WAVESET (each cycle repeated) | AMOUNT |
 | REED | NOTE, C2 … B5, a semitone a step | BREATH |
 | OCTAVER | MODE: ONE DOWN, TWO DOWN, BOTH | TONE |
 | DIFFUSER | SIZE 1 … 8 | DENSITY |
-| SAG | TIME: the window it averages over, 1.5 … 371 ms | DEPTH |
+| SAG | TIME: window it averages over, 1.5 … 371 ms | DEPTH |
 | CUTS | UNIT, 10 … 46 ms | DENSITY |
 
 **RESONATOR** is 6 tuned resonators on the root, in the chord's intervals, ringing about 1.2 s (after 4ms's SMR).
-In a loop it pulls the feedback onto those notes and holds it there. Its ROOT and CHORD are steps and no LFO can
+In a loop it pulls feedback onto those notes and holds it there. Its ROOT and CHORD are steps and no LFO can
 move them: it steadies pitch, never glides it. **XMOD** (after Mutable Instruments' Warps) and **DUCK / GATE**
 (after its Streams) take a 2nd signal, so one loop can shape another: ring-modulate it, mangle its bits, duck it
 or open it in time with it.
 
-Build 5's 6, all steady in pitch: **CYCLES** works on whole wave cycles between the zero crossings — WAVELOSS
+Build 5's 6, all steady in pitch: **CYCLES** works on whole wave cycles between zero crossings — WAVELOSS
 drops some in a regular pattern (rhythmic holes a loop rebuilds itself through), SPUTTER turns half-cycles over or
-silences them at random (crackle), WAVESET repeats each cycle (a time-stretched stutter that sinks into sub-drones).
-**REED** is a clarinet's bore and reed (after STK's Clarinet): the signal is its breath, and it blows at its NOTE,
-which is a step and never moves. **OCTAVER** adds 1 or 2 octaves down, locked to the signal by flip-flops on its
+silences them at random (crackle), WAVESET repeats each cycle (time-stretched stutter that sinks into sub-drones).
+**REED** is a clarinet's bore and reed (after STK's Clarinet): signal is its breath, and it blows at its NOTE,
+which is a step and never moves. **OCTAVER** adds 1 or 2 octaves down, locked to signal by flip-flops on its
 zero crossings (after OWL's OctaveDown). **DIFFUSER** smears transients into a dense, metallic wash (Clouds'
-diffuser). **SAG** is a power supply starving (after Airwindows' PowerSag2): loud a while, the gain sinks and comes
-back, so loops pulse and breathe; TIME is how long it remembers. **CUTS** cuts the sound into phrases (3 3 2, 2 2 2 2
+diffuser). **SAG** is a power supply starving (after Airwindows' PowerSag2): loud a while, gain sinks and comes
+back, so loops pulse and breathe; TIME is how long it remembers. **CUTS** cuts sound into phrases (3 3 2, 2 2 2 2
 and the like); a cut plays on, or repeats what came just before it, whole or in halves or quarters — structured
 stutters after BBCut and Livecut. GLITCH is unchanged.
 
@@ -214,85 +214,85 @@ stutters after BBCut and Livecut. GLITCH is unchanged.
 | Page | Rows | With SHIFT |
 | --- | --- | --- |
 | **COMPRESSOR** (SEQ's first) | **AMOUNT** (OFF .. 100 %), **THRESH**, **RELEASE**, **SIDECHAIN** (KICK or OFF) | **ATTACK**, **RATIO** (2:1 .. 20:1, AMOUNT's share of it) |
-| **OUT** | LEVEL (the main level), RET 1, RET 2, SPACE MIX | KNOB 4: the SPACE (ROOM, HALL, PLATE, CAVE, ABYSS, VOID) |
+| **OUT** | LEVEL (main level), RET 1, RET 2, SPACE MIX | KNOB 4: SPACE (ROOM, HALL, PLATE, CAVE, ABYSS, VOID) |
 | **OUT EQ** | HIGH, LOW, GAIN, FREQ | KNOB 1: SHELF or CUT; KNOB 3: WIDE or NARROW |
 | **OUT FX** | slot 7, as a channel's FX page | as there |
 
 **The COMPRESSOR** works on the mixer's sound, before the drums join it, to hold its own against them. **AMOUNT**
 does it all at once: it compresses (that share of RATIO) and makes up the gain, so the mix comes **forward**, and
 with **SIDECHAIN** on KICK it ducks the mix under each kick (up to 18 dB) and lets it back over RELEASE: low AMOUNT,
-a little lift and a gentle pump; high, the mix up front and a deep pump. Measured on the host with a drawn patch: 35 %
-brings the mix 5.6 dB forward and ducks it 4.7 dB under the kick; 90 %, as far forward (the output's headroom) and
-12 dB under the kick. OFF leaves the mix untouched. A session keeps it; HOME does not touch it.
+a little lift and a gentle pump; high, mix up front and a deep pump. Measured on host with a drawn patch: 35 %
+brings mix 5.6 dB forward and ducks it 4.7 dB under kick; 90 %, as far forward (output's headroom) and
+12 dB under kick. OFF leaves mix untouched. A session keeps it; HOME does not touch it.
 
-At the top, SPACE MIX leaves the reverb alone.
+At top, SPACE MIX leaves reverb alone.
 
 ## New patches
 
 As on Tonitor: **HOME** draws a new patch from any recipe, so each press can be anything; **SHIFT + HOME** draws one
-from the recipe named in the main view. That is the playing patch's recipe, or another: **PRESETS** turns through
+from the recipe named in main view. That is the playing patch's recipe, or another: **PRESETS** turns through
 them from it, the name changing in place. Lilliput starts with a patch drawn from any recipe and a tempo drawn
-between 91 and 299 BPM, otherwise each time; a session loaded names its patch's recipe. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting the
+between 91 and 299 BPM, otherwise each time; a session loaded names its patch's recipe. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting
 channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
-the parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
+parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
 recipe's direction:
 
 | Recipe | What it is | How it moves |
 | --- | --- | --- |
-| DRONE | low loops of their own or in a ring, slow limiters, resonant lows; caves and abysses | the filters drift; the pans wander |
-| WHISTLE | high, clean tones: fast limiters, narrow band-passes | a slight vibrato; the levels breathe |
-| SIREN | tones in their own loops | the filters sweep up and down, every channel in step |
-| CHIRP | quick loops | the limiters and filters jump on fast saws and squares |
-| STATIC | low overload thresholds: the protection trips and crackles; dust, crushers, glitches | the threshold and the levels jump |
-| GEIGER | GEIGER noise pinging resonant loops at their edge | the clicks' rate wanders |
-| SWARM | 4 to 6 channels on the mix bus, saturated | the pans — inside the loop — wander |
-| BEATING | channels in rings, their filters close together | slow drifts: the beating changes |
+| DRONE | low loops of their own or in a ring, slow limiters, resonant lows; caves and abysses | filters drift; pans wander |
+| WHISTLE | high, clean tones: fast limiters, narrow band-passes | slight vibrato; levels breathe |
+| SIREN | tones in their own loops | filters sweep up and down, every channel in step |
+| CHIRP | quick loops | limiters and filters jump on fast saws and squares |
+| STATIC | low overload thresholds: protection trips and crackles; dust, crushers, glitches | threshold and levels jump |
+| GEIGER | GEIGER noise pinging resonant loops at their edge | clicks' rate wanders |
+| SWARM | 4 to 6 channels on mix bus, saturated | pans — inside the loop — wander |
+| BEATING | channels in rings, their filters close together | slow drifts: beating changes |
 | PULSE | loops gated by square and stepped LFOs | in step: a rhythm |
-| CAVERN | loops through long delays into deep spaces | the delay times bend |
-| VOICES | formant filters on inserts and returns | the vowels move |
-| BROKEN RADIO | band-passes, crackle and hum, tremolo | the tuning jumps |
-| SUBTERRANEAN | the lowest loops, dark cuts, slow op-amps | the limiters drift |
-| SCREAM | saturated tubes, high gain, notches | the notches sweep |
+| CAVERN | loops through long delays into deep spaces | delay times bend |
+| VOICES | formant filters on inserts and returns | vowels move |
+| BROKEN RADIO | band-passes, crackle and hum, tremolo | tuning jumps |
+| SUBTERRANEAN | lowest loops, dark cuts, slow op-amps | limiters drift |
+| SCREAM | saturated tubes, high gain, notches | notches sweep |
 | GLITCH | glitch and crush on inserts and returns | stepped limiters and effects |
-| TIDES | loops through the sends | the sends swell and ebb, in step |
-| CHOIR | resonator chords and formants on the returns, soft pink noise | the chords and vowels drift; the levels breathe |
-| ENGINE | the lowest loops, saturated power tubes, ring modulation, sag | in step: a motor's throb; the folds pulse |
-| INSECTS | many tiny high loops, crackle and Geiger clicks, gates and cuts | the pitch and the pans jump on fast steps |
-| ORGAN | channels in rings, close peaks, reeds and octavers, chorus | a slow tremolo, in step; a faint drift |
+| TIDES | loops through sends | sends swell and ebb, in step |
+| CHOIR | resonator chords and formants on returns, soft pink noise | chords and vowels drift; levels breathe |
+| ENGINE | lowest loops, saturated power tubes, ring modulation, sag | in step: a motor's throb; folds pulse |
+| INSECTS | many tiny high loops, crackle and Geiger clicks, gates and cuts | pitch and pans jump on fast steps |
+| ORGAN | channels in rings, close peaks, reeds and octavers, chorus | slow tremolo, in step; faint drift |
 | MORSE | a few clean beeps, gated, with short delays | in step: on and off, in patterns |
-| FURNACE | a dense saturated web, hard folds, crushers, the protection tripping | the gain, the folds and the threshold churn |
-| AURORA | high shimmering loops, chorus, flanger and diffusion, vast spaces | slow sweeps; the pans and the effects drift |
-| SONAR | 1 to 3 pings into long delays, deep spaces | in step: pings that swell and fade; the delays jump |
-| FREE | no direction: any connection, voice, effect and space, each as likely as the next, over the widest ranges the recipes use — as Lilliput drew before it had recipes. Only what makes it sound is kept: 2 channels heard at least, the faders past where the loops sing | each gesture to a destination drawn for each channel |
+| FURNACE | dense saturated web, hard folds, crushers, protection tripping | gain, folds and threshold churn |
+| AURORA | high shimmering loops, chorus, flanger and diffusion, vast spaces | slow sweeps; pans and effects drift |
+| SONAR | 1 to 3 pings into long delays, deep spaces | in step: pings that swell and fade; delays jump |
+| FREE | no direction: any connection, voice, effect and space, each as likely as the next, over widest ranges the recipes use — as Lilliput drew before it had recipes. Only what makes it sound is kept: 2 channels heard at least, faders past where loops sing | each gesture to a destination drawn for each channel |
 
-**HOME** draws from any recipe; **SHIFT + HOME** from the one named. The patch's name, on the main view, is its
+**HOME** draws from any recipe; **SHIFT + HOME** from the one named. The patch's name, on main view, is its
 recipe's.
 
-The faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
+Faders are set a little past where each loop starts to sing, so a patch sounds at once and the faders are
 where the playing is. Some channels come with their fader down: brought up, they join in. For its first 2
 seconds Lilliput plays into a new patch as a player would: a channel whose fader is up but which stays silent has
-its GAIN raised until it sings. Then it listens to the output and sets the main LEVEL so that every patch comes out
-about as loud, its peaks under −4 dB. After that a guard stays on: if the output holds at its ceiling, the main
-LEVEL comes down a dB at a time. The faders are never touched.
+its GAIN raised until it sings. Then it listens to output and sets main LEVEL so that every patch comes out
+about as loud, its peaks under −4 dB. After that a guard stays on: if the output holds at its ceiling, main
+LEVEL comes down a dB at a time. Faders are never touched.
 
-**HOME** held 0.8 s moves every channel's GAIN, NOISE, filters, LIMIT and PROTECT a little, the connections and
-levels kept: the same patch, elsewhere.
+**HOME** held 0.8 s moves every channel's GAIN, NOISE, filters, LIMIT and PROTECT a little, connections and
+levels kept: same patch, elsewhere.
 
 ## Modulation
 
-Each channel has 2 **LFOs** and 8 **slots** (Tonitor's modulation matrix, twice its slots). An LFO has a SHAPE (SINE, TRI, SAW
-UP, SAW DN, SQUARE, STEPS — a new random value each cycle —, DRIFT — smooth random), a RATE (0.01 … 20 Hz), a MODE
-(FREE; ONSET: from the start each time the channel's loop bursts into sound; ONCE: 1 cycle from each onset) and a
-FADE (in over up to 10 s from an onset). A slot takes a source — LFO 1, LFO 2, LEVEL (the channel's own loudness: a
-loop that moves itself as it grows), OUTPUT (the whole mix's), RANDOM (drawn at each onset) — to a destination —
-GAIN, NOISE, FREQ, MID, HIGH, LOW, LIMIT, PROTECT, LEVEL, PAN, SEND 1, SEND 2, the channel's slot's 2 parameters
+Each channel has 2 **LFOs** and 8 **slots** (Tonitor's modulation matrix, twice its slots). An LFO has SHAPE (SINE, TRI, SAW
+UP, SAW DN, SQUARE, STEPS — a new random value each cycle —, DRIFT — smooth random), RATE (0.01 … 20 Hz), MODE
+(FREE; ONSET: from start each time channel's loop bursts into sound; ONCE: 1 cycle from each onset) and
+FADE (in over up to 10 s from an onset). A slot takes a source — LFO 1, LFO 2, LEVEL (channel's own loudness: a
+loop that moves itself as it grows), OUTPUT (whole mix's), RANDOM (drawn at each onset) — to a destination —
+GAIN, NOISE, FREQ, MID, HIGH, LOW, LIMIT, PROTECT, LEVEL, PAN, SEND 1, SEND 2, channel's slot's 2 parameters
 and its mix, or either LFO's rate — by an amount, −100 … +100. The panel's values stay where you set them; the
-sound moves round them. Every new patch comes with its family's motion; **SHIFT + SEQ** throws the chosen channel's
+sound moves round them. Every new patch comes with its family's motion; **SHIFT + SEQ** throws chosen channel's
 modulation anew.
 
 ## Rhythm
 
-The RHYTHM turns the mixer into a rhythmic noise machine: it plays the channels in time — gating them, choking them,
+The RHYTHM turns the mixer into a rhythmic noise machine: it plays channels in time — gating them, choking them,
 striking them, pushing them — in structures drawn from a wide palette of styles.
 
 **Each channel gets a lane**: its steps (up to 32), its step's length (1/2, 1/4, 1/8, 1/8 triplets, 1/16, 1/16
@@ -302,9 +302,9 @@ round). Lanes of different lengths drift against each other (polymeter); lanes o
 different time (polyrhythm). A lane plays its channel 1 of 4 ways:
 
 - **CHOP** — what you hear is gated: mutes and unmutes in time. The loop rings on behind the gate.
-- **CHOKE** — the loop itself is gated: it dies between the hits and grows back on each, a swell.
-- **KICK** — the loop is choked, and struck at each hit by a burst of noise, pushed past its edge (+6 dB) while it
-  is open: the loop's own sound made a drum.
+- **CHOKE** — loop itself is gated: it dies between hits and grows back on each, a swell.
+- **KICK** — loop is choked, and struck at each hit by a burst of noise, pushed past its edge (+6 dB) while it
+  is open: loop's own sound made a drum.
 
 A channel in a ring (it takes another channel, or another takes it) is never choked: CHOKE and KICK gate what is
 heard instead, so the ring runs on behind the gate (choked, it died and never came back).
@@ -312,122 +312,122 @@ heard instead, so the ring runs on behind the gate (choked, it died and never ca
 
 **SHIFT + the 2nd black key from the right** draws a new rhythm for the patch as it is: the darkest loop gets the
 kick's part, the brightest the hats', those between the snare's and the percussion's; a channel with its fader down
-is left out, and now and then a drone is left free under it all. A loop slow to grow (a slow limiter, a narrow
-band-pass, a loop through the sends) is chopped rather than choked. A sparse lane — open 1/5 of the time or less —
+is left out, and now and then a drone is left free under it all. A loop slow to grow (slow limiter, narrow
+band-pass, loop through the sends) is chopped rather than choked. A sparse lane — open 1/5 of the time or less —
 is chopped too, over a bed 14 dB down, so its channel is never all but silent. Every recipe with every style sounds
-(the host's test plays them all). The styles:
+(host's test plays them all). Styles:
 
 | Style | |
 | --- | --- |
-| INDUSTRIAL | 4 on the floor, the backbeat, off-beat hats |
-| POWER NOISE | 4/4 kicks, a drone chopped in 16ths, accents |
+| INDUSTRIAL | 4 on the floor, backbeat, off-beat hats |
+| POWER NOISE | 4/4 kicks, drone chopped in 16ths, accents |
 | BROKEN | syncopated Euclidean kicks and snares (Toussaint's evenly spread hits), swung |
 | AKSAK | odd meters as groups: 5 (3+2), 7 (2+2+3), 9 (2+2+2+3), 11 (3+3+3+2), 13 (3+3+3+2+2) |
 | POLYMETER | lanes of 16, 12, 10, 9, 7, 5, 3 steps against each other |
 | POLYRHYTHM | quarters against triplets against quintuplets against 8ths |
-| MARCH | snare rolls, ratchets, a military kick |
+| MARCH | snare rolls, ratchets, military kick |
 | HALFTIME | slow and heavy, long gates |
-| GABBER | a kick on every beat, noise bursts between |
+| GABBER | kick on every beat, noise bursts between |
 | ROLLS | sparse hits rolled into bursts |
 | CHOP | drones chopped in 16ths and 32nds, holes by chance |
-| TRIBAL | tresillo, cinquillo, clave, the 12/8 bell |
+| TRIBAL | tresillo, cinquillo, clave, 12/8 bell |
 | TURING | random steps that repeat and slowly mutate |
 | ERRATIC | uneven lengths, steps and chances, swung, ghosts |
 | SPARSE | few hits, long choked swells |
 | CLOCKWORK | dividers — every 2, 3, 4, 6, 8 steps — gated hard |
 
-**The TEMPO page** (the key held 0.8 s): its title is the style playing (or RHYTHM OFF).
+**TEMPO page** (key held 0.8 s): its title is the style playing (or RHYTHM OFF).
 
 | KNOB | |
 | --- | --- |
 | 1 | **TEMPO**, 10 … 500 BPM: a BPM a detent, 5 when turned fast |
-| 2 | **SWING**: the off steps late, up to 1/3 of a step |
+| 2 | **SWING**: off steps late, up to 1/3 of a step |
 | 3 | **CHAOS**: hits skipped, ghost hits added |
 | 4 | **LENGTH**: every gate shorter or longer (100 %: as drawn) |
-| PRESETS | the styles: a new rhythm of each, playing |
-| OCT+ | the 2nd page: **MIX** |
+| PRESETS | styles: new rhythm of each, playing |
+| OCT+ | 2nd page: **MIX** |
 
-**The MIX page** (OCT+ from TEMPO, OCT− back): **MIX** sets how much of the gates is heard, against the loops as
-they run on: 100 % all gate (as before), 0 % the loops alone, the rhythm unheard. KICK's bursts and ACCENT's pushes
+**MIX page** (OCT+ from TEMPO, OCT− back): **MIX** sets how much of the gates is heard, against the loops as
+they run on: 100 % all gate (as before), 0 % loops alone, rhythm unheard. KICK's bursts and ACCENT's pushes
 follow it too.
 
-A new patch keeps the rhythm playing (its lanes stay with the channels); snapshots and sessions keep their own. The
-rhythm's changes — on, off, a new one, the tempo — are gestures like any other: the gesture loop records them.
+A new patch keeps the rhythm playing (its lanes stay with channels); snapshots and sessions keep their own. The
+rhythm's changes — on, off, new one, tempo — are gestures like any other: the gesture loop records them.
 
 ## Drums
 
-A drum section beside the mixer, in the spirit of Bram Bos's Ruismaker Noir: synthesized, punchy and dirty, for
+Drum section beside the mixer, in the spirit of Bram Bos's Ruismaker Noir: synthesized, punchy and dirty, for
 rhythmic noise. 4 voices — **KICK**, **SNARE**, **HATS**, **PERC** (struck metal) — of a single engine, each with its
-own lane of steps, on the RHYTHM's tempo and beat. Started, or given a new rhythm, they come in on the next beat; the
+own lane of steps, on RHYTHM's tempo and beat. Started, or given a new rhythm, they come in on the next beat; the
 RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 
-**Black key 9** (3rd from the right), short, opens their pages (again: back); held 0.8 s, they start or stop;
+**Black key 9** (3rd from right), short, opens their pages (again: back); held 0.8 s, they start or stop;
 **SHIFT +** it draws a new drum rhythm and plays it. On their pages:
 
-- **white keys 1–4** choose KICK, SNARE, HATS, PERC (lit: the one chosen); **SHIFT +** one draws a **new sound** for
+- **white keys 1–4** choose KICK, SNARE, HATS, PERC (lit: the one chosen); **SHIFT +** one draws **new sound** for
   it, from its recipes; **held 0.7 s**, it is **muted** (its key blinks, dim; its page says MUTED), held again, back;
-- **PRESETS** goes through the drum rhythms, a new one of each, playing;
-- **OCT− / OCT+** through the 3 pages.
+- **PRESETS** goes through drum rhythms, a new one of each, playing;
+- **OCT− / OCT+** through 3 pages.
 
 | Page | Rows (KNOB 1–4) | With SHIFT |
 | --- | --- | --- |
-| a voice (its name and its sound's) | **TUNE** (Hz), **DECAY**, **DRIVE**, **LEVEL** | **SWEEP** (how far above the pitch it starts), **ATTACK** (HARD: the sharpest transient; up to 100 ms: a soft one), **NOISE** (tone or noise), **REVERB** (its send into SPACE) |
-| its 2nd page | **BEND** (how fast the sweep falls), **COLOR** (the noise filter), **CLICK** (a burst on the hit), **PAN** | **METAL** (the tone made metallic: off or 6 ratios), **FILTER** (low-, band- or high-pass) |
-| the drums' (their rhythm's name) | **SWING** | |
+| voice (its name and its sound's) | **TUNE** (Hz), **DECAY**, **DRIVE**, **LEVEL** | **SWEEP** (how far above pitch it starts), **ATTACK** (HARD: sharpest transient; up to 100 ms: a soft one), **NOISE** (tone or noise), **REVERB** (its send into SPACE) |
+| its 2nd page | **BEND** (how fast sweep falls), **COLOR** (noise filter), **CLICK** (burst on hit), **PAN** | **METAL** (tone made metallic: off or 6 ratios), **FILTER** (low-, band- or high-pass) |
+| drums' (their rhythm's name) | **SWING** | |
 
-**A voice**: a tone, swept down in pitch, and noise through a filter, mixed by NOISE; an envelope rising over ATTACK
-and falling over DECAY; a CLICK on top; then **DRIVE**, a tanh up to 32 times over: every voice has its own. The dry
+**A voice**: tone, swept down in pitch, and noise through a filter, mixed by NOISE; envelope rising over ATTACK
+and falling over DECAY; CLICK on top; then **DRIVE**, a tanh up to 32 times over: every voice has its own. The dry
 drums go to the output after the reverb, so SPACE never washes them away; each voice's **REVERB** sends it into
-SPACE's reverb, heard even when the mixer's SPACE MIX is down. Their level is their own: the trim that sets the
+SPACE's reverb, heard even when mixer's SPACE MIX is down. Their level is their own: the trim that sets
 mixer's main level never moves it.
 
-**Sounds** (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (a slow
+**Sounds** (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (slow
 attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER,
 TICK, CYMBAL, DIRT; percussion ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND.
 
 **Rhythms**, after the genre — rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts and
 metal rather than in denser kicks — every lane in 16ths, 1 or 2 bars, so the pace is always the tempo's:
-**POWER 4/4**, **PISTON** (8th-note kicks, the beat accented), **MARCH**, **OFFBEAT** (the off-beat crushed hat, a
-low tom), **RUMBLE** (a clap on 2, a stab, a push every other bar), **BROKEN** (jagged kicks over a backbeat),
-**3 AGAINST 4**, **TRIBAL** (toms out of the kick, an anvil on the beat), **SHUFFLE** (the only one that swings
-much), **DIST BREAK** (straight), **HALF RITUAL** (half time: the hats keep the tempo), **BURST FILL** (2 bars, a
+**POWER 4/4**, **PISTON** (8th-note kicks, beat accented), **MARCH**, **OFFBEAT** (off-beat crushed hat,
+low tom), **RUMBLE** (clap on 2, stab, push every other bar), **BROKEN** (jagged kicks over a backbeat),
+**3 AGAINST 4**, **TRIBAL** (toms out of the kick, anvil on the beat), **SHUFFLE** (the only one that swings
+much), **DIST BREAK** (straight), **HALF RITUAL** (half time: hats keep the tempo), **BURST FILL** (2 bars,
 noise burst ending the 2nd). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
 **ALT**, its decay cut to 1/5 (closed hats among open ones, ghost snares).
 
-The drums are not part of a patch: HOME, the snapshots and the gesture loops leave them alone. A session keeps them.
+The drums are not part of a patch: HOME, snapshots and gesture loops leave them alone. A session keeps them.
 
 ## Gestures
 
 Each channel has its own gesture loop. It records what your hands do to that channel — its knobs, its input key,
-its mute, its effect slot, the channel thrown at random, a MIDI CC to it — and plays it back, round and round, while
-you go on playing over it. The loops are independent: each its own length, each started and stopped on its own.
-REC and PLAY act on the chosen channel, and their lights show its loop.
+its mute, its effect slot, channel thrown at random, a MIDI CC to it — and plays it back, round and round, while
+you go on playing over it. Loops are independent: each its own length, each started and stopped on its own.
+REC and PLAY act on chosen channel, and their lights show its loop.
 
-- **REC** arms the channel's loop (the screen says ARMED, REC blinks; its loop, if it plays, stops). Nothing is
-  recorded until the channel changes: its first change starts the recording (REC on the screen, white on red, with
-  the seconds; REC lit). A loop it had is replaced: there are no overdubs, 1 loop a channel.
-- **REC** again ends it: the loop is as long as from that first change to now, and plays at once (PLAY lit).
+- **REC** arms channel's loop (screen says ARMED, REC blinks; its loop, if it plays, stops). Nothing is
+  recorded until the channel changes: its first change starts recording (REC on screen, white on red, with
+  seconds; REC lit). A loop it had is replaced: there are no overdubs, 1 loop a channel.
+- **REC** again ends it: loop is as long as from that first change to now, and plays at once (PLAY lit).
 - **PLAY** stops it, or plays it again from its start. Stopped, the channel stays where the loop left it.
 - **REC** held 1 s empties it.
 
-Only 1 channel records at a time: REC on another channel ends the recording (it plays) and arms that one. Each round
+Only 1 channel records at a time: REC on another channel ends recording (it plays) and arms that one. Each round
 begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way
 every time; what you change that the loop does not touch stays yours. A new patch or a session stops the loops
-(PLAY plays each again, over the new mixer). Up to 2048 changes among all the loops, 10 minutes each. The output's,
-the output slot's and the RHYTHM's settings belong to no channel and are never recorded. The loops are kept with
+(PLAY plays each again, over new mixer). Up to 2048 changes among all loops, 10 minutes each. The output's,
+output slot's and RHYTHM's settings belong to no channel and are never recorded. The loops are kept with
 the session; a session saved before build 12, with 1 loop for all, loads as a loop for each channel it touched.
 
 ## Snapshots
 
-16 complete states of the mixer — every channel, every slot, the output, the modulation — kept with the
-session. **SAVE** (short) opens the SNAPSHOTS page: the 16 as the white keys lie, the stored ones filled, the
+16 complete states of the mixer — every channel, every slot, output, modulation — kept with the
+session. **SAVE** (short) opens SNAPSHOTS page: the 16 as white keys lie, stored ones filled,
 last recalled framed.
 
-- a **white key** let go soon: its snapshot recalled;
-- held 0.8 s: the mixer stored in it;
+- **white key** let go soon: its snapshot recalled;
+- held 0.8 s: mixer stored in it;
 - **SHIFT +** it: emptied;
-- **KNOB 1**: the **MORPH** time, off … 30 s. A recall then glides every value that can glide — levels, pans, gains,
-  noise, filters, sends, limiters, protection, the effects' parameters, the returns, the main level — from where it
+- **KNOB 1**: **MORPH** time, off … 30 s. A recall then glides every value that can glide — levels, pans, gains,
+  noise, filters, sends, limiters, protection, effects' parameters, returns, main level — from where it
   is to the snapshot's; the rest (inputs, types, routings, LFOs) changes at once.
 
 **SAVE** again, or a channel's button, goes back.
@@ -435,14 +435,14 @@ last recalled framed.
 ## Sessions
 
 **SAVE** held saves the whole
-mixer as a session (64 of them); **SHIFT + SAVE** opens the sessions. A session keeps every parameter, the
-channel chosen, the patch's name and family, its 16 snapshots and its gesture loop.
+mixer as a session (64 of them); **SHIFT + SAVE** opens the sessions. A session keeps every parameter,
+channel chosen, patch's name and family, its 16 snapshots and its gesture loop.
 
 ## Global setup and MIDI
 
-**SHIFT + SAVE** held 0.8 s opens GLOBAL SETUP: **MIDI** (each channel's IN and OUT channel, AUTO for the chosen
-channel, CC in and out on or off, the USB and TRS ports), **AUDIO** (USB audio: STEREO, the output, or CHANNELS,
-the 6 channels each mono). A channel answers to and sends
+**SHIFT + SAVE** held 0.8 s opens GLOBAL SETUP: **MIDI** (each channel's IN and OUT channel, AUTO for chosen
+channel, CC in and out on or off, USB and TRS ports), **AUDIO** (USB audio: STEREO, output, or CHANNELS,
+6 channels each mono). A channel answers to and sends
 these CCs: **7** LEVEL, **10** PAN, **16** GAIN, **17** FREQ, **18** LIMIT, **19** SEND 1, **74** MID, **91**
 SEND 2, **92** NOISE.
 
@@ -460,7 +460,7 @@ tests/run_tests.sh  # the tests, on the computer
 On macOS the toolchain runs in Docker: Docker Desktop must be running to build.
 
 **Builds.** Lilliput has build numbers only — build 1, 2, 3 … — never version numbers. The number is `VERSION` in
-`tools/build.py`; the splash screen shows it; each build's package is also kept as `build/lilliput-build-N.fwsc`.
+`tools/build.py`; splash screen shows it; each build's package is also kept as `build/lilliput-build-N.fwsc`.
 Every build is a git commit tagged `build-N`. To go back to a build: `git checkout build-N`, then `./install.sh`
 (or install its kept package: `./install.sh build/lilliput-build-N.fwsc`).
 
@@ -468,26 +468,26 @@ Every build is a git commit tagged `build-N`. To go back to a build: `git checko
 
 `tests/run_tests.sh` compiles the whole firmware for the computer and runs it:
 
-- the target check: nothing that needs a runtime the chip lacks (no float, no 64-bit division);
+- target check: nothing that needs a runtime the chip lacks (no float, no 64-bit division);
 - **check**: 200 patches HOME draws, each must sing, none clip or sit on DC; each family's pitch, movement and
   loudness reported;
 - **fits**: every page's words in their place — each name and every value any parameter can take, every recipe's
   name, whole, without being squeezed;
-- **flows**: the panel — channels, pages, input keys, mutes, HOME, PLAY, sessions saved and loaded back, recipes,
+- **flows**: panel — channels, pages, input keys, mutes, HOME, PLAY, sessions saved and loaded back, recipes,
   GLOBAL SETUP, another firmware's data left alone;
 - **screens**: every page, as images in `build/screens`;
-- **cores**: the output stage on the 2nd core sounds the same as on one;
-- a render of a patch from every recipe to `build/sounds` (WAV).
+- **cores**: output stage on 2nd core sounds the same as on one;
+- render of a patch from every recipe to `build/sounds` (WAV).
 
 `build/host render build/sounds v` prints each patch's settings beside its figures; `build/host calib` shows
 where a single channel's loop starts to sing, its level swept.
 
 ## How it is built
 
-`firmware/src/lilliput.c` is a single compilation unit that includes the rest: `mixer.c` (the channels, the rack, the
-buses, the output; the per-sample loop runs from RAM on CPU0, the output stage a block late on CPU1),
-`patch.c` (the recipes, HOME's patches, the trim), `lui.c` (the panel and the screen), `lses.c` (sessions),
-`setup.c` (GLOBAL SETUP, MIDI), `drums.c` / `drumseq.c` / `drumkit.c` (the DRUMS), `logo.c` (the splash), and the
+`firmware/src/lilliput.c` is a single compilation unit that includes the rest: `mixer.c` (channels, rack,
+buses, output; per-sample loop runs from RAM on CPU0, output stage a block late on CPU1),
+`patch.c` (recipes, HOME's patches, trim), `lui.c` (panel and screen), `lses.c` (sessions),
+`setup.c` (GLOBAL SETUP, MIDI), `drums.c` / `drumseq.c` / `drumkit.c` (DRUMS), `logo.c` (splash), and the
 platform from Tonitor, Felucca and SLOOP. The logo's SVGs (`assets/logo`) come from `tools/gen_logo.py`, from the same
 numbers the splash draws.
 
@@ -497,11 +497,11 @@ GPL-3.0-only; see [LICENSING.md](LICENSING.md).
 
 # Credits
 
-- **NoInputMixer** by Igor Vasiliev: the model — its signal flow, its controls, its manual's descriptions.
-- **Tonitor** (Nuno Zimas): the screen, the panel's ways, the sessions, the reverb.
-- **Felucca** (Leo Kuroshita, Hügelton Instruments) and **SLOOP** (isod89): the hardware layer, the boot, USB,
-  the installer and the rescue mode.
-- **Melodee** (Kerem Kilic): the 2nd core.
+- **NoInputMixer** by Igor Vasiliev: model — its signal flow, its controls, its manual's descriptions.
+- **Tonitor** (Nuno Zimas): screen, panel's ways, sessions, reverb.
+- **Felucca** (Leo Kuroshita, Hügelton Instruments) and **SLOOP** (isod89): hardware layer, boot, USB,
+  installer and rescue mode.
+- **Melodee** (Kerem Kilic): 2nd core.
 
 # Disclaimer
 
