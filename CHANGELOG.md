@@ -1,5 +1,12 @@
 # Changelog
 
+## Build 18 (2026-11-11)
+
+- The logo: the name drawn on one grid -- "lilliput" from bare strokes, squares and two arcs, every stroke one gap from
+  the next, so the word reads as a pulse train; its icon, "li". In assets/logo (SVG: the logotype in white, in black
+  and with the channels' colours; the icon), made by tools/gen_logo.py. The splash draws it one unit to a pixel, the
+  build under it; the README opens with it.
+
 ## Build 17 (2026-11-11)
 
 - A new RHYTHM for the mixer no longer restarts the drums (it did, audibly). One beat clock runs the two: whichever

@@ -1,53 +1,54 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * LILLIPUT: the splash screen -- six rings in the channels' colours, each one feeding the next round a circle (the
- * no-input mixer's loop), the name under them, the build. Drawn from shapes, no image kept: each pixel's colour is
- * each shape's coverage of it (its distance, half a pixel either way), over black. */
+ * LILLIPUT: the splash screen -- the logo (build 18): the name drawn on one grid, "lilliput" from bare strokes,
+ * squares and two arcs, every stroke one gap from the next, so the word reads as a pulse train (tools/gen_logo.py
+ * makes the SVGs in assets/logo from the same numbers). Drawn here one unit to a pixel: the strokes 6 px, on whole
+ * pixels; only the two bowls are worked out from their distance (a pixel's colour its coverage, half a pixel either
+ * way), over black. The build under it. */
 
 static int32_t lg_cov(int32_t d16)               /* coverage (0 .. 256) of a pixel by a shape d16 / 16 px away */
 {
     return clampi(128 - d16 * 16, 0, 256);
 }
+/* the logotype's strokes and squares (tools/gen_logo.py's units: x, y, w, h), then its two bowls */
+static const int16_t LG_RECT[][4] = {
+    {0, 8, 6, 72}, {15, 44, 6, 36}, {15, 8, 6, 6}, {30, 8, 6, 72}, {45, 8, 6, 72},   /* l i l l */
+    {60, 44, 6, 36}, {60, 8, 6, 6},                                                 /* i */
+    {75, 44, 6, 60},                                                                /* p's stem */
+    {120, 44, 6, 18}, {150, 44, 6, 36},                                             /* u's stems */
+    {165, 20, 6, 60}, {158, 44, 20, 6}};                                            /* t */
+#define LG_W 178                 /* the logotype's width; its height 8 .. 104 */
+#define LG_SW 6                  /* the stroke */
+#define LG_RC 15                 /* the bowls' radius, on the stroke's middle */
+#define LG_P_CX 93               /* p's bowl: a ring */
+#define LG_U_CX 138              /* u's: the lower half of one, under its stems */
+#define LG_CY 62
 static void splash_draw(const char *build)
 {
-    static const uint32_t COL[6] = {0xFFD600u, 0x00D6FFu, 0xFF5CD2u, 0x60FF60u, 0xFF8C00u, 0xBEA0FFu};
-    int32_t cx[6], cy[6], k;
-    for (k = 0; k < 6; k++) {                    /* the rings' centres: round a circle of 52 px, from the top */
-        uint32_t a = (uint32_t)k * 715827883u;
-        cx[k] = 120 + mulq15(52, sin_ph(a));
-        cy[k] = 92 - mulq15(52, sin_ph(a + 0x40000000u));
-    }
-    CV_AREA(0, 0, 240, 168, C_BLACK) {
+    const int32_t ox = (240 - LG_W) / 2, oy = 34;   /* (the word a little above the middle) */
+    uint32_t k;
+    CV_AREA(0, 0, 240, 176, C_BLACK) {
         int32_t x, y;
-        for (y = 0; y < (int32_t)cv_h; y++)
-            for (x = 0; x < 240; x++) {
-                int32_t py = y + cv_oy, rgb[3] = {0, 0, 0}, d, cov, c;
-                /* the loop: a thin grey circle through the rings */
-                d = (int32_t)isqrt32((uint32_t)(((x - 120) * (x - 120) + (py - 92) * (py - 92)) * 256)) - 52 * 16;
-                cov = lg_cov((d < 0 ? -d : d) - 16);
-                rgb[0] = rgb[1] = rgb[2] = 90 * cov;
-                for (k = 0; k < 6; k++) {        /* each ring, over it */
-                    int32_t dx = x - cx[k], dy = py - cy[k];
-                    d = (int32_t)isqrt32((uint32_t)((dx * dx + dy * dy) * 256));
-                    cov = lg_cov((d - 15 * 16 < 0 ? 15 * 16 - d : d - 15 * 16) - 4 * 16);
-                    if (cov) {
-                        rgb[0] = (rgb[0] * (256 - cov) + (int32_t)(COL[k] >> 16) * cov * 256 / 256) ;
-                        rgb[1] = (rgb[1] * (256 - cov) + (int32_t)(COL[k] >> 8 & 255u) * cov * 256 / 256);
-                        rgb[2] = (rgb[2] * (256 - cov) + (int32_t)(COL[k] & 255u) * cov * 256 / 256);
-                        rgb[0] >>= 8;
-                        rgb[1] >>= 8;
-                        rgb[2] >>= 8;
-                        rgb[0] <<= 8;
-                        rgb[1] <<= 8;
-                        rgb[2] <<= 8;
-                    }
+        for (y = LG_CY - LG_RC - LG_SW; y <= LG_CY + LG_RC + LG_SW; y++)
+            for (x = LG_P_CX - LG_RC - LG_SW; x <= LG_U_CX + LG_RC + LG_SW; x++) {
+                int32_t cov = 0, c, cx;
+                for (cx = LG_P_CX; cx <= LG_U_CX; cx += LG_U_CX - LG_P_CX) {
+                    /* (distance from the pixel's centre, x 16: the bowl's stroke is r +- 3 px) */
+                    int32_t dx = x * 2 + 1 - cx * 2, dy = y * 2 + 1 - LG_CY * 2, d, v;
+                    if (cx == LG_U_CX && y < LG_CY)
+                        continue;                /* (u's bowl: the lower half only) */
+                    d = (int32_t)isqrt32((uint32_t)((dx * dx + dy * dy) * 64));   /* (x 16, from half-pixels) */
+                    v = lg_cov((d < LG_RC * 16 ? LG_RC * 16 - d : d - LG_RC * 16) - LG_SW / 2 * 16);
+                    cov = v > cov ? v : cov;
                 }
-                c = RGB(clampi(rgb[0] >> 8, 0, 255), clampi(rgb[1] >> 8, 0, 255), clampi(rgb[2] >> 8, 0, 255));
-                if (c)
-                    cv_rect(x, py, 1, 1, (uint16_t)c);
+                if (cov) {
+                    c = cov * 255 / 256;
+                    cv_rect(ox + x, oy + y, 1, 1, (uint16_t)RGB(c, c, c));
+                }
             }
+        for (k = 0; k < sizeof LG_RECT / sizeof LG_RECT[0]; k++)   /* (the strokes over the bowls' soft edges) */
+            cv_rect(ox + LG_RECT[k][0], oy + LG_RECT[k][1], LG_RECT[k][2], LG_RECT[k][3], C_WHITE);
     }
-    CV_AREA(0, 168, 240, 72, C_BLACK) {
-        cv_text_fit(0, &FONT_M, "LILLIPUT", C_WHITE);
-        cv_text_c(48, &FONT_XS, build, RGB(150, 150, 150));
+    CV_AREA(0, 176, 240, 64, C_BLACK) {
+        cv_text_c(16, &FONT_XS, build, RGB(150, 150, 150));
     }
 }

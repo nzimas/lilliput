@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/lilliput-logotype-white.svg">
+    <img src="assets/logo/lilliput-logotype-black.svg" alt="Lilliput" width="420">
+  </picture>
+</p>
+
 # Lilliput
 
 **An alternative firmware for the M-VAVE FM-1: a no-input mixer. Six channels feeding back into themselves and
@@ -480,7 +487,9 @@ where a single channel's loop starts to sing, its level swept.
 `firmware/src/lilliput.c` is one compilation unit that includes the rest: `mixer.c` (the channels, the rack, the
 buses, the output; the per-sample loop runs from RAM on CPU0, the output stage a block late on CPU1),
 `patch.c` (the recipes, HOME's patches, the trim), `lui.c` (the panel and the screen), `lses.c` (sessions),
-`setup.c` (GLOBAL SETUP, MIDI), and the platform from Tonitor, Felucca and SLOOP.
+`setup.c` (GLOBAL SETUP, MIDI), `drums.c` / `drumseq.c` / `drumkit.c` (the DRUMS), `logo.c` (the splash), and the
+platform from Tonitor, Felucca and SLOOP. The logo's SVGs (`assets/logo`) come from `tools/gen_logo.py`, from the same
+numbers the splash draws.
 
 # Licence
 
