@@ -1,5 +1,16 @@
 # Changelog
 
+## Build 21 (2026-11-11)
+
+- Drum rhythms anew, away from four on the floor: 16 styles, each a way of building a rhythm, drawn afresh each
+  time -- AKSAK, PHASING, EUCLID MESH, POLYRHYTHM, TIMELINE, COLOTOMIC, CASCADE, LIMP, DUST, CANON, HOCKET,
+  RITUAL, BROKEN, TRIBAL, DIST BREAK, TEMPO CANON. Odd meters, lanes of unequal lengths (polymeter), triplets
+  against quintuplets against 16ths (polyrhythm), timelines, pitched toms and perc lines. POWER 4/4, PISTON,
+  MARCH, OFFBEAT, RUMBLE, 3 AGAINST 4, SHUFFLE, HALF RITUAL and BURST FILL are gone.
+- **VARIATION** (drums' page, KNOB 2): now and then a lane's round is played otherwise -- a hit dropped, a
+  pick-up, a step pushed, an accent moved, a hit doubled, the lane turned, a half backwards, a round's rest -- then
+  home again. Sessions from before load at 0, as they were.
+
 ## Build 20 (2026-11-11)
 
 - 4 **shapers** as tube MODEs on AMP page (SHIFT + KNOB 1): SPIRAL, DENSITY, FUZZ, HARD CLIP. Driven as

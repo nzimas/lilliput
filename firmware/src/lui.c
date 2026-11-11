@@ -103,7 +103,7 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_RMIX,                                   /* (the RHYTHM's second page) */
        P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL, P_DSWEEP, P_DATTACK, P_DNOISE, P_DVERB,   /* (the DRUMS' voice chosen) */
        P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN, P_DMETAL, P_DFILT,
-       P_DSWING,                                 /* (the DRUMS' own) */
+       P_DSWING, P_DVAR,                         /* (the DRUMS' own) */
        P_CAMT, P_CTHR, P_CREL, P_CSC, P_CATT, P_CRAT,   /* (the COMPRESSOR's) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
@@ -115,7 +115,7 @@ static const uint8_t PG_ROW[PG_N][4] = {
     {P_OLEVEL, P_RET1, P_RET2, P_SPRES}, {P_OHIGH, P_OLOW, P_OMGAIN, P_OMFREQ}, {P_FX, P_P1, P_P2, P_PRES},
     {P_CAMT, P_CTHR, P_CREL, P_CSC},
     {P_BPM, P_SWING, P_CHAOS, P_GSCALE}, {P_RMIX, P_NONE, P_NONE, P_NONE},
-    {P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL}, {P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN}, {P_DSWING, P_NONE, P_NONE, P_NONE}};
+    {P_DTUNE, P_DDECAY, P_DDRIVE, P_DLEVEL}, {P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN}, {P_DSWING, P_DVAR, P_NONE, P_NONE}};
 static const uint8_t PG_SHROW[PG_N][4] = {
     {P_NOISE, P_MGAIN, P_OVER, P_SEND2}, {P_TMODE, P_NONE, P_NONE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE},
     {P_FTYPE, P_NONE, P_MTYPE, P_NONE}, {P_NONE, P_NONE, P_NONE, P_NONE}, {P_FIN, P_FOUT, P_LOFI, P_BYP},
@@ -277,6 +277,7 @@ static int32_t p_get(uint32_t id)
     case P_DMETAL: return drm.v[ui.dsel].metal;
     case P_DFILT: return drm.v[ui.dsel].filt;
     case P_DSWING: return drm.swing;
+    case P_DVAR: return drm.vary;
     case P_CAMT: return cmp.amount;
     case P_CTHR: return cmp.thresh;
     case P_CREL: return cmp.release;
@@ -323,7 +324,7 @@ static void p_set(uint32_t id, int32_t v)
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
         : id == P_BPM ? clampi(v, 10, 500)
         : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
-                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING || id == P_CAMT ? 100 : PMAX);
+                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100 : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -390,6 +391,7 @@ static void p_set(uint32_t id, int32_t v)
     case P_DMETAL: drm.v[ui.dsel].metal = (uint8_t)v; break;
     case P_DFILT: drm.v[ui.dsel].filt = (uint8_t)v; break;
     case P_DSWING: drm.swing = (uint8_t)v; break;
+    case P_DVAR: drm.vary = (int16_t)v; break;
     case P_CAMT: cmp.amount = (uint8_t)v; break;
     case P_CTHR: cmp.thresh = (int16_t)v; break;
     case P_CREL: cmp.release = (int16_t)v; break;
@@ -405,7 +407,7 @@ static void p_set(uint32_t id, int32_t v)
 }
 static int32_t p_hi(uint32_t id)
 {
-    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING || id == P_CAMT ? 100
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100
            : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE || id == P_RMIX ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
@@ -516,6 +518,7 @@ static const char *p_name(uint32_t id)
     case P_DMETAL: return "METAL";
     case P_DFILT: return "FILTER";
     case P_DSWING: return "SWING";
+    case P_DVAR: return "VARIATION";
     case P_CAMT: return "AMOUNT";
     case P_CTHR: return "THRESH";               /* ("THRESHOLD" does not fit beside its bar) */
     case P_CREL: return "RELEASE";
@@ -643,6 +646,7 @@ static void p_text(uint32_t id, int32_t v, char *b)
     case P_DMETAL: str_cpy(b, DM_NAME[clampi(v, 0, DM_N - 1)], 12); break;
     case P_DFILT: str_cpy(b, DN_NAME[clampi(v, 0, DN_N - 1)], 12); break;
     case P_DSWING: fmt_int(b, v); break;
+    case P_DVAR: fmt_int(b, v); break;
     case P_CAMT:
         if (!v)
             str_cpy(b, "OFF", 12);

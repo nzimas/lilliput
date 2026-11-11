@@ -256,7 +256,7 @@ static void bench_handle(const uint8_t *m, uint32_t d)
         bench_patch(bk_rd32(b), b[4] == 255u ? -1 : (int)b[4], b[5] & 0x7Fu);
         if (b[5] & 0x80u) {                      /* (+ the DRUMS at their densest: every voice on every sixteenth, long) */
             uint32_t c;
-            drm_draw_rhythm(bk_rd32(b), DS_PISTON);
+            drm_draw_rhythm(bk_rd32(b), DS_BROKEN);
             for (c = 0; c < NDV; c++) {
                 drm.l[c].hits = 0xFFFFu;
                 drm.l[c].len = 16;

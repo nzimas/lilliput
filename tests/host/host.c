@@ -596,6 +596,7 @@ static int cmd_drums(void)
         drm_init(5u);
         drm_draw_rhythm(900u + k, (int)k);
         drm.on = 1;
+        drm.vary = 0;                            /* (VARIATION off: the hits against the lanes) */
         drm.swing = 0;
         par.rhy.bpm = 120;
         for (c = 0; c < NDV; c++)
@@ -618,6 +619,42 @@ static int cmd_drums(void)
         }
         printf("  %-10s kick %3u snare %3u hats %3u\n", DS_NAME[k], got[0], got[1], got[2]);
     }
+    /* VARIATION (build 21): at 100 %, rounds played otherwise now and then and home again -- home never lost, the
+     * kick never resting a round; at 0, every round as written */
+    {
+        uint32_t vv;
+        for (vv = 0; vv < 2u; vv++) {
+            uint32_t b, rounds = 0, varied = 0, home = 0, kick_rest = 0, h0;
+            uint8_t last = 0xFF;
+            int32_t out[2 * CTL];
+            drm_quiet_mixer();
+            drm_init(5u);
+            drm_draw_rhythm(31u, DS_BROKEN);
+            drm.vary = (int16_t)(vv ? 100 : 0);
+            for (c = 0; c < NDV; c++)
+                drm.l[c].var = 100;
+            h0 = drm.l[DV_HAT].hits;
+            drm.on = 1;
+            par.rhy.bpm = 160;
+            for (b = 0; b < 60000u; b++) {
+                mix_block(out);
+                if (dlr[DV_HAT].step == 1u && last == 0u) {   /* (a round begun: what it plays) */
+                    rounds++;
+                    varied += drm.l[DV_HAT].hits != h0 || drm.l[DV_HAT].acc != dvr[DV_HAT].acc;
+                    home += drm.l[DV_HAT].hits == h0;
+                    kick_rest += !drm.l[DV_KICK].hits;
+                }
+                last = dlr[DV_HAT].step;
+            }
+            printf("  VARIATION %3u %%: %u rounds, %u otherwise, %u as written, home %s, kick resting %u\n", vv ? 100u : 0u,
+                   rounds, varied, home, dvr[DV_HAT].hits == h0 ? "kept" : "LOST", kick_rest);
+            if (vv ? (varied < rounds / 2u || home < rounds / 10u || dvr[DV_HAT].hits != h0 || kick_rest)
+                   : (varied != 0u || rounds < 10u)) {
+                printf("FAIL drums: VARIATION %u %%\n", vv ? 100u : 0u);
+                bad++;
+            }
+        }
+    }
     /* under the RHYTHM: switched on mid-beat, the drums' first hit on its next beat */
     {
         uint32_t b, beat0, first = 0, beat_at = 0;
@@ -628,7 +665,8 @@ static int cmd_drums(void)
         par.rhy.on = 1;
         par.rhy.bpm = 120;
         rhy_reset = 1;
-        drm_draw_rhythm(1u, DS_POWER);
+        drm_draw_rhythm(1u, DS_DBREAK);
+        drm.vary = 0;                        /* (build 21: VARIATION off -- hits counted against the lanes) */
         drm.on = 0;
         for (b = 0; b < 300u; b++)
             mix_block(out);
@@ -677,7 +715,8 @@ static int cmd_drums(void)
         int32_t out[2 * CTL];
         drm_quiet_mixer();
         drm_init(9u);
-        drm_draw_rhythm(1u, DS_POWER);
+        drm_draw_rhythm(1u, DS_DBREAK);
+        drm.vary = 0;                        /* (build 21: VARIATION off -- hits counted against the lanes) */
         dl_set(DV_KICK, "X...X...X...X...", 100);
         drm.on = 1;
         par.rhy.bpm = 120;
@@ -716,7 +755,8 @@ static int cmd_drums(void)
                 uint8_t *rec = pass ? brk : base;
                 drm_quiet_mixer();
                 drm_init(9u);
-                drm_draw_rhythm(1u, DS_POWER);
+                drm_draw_rhythm(1u, DS_DBREAK);
+        drm.vary = 0;                        /* (build 21: VARIATION off -- hits counted against the lanes) */
                 dl_set(DV_KICK, "X...X...X..XX...", 100);
                 dl_set(DV_SNARE, "....X.......X.X.", 100);
                 dl_set(DV_HAT, "..X...X...X...XX", 100);
@@ -868,7 +908,7 @@ static int cmd_demo(const char *dir)
     static int16_t buf[2 * FS * 48];
     static const struct { const char *file, *fam; uint32_t seed; int drums, dstyle, rstyle; uint32_t bpm, comp; } D[3] = {
         {"beating", "BEATING", 31u, 0, 0, -1, 120, 0},
-        {"under-the-kick", "ENGINE", 7u, 1, DS_POWER, -1, 136, 85},
+        {"under-the-kick", "ENGINE", 7u, 1, DS_AKSAK, -1, 136, 85},
         {"ritual", "CAVERN", 12u, 1, DS_TRIBAL, RS_TRIBAL, 118, 45}};
     uint32_t i;
     char path[512];
@@ -1559,8 +1599,16 @@ static int cmd_flows(void)
         EXPECT(ui.page == PG_DRUM2, "OCT+: the voice's second page");
         press_btn(B_OCTUP);
         EXPECT(ui.page == PG_DRUM3, "OCT+: the drums' own page");
-        turn(EN_K1, 10);
-        EXPECT(drm.swing == 10, "KNOB 1 there: SWING");
+        {
+            uint32_t sw0 = drm.swing;            /* (build 21: a style may draw some swing) */
+            turn(EN_K1, 10);
+            EXPECT(drm.swing == (sw0 + 10u > 100u ? 100u : sw0 + 10u), "KNOB 1 there: SWING");
+        }
+        {
+            int32_t v0 = drm.vary;
+            turn(EN_K2, -5);
+            EXPECT(drm.vary == (v0 > 5 ? v0 - 5 : 0), "KNOB 2 there: VARIATION");
+        }
         st0 = drm.style;
         turn(EN_PRESET, 1);
         EXPECT(drm.style == (st0 + 1u) % DS_N && drm.on, "PRESETS there: the next drum rhythm, playing");
@@ -1973,7 +2021,8 @@ static int cmd_breaks(void)
         char g[NDV][33];
         drm_quiet_mixer();
         drm_init(9u);
-        drm_draw_rhythm(1u, DS_POWER);
+        drm_draw_rhythm(1u, DS_DBREAK);
+        drm.vary = 0;                        /* (build 21: VARIATION off -- hits counted against the lanes) */
         for (v = 0; v < NDV; v++)
             dl_set(v, RH[v], 100);
         drm.l[DV_SNARE].acc = 1u << 12;
@@ -2012,6 +2061,29 @@ static int cmd_breaks(void)
     brk_hold = 0;
     return 0;
 }
+/* each drum style's lanes, as drawn from a few seeds: x hit, X accent, o short, O both; each lane its length and
+ * its step (a look at what the generator makes) */
+static int cmd_rhythms(uint32_t seeds)
+{
+    static const char *const DVN[NDIV] = {"1/2", "1/4", "1/8", "1/8T", "1/16", "1/16Q", "1/16T", "1/32"};
+    uint32_t k, sd, c, i;
+    for (k = 0; k < DS_N; k++)
+        for (sd = 0; sd < seeds; sd++) {
+            drm_draw_rhythm(1000u + sd * 7919u + k, (int)k);
+            printf("%-12s seed %u  VARIATION %d  SWING %u\n", DS_NAME[k], sd, drm.vary, drm.swing);
+            for (c = 0; c < NDV; c++) {
+                const dlane_t *L = &drm.l[c];
+                char g[33];
+                for (i = 0; i < L->len; i++) {
+                    uint32_t h = L->hits >> i & 1u, a = L->acc >> i & 1u, l = L->alt >> i & 1u;
+                    g[i] = !h ? '.' : a ? (l ? 'O' : 'X') : (l ? 'o' : 'x');
+                }
+                g[L->len] = 0;
+                printf("  %-5s %2u x %-5s p%3u v%2u  %s\n", DV_NAME[c], L->len, DVN[L->div], L->prob, L->var, g);
+            }
+        }
+    return 0;
+}
 int main(int argc, char **argv)
 {
     sine_init();                                 /* (as the firmware's boot: SINE from SINE_ROM) */
@@ -2019,6 +2091,8 @@ int main(int argc, char **argv)
         return cmd_demo(argv[2]);
     if (argc >= 2 && str_eq(argv[1], "drums"))
         return cmd_drums();
+    if (argc >= 2 && str_eq(argv[1], "rhythms"))
+        return cmd_rhythms(argc >= 3 ? (uint32_t)atoi(argv[2]) : 3u);
     if (argc >= 2 && str_eq(argv[1], "breaks"))
         return cmd_breaks();
     if (argc >= 2 && str_eq(argv[1], "free"))

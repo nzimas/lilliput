@@ -265,11 +265,31 @@
 <tr><th>Page</th><th>Rows (KNOB 1–4)</th><th>With SHIFT</th></tr>
 <tr><td>voice (its name and its sound's)</td><td><b>TUNE</b> (Hz), <b>DECAY</b>, <b>DRIVE</b>, <b>LEVEL</b></td><td><b>SWEEP</b> (how far above pitch it starts), <b>ATTACK</b> (HARD: sharpest transient; up to 100 ms: a soft one), <b>NOISE</b> (tone or noise), <b>REVERB</b> (its send into SPACE)</td></tr>
 <tr><td>its 2nd page</td><td><b>BEND</b> (how fast sweep falls), <b>COLOR</b> (noise filter), <b>CLICK</b> (burst on hit), <b>PAN</b></td><td><b>METAL</b> (tone made metallic: off or 6 ratios), <b>FILTER</b> (low-, band- or high-pass)</td></tr>
-<tr><td>drums' (their rhythm's name)</td><td><b>SWING</b></td><td></td></tr>
+<tr><td>drums' (their rhythm's name)</td><td><b>SWING</b>, <b>VARIATION</b></td><td></td></tr>
 </table>
 <p><b>A voice</b>: tone, swept down in pitch, and noise through a filter, mixed by NOISE; envelope rising over ATTACK and falling over DECAY; CLICK on top; then <b>DRIVE</b>, a tanh up to 32 times over: every voice has its own. The dry drums go to the output after the reverb, so SPACE never washes them away; each voice's <b>REVERB</b> sends it into SPACE's reverb, heard even when mixer's SPACE MIX is down. Their level is their own: the trim that sets mixer's main level never moves it.</p>
 <p><b>Sounds</b> (SHIFT + a voice's white key draws one, its values anew each time): kicks DEEP, PUNCH, GABBER, SOFT (slow attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER, TICK, CYMBAL, DIRT; percussion ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND.</p>
-<p><b>Rhythms</b>, after the genre — rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts and metal rather than in denser kicks — every lane in 16ths, 1 or 2 bars, so the pace is always the tempo's: <b>POWER 4/4</b>, <b>PISTON</b> (8th-note kicks, beat accented), <b>MARCH</b>, <b>OFFBEAT</b> (off-beat crushed hat, low tom), <b>RUMBLE</b> (clap on 2, stab, push every other bar), <b>BROKEN</b> (jagged kicks over a backbeat), <b>3 AGAINST 4</b>, <b>TRIBAL</b> (toms out of the kick, anvil on the beat), <b>SHUFFLE</b> (the only one that swings much), <b>DIST BREAK</b> (straight), <b>HALF RITUAL</b> (half time: hats keep the tempo), <b>BURST FILL</b> (2 bars, noise burst ending the 2nd). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares).</p>
+<p><b>Rhythms</b> (build 21: away from four on the floor). Each style is a way of building a rhythm, drawn afresh each time, so no 2 draws are alike. Lanes of different lengths drift against each other (polymeter); lanes of different step lengths run in different time (polyrhythm).</p>
+<table>
+<tr><th>Style</th><th>How it is built</th></tr>
+<tr><td><b>AKSAK</b></td><td>groups of 2 and 3 added up to an odd meter, 5 … 13 (once, or twice with a changed 2nd half); kick and snare on group starts, perc limping on the 3s; now and then hats in 16 against it</td></tr>
+<tr><td><b>PHASING</b></td><td>1 cell on hats and on perc, perc's a step longer: they drift apart and meet again (after Reich)</td></tr>
+<tr><td><b>EUCLID MESH</b></td><td>each voice a Euclidean rhythm of its own length (5 … 16), turned its own way</td></tr>
+<tr><td><b>POLYRHYTHM</b></td><td>each voice its own subdivision: 8ths, triplets, quintuplets, 16ths at once</td></tr>
+<tr><td><b>TIMELINE</b></td><td>a bell's timeline (12/8 bell, clave, gahu, bossa, shiko, soukous; sometimes turned) against a pulse of the other kind</td></tr>
+<tr><td><b>COLOTOMIC</b></td><td>cycles in cycles, after gamelan: a gong, ticks between, hats and snare interlocking</td></tr>
+<tr><td><b>CASCADE</b></td><td>a bouncing ball: hits ever closer, perc falling in pitch; snare's ever farther</td></tr>
+<tr><td><b>LIMP</b></td><td>a long odd bar (18 … 28 16ths), the backbeat late, an 8th missing</td></tr>
+<tr><td><b>DUST</b></td><td>a cloud: lanes of uneven lengths, every hit a chance</td></tr>
+<tr><td><b>CANON</b></td><td>1 figure, each voice entering it at another place; kick's toms follow perc's line</td></tr>
+<tr><td><b>HOCKET</b></td><td>1 dense line shared out, no 2 voices on a step; toms and perc pitched</td></tr>
+<tr><td><b>RITUAL</b></td><td>half time, slow: a kick, a snare far off, triplet hats</td></tr>
+<tr><td><b>BROKEN</b></td><td>kicks off the beat, backbeat pushed or pulled, ghosts</td></tr>
+<tr><td><b>TRIBAL</b></td><td>pitched toms out of the kick, Euclidean; anvil 3 against 4</td></tr>
+<tr><td><b>DIST BREAK</b></td><td>a distorted break, straight</td></tr>
+<tr><td><b>TEMPO CANON</b></td><td>1 figure in several tempi at once: 8ths, triplets, 16ths, quintuplets, meeting now and then (after Nancarrow)</td></tr>
+</table>
+<p><b>VARIATION</b> (drums' page, KNOB 2) is how often a lane's round is played otherwise: a hit dropped, a pick-up before a hit, a hit pushed a step, an accent moved, a hit doubled, the lane turned, its 2nd half backwards, a round's rest (never the kick's). Each variant comes from the lane's own pattern, and the next round comes home, so the rhythm never wanders off. Each style draws its own amount, and each lane its own share of it (hats and perc more than kick). 0: every round as written; sessions from before build 21 load at 0. As in Noir, a step can be more than a hit: accented, with a pitch of its own, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares).</p>
 <h3 id="break">Break</h3>
 <p>On drums' pages, <b>hold white key 16</b> (last, under SHIFT): drums play a <b>variation of their own rhythm</b> — fill, break, flams, beat repeat — for as long as it is held. Let go, rhythm carries on from where it would have been: nothing is written, each lane's steps run on underneath.</p>
 <p>Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it. A break is <b>quantized</b>: it starts on the rhythm's next beat (next half bar for HALF TIME and MIRROR), playing as written until then, and fills are measured against the bar, so they land on its next downbeat however late they start. Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:</p>

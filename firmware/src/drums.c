@@ -27,14 +27,16 @@ typedef struct {
 typedef struct {
     uint32_t hits, acc, alt;     /* its steps: a hit; an accent; ALT (the decay a fifth) */
     int8_t pitch[DSTEPS];        /* each step's pitch, semitones (-12 .. +12) */
-    uint8_t len, div, prob, rsv; /* 1 .. 32 steps; NDIV's step length; a hit's chance, % */
+    uint8_t len, div, prob, var; /* 1 .. 32 steps; NDIV's step length; a hit's chance, %; its share of VARIATION, %
+                                  * (build 21; 0 before) */
 } dlane_t;
 typedef struct {
     dvoice_t v[NDV];
     dlane_t l[NDV];
     uint8_t on, style, swing, mute;   /* mute: a bit a voice (its white key held) */
     uint8_t kit[NDV];            /* each voice's sound, as drawn (its recipe: the name) */
-    int16_t level, rsv3;         /* the drums' level (707: as drawn; not on the panel since build 17) */
+    int16_t level, vary;         /* the drums' level (707: as drawn; not on the panel since build 17); VARIATION, 0 .. 100
+                                  * (build 21; a session before: 0, as it was) */
 } drm_par_t;
 typedef struct {                 /* (build 16's, three voices: sessions saved then) */
     dvoice_t v[3];

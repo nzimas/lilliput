@@ -396,7 +396,7 @@ RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 | --- | --- | --- |
 | voice (its name and its sound's) | **TUNE** (Hz), **DECAY**, **DRIVE**, **LEVEL** | **SWEEP** (how far above pitch it starts), **ATTACK** (HARD: sharpest transient; up to 100 ms: a soft one), **NOISE** (tone or noise), **REVERB** (its send into SPACE) |
 | its 2nd page | **BEND** (how fast sweep falls), **COLOR** (noise filter), **CLICK** (burst on hit), **PAN** | **METAL** (tone made metallic: off or 6 ratios), **FILTER** (low-, band- or high-pass) |
-| drums' (their rhythm's name) | **SWING** | |
+| drums' (their rhythm's name) | **SWING**, **VARIATION** | |
 
 **A voice**: tone, swept down in pitch, and noise through a filter, mixed by NOISE; envelope rising over ATTACK
 and falling over DECAY; CLICK on top; then **DRIVE**, a tanh up to 32 times over: every voice has its own. The dry
@@ -408,13 +408,35 @@ mixer's main level never moves it.
 attack), TOM, SUB, CRUNCH; snares SNAP, NOISE, BODY, METAL, RIM, CRUSH, LONG; hats CLOSED, OPEN, METAL, SHAKER,
 TICK, CYMBAL, DIRT; percussion ANVIL, PIPE, SHEET, CLANK, CHAIN, SPRING, GRIND.
 
-**Rhythms**, after the genre — rigid, militaristic 4/4 from a distorted kick, the strangeness in accents, ghosts and
-metal rather than in denser kicks — every lane in 16ths, 1 or 2 bars, so the pace is always the tempo's:
-**POWER 4/4**, **PISTON** (8th-note kicks, beat accented), **MARCH**, **OFFBEAT** (off-beat crushed hat,
-low tom), **RUMBLE** (clap on 2, stab, push every other bar), **BROKEN** (jagged kicks over a backbeat),
-**3 AGAINST 4**, **TRIBAL** (toms out of the kick, anvil on the beat), **SHUFFLE** (the only one that swings
-much), **DIST BREAK** (straight), **HALF RITUAL** (half time: hats keep the tempo), **BURST FILL** (2 bars,
-noise burst ending the 2nd). As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
+**Rhythms** (build 21: away from four on the floor). Each style is a way of building a rhythm, drawn afresh each
+time, so no 2 draws are alike. Lanes of different lengths drift against each other (polymeter); lanes of
+different step lengths run in different time (polyrhythm).
+
+| Style | How it is built |
+| --- | --- |
+| **AKSAK** | groups of 2 and 3 added up to an odd meter, 5 … 13 (once, or twice with a changed 2nd half); kick and snare on group starts, perc limping on the 3s; now and then hats in 16 against it |
+| **PHASING** | 1 cell on hats and on perc, perc's a step longer: they drift apart and meet again (after Reich) |
+| **EUCLID MESH** | each voice a Euclidean rhythm of its own length (5 … 16), turned its own way |
+| **POLYRHYTHM** | each voice its own subdivision: 8ths, triplets, quintuplets, 16ths at once |
+| **TIMELINE** | a bell's timeline (12/8 bell, clave, gahu, bossa, shiko, soukous; sometimes turned) against a pulse of the other kind |
+| **COLOTOMIC** | cycles in cycles, after gamelan: a gong, ticks between, hats and snare interlocking |
+| **CASCADE** | a bouncing ball: hits ever closer, perc falling in pitch; snare's ever farther |
+| **LIMP** | a long odd bar (18 … 28 16ths), the backbeat late, an 8th missing |
+| **DUST** | a cloud: lanes of uneven lengths, every hit a chance |
+| **CANON** | 1 figure, each voice entering it at another place; kick's toms follow perc's line |
+| **HOCKET** | 1 dense line shared out, no 2 voices on a step; toms and perc pitched |
+| **RITUAL** | half time, slow: a kick, a snare far off, triplet hats |
+| **BROKEN** | kicks off the beat, backbeat pushed or pulled, ghosts |
+| **TRIBAL** | pitched toms out of the kick, Euclidean; anvil 3 against 4 |
+| **DIST BREAK** | a distorted break, straight |
+| **TEMPO CANON** | 1 figure in several tempi at once: 8ths, triplets, 16ths, quintuplets, meeting now and then (after Nancarrow) |
+
+**VARIATION** (drums' page, KNOB 2) is how often a lane's round is played otherwise: a hit dropped, a pick-up
+before a hit, a hit pushed a step, an accent moved, a hit doubled, the lane turned, its 2nd half backwards, a
+round's rest (never the kick's). Each variant comes from the lane's own pattern, and the next round comes home, so
+the rhythm never wanders off. Each style draws its own amount, and each lane its own share of it (hats and perc
+more than kick). 0: every round as written; sessions from before build 21 load at 0.
+As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
 **ALT**, its decay cut to 1/5 (closed hats among open ones, ghost snares).
 
 ### Break

@@ -805,9 +805,11 @@ static void reson_tune(uint32_t s)
         k->rbands = (uint8_t)nb;
     }
 }
+static void drm_evolve(void);                    /* (drumkit.c: the DRUMS' VARIATION) */
 static void mx_poll(void)                        /* (the main loop's: what the audio's time need not work out) */
 {
     uint32_t s;
+    drm_evolve();
     for (s = 0; s < NSLOT; s++)
         reson_tune(s);
     for (s = 0; s < NCH; s++)
