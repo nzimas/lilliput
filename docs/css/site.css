@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT -- Lilliput website (the frame after Tonitor's, Bigorna's and Norilsk's; the logo's
- * register: black, white, thin rules, one grid; the six channels' colours only as a thin band and as markers) */
+ * register: black, white, thin rules, one grid) */
 :root {
   --bg: #050506;
   --plate: #0b0c0e;          /* the content's plate */
@@ -29,12 +29,6 @@ body {
   font-size: 18px;
   line-height: 1.62;
 }
-/* the six channels, a thin band across the top */
-body::before {
-  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 30;
-  background: linear-gradient(90deg, var(--c1) 0 16.66%, var(--c2) 16.66% 33.33%, var(--c3) 33.33% 50%,
-                                     var(--c4) 50% 66.66%, var(--c5) 66.66% 83.33%, var(--c6) 83.33% 100%);
-}
 a { color: var(--link); text-decoration-color: var(--mid); text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--fg); }
 :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
@@ -45,9 +39,9 @@ pre { background: #000; border: 1px solid var(--line); padding: 14px 16px; overf
 pre code { background: none; border: 0; padding: 0; }
 img { max-width: 100%; }
 /* the frame: the menu down the left, the content beside it */
-.layout { display: flex; min-height: 100vh; padding-top: 3px; }
+.layout { display: flex; min-height: 100vh; }
 .side {
-  width: var(--side); flex: none; position: sticky; top: 3px; align-self: flex-start; height: calc(100vh - 3px);
+  width: var(--side); flex: none; position: sticky; top: 0; align-self: flex-start; height: 100vh;
   padding: 30px 22px; border-right: 1px solid var(--line); display: flex; flex-direction: column;
 }
 .brand { display: block; text-decoration: none; }
