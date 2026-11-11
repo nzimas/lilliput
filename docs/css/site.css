@@ -223,3 +223,21 @@ main .app h3 { margin: 26px 0 8px; }
   main td:first-child { white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) { .side nav, .bar > div { transition: none; } }
+/* the Concept page's desk: wider than the text where there is room, scrolled sideways on a phone */
+.mixer { margin: 22px 0 8px; width: min(1060px, calc(100vw - var(--side) - 96px)); max-width: none; }
+.mixer-routes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.mixer-routes button { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+                       padding: 8px 14px; border: 1px solid var(--line); background: transparent; color: var(--dim);
+                       cursor: pointer; border-radius: 0; }
+.mixer-routes button:hover { color: var(--fg); border-color: var(--mid); }
+.mixer-routes button[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.mixer-desk svg { display: block; width: 100%; height: auto; }
+.mixer figcaption { margin: 14px 0 0; max-width: 44em; color: var(--dim); font-size: 16px; }
+.mixer-name { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+              color: var(--fg); margin-right: 8px; }
+@media (max-width: 860px) {
+  .mixer { width: auto; }
+  .mixer-desk { overflow-x: auto; -webkit-overflow-scrolling: touch; border-top: 1px solid var(--line);
+                border-bottom: 1px solid var(--line); }
+  .mixer-desk svg { width: 820px; max-width: none; }
+}

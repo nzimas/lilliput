@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 # LILLIPUT (as NORILSK's, TONITOR's and BIGORNA's): the website's generated parts, in docs/ (GitHub Pages):
-#   docs/index.html, noinput.html, screens.html, install.html, backup.html, projects.html, apps.html
+#   docs/index.html, concept.html, screens.html, install.html, backup.html, projects.html, apps.html
 #                        site/*.html in the common frame (the home page's demos: docs/assets/demo/, tools/make_demos.sh;
 #                        their player js/demo.js)
 #   docs/assets/screens/ the FM-1's screens as build/host screens draws them (run tests/run_tests.sh first)
@@ -158,9 +158,16 @@ DONATE = """<form class="donate {cls}" action="https://www.paypal.com/cgi-bin/we
     </form>"""
 
 
+REDIRECT = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Concept — Lilliput</title>
+<meta http-equiv="refresh" content="0; url=concept.html"><link rel="canonical" href="concept.html"></head>
+<body><p><a href="concept.html">Concept</a></p></body></html>
+"""
+
+
 def page(title, current, body, desc, head=""):
     """every page: the menu down the left (above the content on a narrow screen), the content, the footer"""
-    nav = [("./", "Home"), ("noinput.html", "No-input mixing"), ("screens.html", "Screens"), ("install.html", "Install"),
+    nav = [("./", "Home"), ("concept.html", "Concept"), ("screens.html", "Screens"), ("install.html", "Install"),
            ("backup.html", "Backup"), ("manual.html", "Manual"), ("changelog.html", "Changelog"),
            ("projects.html", "Other projects"), ("apps.html", "Apps"), (REPO, "GitHub")]
     links = "\n      ".join(f'<a href="{h}"' + (' aria-current="page"' if n == current else "") + f">{n}</a>"
@@ -220,10 +227,15 @@ def fragments():
     (DOCS / "index.html").write_text(page(
         "Lilliput — a no-input mixer for the M-VAVE FM-1", "Home", (src / "home.html").read_text(), DESC,
         f'\n<script src="js/demo.js?v={demo_v}" defer></script>'))
-    (DOCS / "noinput.html").write_text(page(
-        "No-input mixing — Lilliput", "No-input mixing", (src / "noinput.html").read_text(),
+    sys.path.insert(0, str(ROOT / "tools"))
+    import gen_mixer
+    mixer_v = hashlib.sha256((DOCS / "js" / "mixer.js").read_bytes()).hexdigest()[:10]
+    (DOCS / "concept.html").write_text(page(
+        "Concept — Lilliput", "Concept", (src / "concept.html").read_text().replace("<!-- MIXER -->", gen_mixer.figure()),
         "What a no-input mixer is, where the technique comes from, who plays it, and how Lilliput brings it together "
-        "with rhythm."))
+        "with rhythm, and the desk Lilliput models, drawn.",
+        f'\n<script src="js/mixer.js?v={mixer_v}" defer></script>'))
+    (DOCS / "noinput.html").write_text(REDIRECT)
     (DOCS / "screens.html").write_text(page(
         "Lilliput on the FM-1's screen", "Screens", (src / "screens.html").read_text(),
         "Lilliput on the M-VAVE FM-1's screen: the main view, a channel's pages, the overview, the drums, the "
@@ -309,5 +321,5 @@ if __name__ == "__main__":
     manual()
     changelog()
     firmware(Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "lilliput.fwsc")
-    print("site: docs/index.html, noinput.html, screens.html, install.html, backup.html, manual.html, changelog.html, "
+    print("site: docs/index.html, concept.html, screens.html, install.html, backup.html, manual.html, changelog.html, "
           "projects.html, apps.html")
