@@ -404,6 +404,7 @@ static void fm1_main(void)
         if (usb.uboot_req)
             enter_uboot("UBOOT (USB)");
         ui_input();
+        mx_poll();                                   /* (the mixer's slow work: the RESONATOR's tuning) */
         setup_poll();                                /* (GLOBAL SETUP left: its changes written) */
         midi_poll();                                 /* (the tracks' CCs sent as they change) */
         ui_leds();

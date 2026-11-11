@@ -272,7 +272,15 @@ static const uint8_t FAM_FX2[][FX_N - FX_RESON] = {
     {2, 0, 0, 0, 0, 4, 4, 1, 0, 0}, {0, 1, 1, 3, 0, 0, 0, 0, 0, 2}, {0, 4, 0, 0, 2, 0, 2, 1, 4, 1},
     {2, 0, 0, 0, 0, 0, 0, 5, 0, 0}, {1, 0, 0, 1, 0, 0, 0, 2, 0, 0},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
-typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM ? 1 : -1];
+/*                                   AUTO-LEVEL LP GATE CROSSOVER FRICTION GATELOPE FREEZE (build 20) */
+static const uint8_t FAM_FX3[][FX_N - FX_AUTOLVL] = {
+    {2, 0, 0, 0, 0, 3}, {1, 0, 0, 0, 0, 1}, {1, 0, 1, 0, 0, 0}, {0, 2, 1, 1, 2, 0}, {0, 1, 3, 2, 1, 0},
+    {0, 2, 2, 1, 2, 0}, {1, 1, 1, 2, 1, 1}, {2, 0, 0, 0, 0, 1}, {0, 4, 1, 0, 3, 0}, {1, 0, 0, 0, 1, 3},
+    {1, 2, 0, 1, 1, 1}, {0, 1, 3, 2, 1, 1}, {2, 0, 1, 1, 0, 2}, {1, 0, 3, 1, 0, 0}, {0, 1, 2, 1, 2, 2},
+    {3, 1, 0, 0, 1, 3}, {2, 0, 0, 0, 0, 2}, {1, 1, 1, 3, 0, 0}, {0, 2, 1, 4, 1, 0}, {2, 0, 0, 0, 0, 2},
+    {0, 3, 1, 0, 3, 0}, {1, 0, 2, 3, 0, 0}, {2, 0, 0, 0, 0, 3}, {0, 3, 0, 0, 2, 1},
+    {1, 1, 1, 1, 1, 1}};
+typedef char fam_fold_all[NELEM(FAM_FOLD) == NFAM && NELEM(FAM_FX2) == NFAM && NELEM(FAM_FX3) == NFAM ? 1 : -1];
 
 /* ------------------------------------------------------------ drawing --- */
 static int32_t pr_in(rnd_t *r, int32_t a, int32_t b) { return b <= a ? a : a + rnd_below(r, b - a + 1); }
@@ -284,8 +292,11 @@ static int32_t loop_db10(const ch_par_t *p)
 {
     static const int16_t TUBE_DB10[TB_N] = {95, 68, 136, 70, 40, 23};
     int32_t g = p->gain * 480 / PMAX + 60;
-    if (p->tmode == TM_SAT)
+    static const int16_t SHAPE_DB10[TM_N - TM_SPIRAL] = {0, 39, 80, 35};   /* (the SHAPERS' slopes at silence) */
+    if (p->tmode != TM_LIN)
         g += TUBE_DB10[clampi(p->tube, 0, TB_N - 1)];
+    if (p->tmode >= TM_SPIRAL && p->tmode < TM_N)
+        g += SHAPE_DB10[p->tmode - TM_SPIRAL];
     if (p->mtype == MT_PEAK && p->mgain > 500)
         g += peak_db10(p->mgain) * 8 / 10;
     if (p->ftype == FT_SHELF)
@@ -301,6 +312,8 @@ static void draw_voice(rnd_t *r, const family_t *f, ch_par_t *p, int32_t mf_base
 {
     p->tube = (int16_t)rnd_weighted(r, f->tube, TB_N);
     p->tmode = (int16_t)(rnd_chance(r, f->sat) ? TM_SAT : TM_LIN);
+    if (p->tmode == TM_SAT && rnd_chance(r, 35))   /* (build 20: a third of the saturated tubes a SHAPER) */
+        p->tmode = (int16_t)(TM_SPIRAL + rnd_below(r, TM_N - TM_SPIRAL));
     p->opamp = (int16_t)rnd_weighted(r, f->opamp, OA_N);
     p->ntype = (int16_t)rnd_weighted(r, f->noise, NZ_N);
     p->noise = (int16_t)(p->ntype == NZ_GEIGER ? pr_in(r, 250, 650) : pr_in(r, 330, 680));
@@ -332,15 +345,21 @@ static void draw_slot(rnd_t *r, const family_t *f, slot_par_t *s, uint32_t in, u
         uint8_t w[FX_N];
         uint32_t i, fi = (uint32_t)(f - FAM);
         for (i = 0; i < FX_N; i++)
-            w[i] = i < FX_RESON ? f->fx[i] : FAM_FX2[fi][i - FX_RESON];
+            w[i] = i < FX_RESON ? f->fx[i] : i < FX_AUTOLVL ? FAM_FX2[fi][i - FX_RESON] : FAM_FX3[fi][i - FX_AUTOLVL];
         s->fx = (int16_t)rnd_weighted(r, w, FX_N);
     }
     s->p1 = (int16_t)(fx_pcount(s->fx, 0) ? rnd_below(r, fx_pcount(s->fx, 0)) : pr_in(r, 100, 900));
     s->p2 = (int16_t)(fx_pcount(s->fx, 1) ? rnd_below(r, s->fx == FX_RESON ? NCHORD : NCH) : pr_in(r, 100, 850));
     if (s->fx == FX_RESON)                       /* (its root where loops sing: C2 .. B4) */
         s->p1 = (int16_t)rnd_below(r, 36);
-    if (s->fx == FX_DUCK || s->fx == FX_GATE)
+    if (s->fx == FX_DUCK || s->fx == FX_GATE || s->fx == FX_LPG)
         s->p1 = (int16_t)pr_in(r, 500, 1000);
+    if (s->fx == FX_GLOPE)                       /* (low enough that a loop's hiss opens it: it can begin) */
+        s->p1 = (int16_t)pr_in(r, 50, 350);
+    if (s->fx == FX_FREEZE)                      /* (never frozen as drawn: a frozen silence stays silent) */
+        s->p2 = (int16_t)pr_in(r, 150, 700);
+    if (s->fx == FX_AUTOLVL)
+        s->p1 = (int16_t)pr_in(r, 450, 900);
     if (s->fx == FX_REED) {                      /* (a note where loops sing, a breath that blows) */
         s->p1 = (int16_t)rnd_below(r, 36);
         s->p2 = (int16_t)pr_in(r, 450, 850);
@@ -550,7 +569,7 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
             s1 = act[NCH - 1u];
         draw_slot(&r, f, &q->slot[s1], FI_SEN1, FO_RET1);
         if ((q->slot[s1].fx == FX_BITCRUSH && rnd_chance(&r, 50)) || q->slot[s1].fx == FX_XMOD ||
-            q->slot[s1].fx == FX_DUCK || q->slot[s1].fx == FX_GATE)
+            q->slot[s1].fx == FX_DUCK || q->slot[s1].fx == FX_GATE || q->slot[s1].fx == FX_LPG)
             q->slot[s1].fx = FX_DELAY;           /* (the loop through the rack: never through something that is silent
                                                   * unless another signal opens it -- it could never start) */
         if (s1 + 1u < NCH && q->slot[s1 + 1u].in == FI_NON && rnd_chance(&r, 40)) {
@@ -591,7 +610,7 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
     for (i = 0; i < NSLOT; i++) {                /* XMOD's and GATE's other signal: a channel that sings by itself */
         slot_par_t *sl = &q->slot[i];
         uint32_t c, best = NCH;
-        if (sl->in == FI_NON || (sl->fx != FX_XMOD && sl->fx != FX_GATE && sl->fx != FX_DUCK))
+        if (sl->in == FI_NON || (sl->fx != FX_XMOD && sl->fx != FX_GATE && sl->fx != FX_DUCK && sl->fx != FX_LPG))
             continue;
         for (c = 0; c < NCH; c++) {
             const ch_par_t *p = &q->ch[c];

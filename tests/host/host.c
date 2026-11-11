@@ -781,7 +781,7 @@ static int cmd_drums(void)
             uint32_t n = 44100u * 8u, kk;
             double s2 = 0, da = 0, db2 = 0;
             fresh_mixer();
-            patch_draw(&par, 0xC0FFEEu + 3u * 7919u, 0);
+            patch_draw(&par, 0xC0FFEEu + 5u * 7919u, 0);   /* (build 20: the generator draws more; a patch sitting as build 19's did) */
             par.rhy.on = 0;
             drm_init(11u);
             for (kk = 0; kk < NDV; kk++)
@@ -1686,7 +1686,7 @@ static stats_t fx_run(int fx, int p1, int p2, int as_send)
     patch_plain(&par);
     par.out.spres = 0;
     par.ch[0].level = LVL_0DB - 80;              /* a loop of its own, singing */
-    par.ch[1].level = fx == FX_XMOD || fx == FX_DUCK || fx == FX_GATE ? LVL_0DB - 80 : 0;   /* (a second loop: XMOD's, DUCK's, GATE's other signal;
+    par.ch[1].level = fx == FX_XMOD || fx == FX_DUCK || fx == FX_GATE || fx == FX_LPG ? LVL_0DB - 80 : 0;   /* (a second loop: XMOD's, DUCK's, GATE's other signal;
                                                          * the RESONATOR heard alone) */
     par.ch[1].src = SRC_PRE;
     par.ch[1].mfreq = 300;
@@ -1715,7 +1715,12 @@ static int cmd_effects(void)
         {"CYCLES WAVESET", FX_CYCLES, CY_WAVESET, 600}, {"REED A2", FX_REED, 9, 700}, {"REED E4", FX_REED, 28, 600},
         {"OCTAVER ONE DOWN", FX_OCTAVE, OC_ONE, 600}, {"OCTAVER BOTH", FX_OCTAVE, OC_BOTH, 400},
         {"DIFFUSER SIZE 5", FX_DIFFUSE, 4, 700}, {"SAG 23 MS", FX_SAG, 4, 800}, {"SAG 371 MS", FX_SAG, 8, 900},
-        {"CUTS", FX_CUTS, 500, 600}};
+        {"CUTS", FX_CUTS, 500, 600},
+        {"AUTO-LEVEL -12 DB", FX_AUTOLVL, 600, 500}, {"AUTO-LEVEL -3 DB", FX_AUTOLVL, 900, 900},
+        {"LP GATE BY CH 2", FX_LPG, 900, 1}, {"CROSSOVER DEAD", FX_CROSS, CR_DEAD, 400},
+        {"CROSSOVER INSIDE", FX_CROSS, CR_INOUT, 500}, {"FRICTION 110 HZ", FX_FRICT, 2, 400},
+        {"FRICTION 440 HZ", FX_FRICT, 6, 800}, {"GATELOPE", FX_GLOPE, 200, 500}, {"FREEZE 100 MS", FX_FREEZE, 2, 300},
+        {"FREEZE 371 MS", FX_FREEZE, 7, 700}};
     uint32_t i, bad = 0, a;
     for (i = 0; i < NELEM(T); i++)
         for (a = 0; a < 2u; a++) {
@@ -1725,6 +1730,34 @@ static int cmd_effects(void)
                    db(st.late_rms), st.zc_hz, st.clip * 100, ok ? "ok" : "BAD");
             bad += !ok;
         }
+    {   /* the SHAPERS: each tube MODE, a loop through it singing, bounded -- and each its own colour (the
+         * brightness: the first difference's level against the signal's) */
+        static int16_t kb[2 * 44100];
+        double br[TM_N] = {0};
+        int32_t m, j;
+        for (m = TM_SAT; m < TM_N; m++) {
+            stats_t st;
+            double e = 0, d = 0;
+            fresh_mixer();
+            patch_plain(&par);
+            par.out.spres = 0;
+            par.ch[0].level = LVL_0DB - 80;
+            par.ch[0].tmode = (int16_t)m;
+            par.ch[0].gain = 400;                /* (driven: the curves apart) */
+            st = render(4.0, kb, NELEM(kb) / 2u);
+            for (j = 2; j < (int32_t)NELEM(kb); j += 2) {
+                e += (double)kb[j] * kb[j];
+                d += (double)(kb[j] - kb[j - 2]) * (kb[j] - kb[j - 2]);
+            }
+            br[m] = e > 0 ? sqrt(d / e) : 0;
+            int ok = db(st.late_rms) > -50 && st.clip < 0.02 && fabs(st.dc) < 0.02;
+            if (m > TM_SAT)                      /* (each a colour of its own beside the tube's) */
+                ok &= fabs(br[TM_SAT] - br[m]) > 0.01 * br[TM_SAT];
+            printf("  TUBE %-15s rms %6.1f dB  zc %6.0f Hz  bright %.4f  %s\n", TM_NAME[m], db(st.late_rms), st.zc_hz,
+                   br[m], ok ? "ok" : "BAD");
+            bad += !ok;
+        }
+    }
     {   /* FOLD: harmonics up (the zero crossings), never louder past full scale */
         stats_t s0, s1;
         fresh_mixer();
@@ -1799,7 +1832,9 @@ static int cmd_rhythm(void)
             b = render(6.0, 0, 0);
             m0 += a.move;
             m1 += b.move;
-            if (n == 0 || db(b.rms) < lo)        /* (over the run: a sparse style may rest a whole second) */
+            if (db(a.rms) > -40 && (n == 0 || db(b.rms) < lo))   /* (over the run: a sparse style may rest a whole
+                                                  * second. Build 20: of the patches heard without it -- a patch
+                                                  * quiet by itself, rare (1 in ~600), is not the rhythm's doing) */
                 lo = db(b.rms);
             if (b.clip > 0.02)
                 bad++;

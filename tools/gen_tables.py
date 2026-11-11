@@ -141,10 +141,26 @@ def main(path):
     # (1025 points: SINE[i + 1] needs no wrap)
     # (read by every engine every sample: a copy in the RAM's POOL, made at boot from the flash's -- build 17: it was
     # in the RAM for code, 2 KiB of it; sine_init)
+    # the SHAPERS (Lilliput's tube MODEs, build 20), x = 0 .. 4 in 128 steps (the POOL's room), Q15: SPIRAL (Airwindows
+    # Spiral: sin(x |x|) / |x|, a round knee, then folding inward), DENSITY (Airwindows Density, twice: sin of sin, fat),
+    # FUZZ (1 - e^-2.5x: a sharp knee), HARD CLIP (x 1.5, flat at full scale) -- a copy in the POOL (shape_init)
+    def spiral(x):                     # (on past its knee: driven harder, it spirals -- folds, ever closer, quieter)
+        return math.sin(x * x) / x / 0.8508 if x > 0 else 0.0
+    curves = [spiral,
+              lambda x: math.sin(math.pi / 2 * math.sin(min(x, math.pi / 2))),
+              lambda x: 1 - math.exp(-2.5 * x),
+              lambda x: min(1.5 * x, 1.0)]
+    shp = []
+    for f in curves:
+        shp += [int(round(32767 * max(-1.0, min(1.0, f(4 * i / 128))))) for i in range(129)]
+    L += arr("SHAPE_ROM", "int16_t", shp)
+    L += ["#ifdef HOST", f"static int16_t SHAPE[{len(shp)}];", "#else",
+          f'static int16_t SHAPE[{len(shp)}] __attribute__((section(".pool")));', "#endif",
+          f"static void shape_init(void) {{ int i; for (i = 0; i < {len(shp)}; i++) SHAPE[i] = SHAPE_ROM[i]; }}", ""]
     L += arr("SINE_ROM", "int16_t", [int(round(32767 * math.sin(2 * math.pi * i / 1024))) for i in range(1025)])
     L += ["#ifdef HOST", "static int16_t SINE[1025];", "#else",
           'static int16_t SINE[1025] __attribute__((section(".pool")));', "#endif",
-          "static void sine_init(void) { int i; for (i = 0; i < 1025; i++) SINE[i] = SINE_ROM[i]; }", ""]
+          "static void sine_init(void) { int i; for (i = 0; i < 1025; i++) SINE[i] = SINE_ROM[i]; shape_init(); }", ""]
     # phase increment (2^32 = one cycle a sample) of pitch p in 1/16 semitone, MIDI 0..127: the top octave
     inc = []
     for p in range(128 * 16):

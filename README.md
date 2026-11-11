@@ -121,7 +121,7 @@ brickwall limiter → mute → SEND 1, SEND 2 → LEVEL → insert effect → PA
 
 | Page | Rows (KNOB 1–4) | With SHIFT |
 | --- | --- | --- |
-| **AMP** | TUBE, GAIN (0 … +48 dB), FOLD (off, ×1.2 … ×16), OP-AMP | KNOB 1: MODE (LINEAR, SATURATED) |
+| **AMP** | TUBE, GAIN (0 … +48 dB), FOLD (off, ×1.2 … ×16), OP-AMP | KNOB 1: MODE (LINEAR, SATURATED, SPIRAL, DENSITY, FUZZ, HARD CLIP) |
 | **NOISE** | NOISE (off, −90 … −18 dB; GEIGER: its clicks' rate), TYPE (WHITE, PINK, RED, CRACKLE, GEIGER, HUM), LIMIT, PROTECT | |
 | **EQ** | HIGH and LOW (shelves ±15 dB, or cuts), middle (PEAK ±18 dB, or NOTCH or BAND and their Q), FREQ (30 Hz … 16 kHz) | KNOB 1: SHELF or CUT; KNOB 3: PEAK, NOTCH, BAND |
 | **SEND** | INPUT, SEND 1, SEND 2, MAIN MIX | |
@@ -145,7 +145,10 @@ page's switches in place of its rows.
 | **CH 1 … CH 6** | another channel's output (after its insert): channels in a chain or ring | each channel's LEVEL round the ring |
 
 **GAIN** amplifies noise and loop. The **tube** shapes the sound as it rises (SATURATED drives it
-harder). The **op-amp** amplifies it again and adds its own colour: 741 and OP07 are slow and dark, 4558
+harder). The other 4 MODEs, the **shapers**, drive it as SATURATED does, into another curve: SPIRAL (after
+Airwindows' Spiral) rounds the peaks off, then folds them inward as it is driven harder, bright and buzzing;
+DENSITY (after Airwindows' Density) fattens; FUZZ has a sharp knee; HARD CLIP flattens peaks at full scale.
+None of them moves pitch. The **op-amp** amplifies it again and adds its own colour: 741 and OP07 are slow and dark, 4558
 warm, CA3140 lopsided, TL072 and NE5532 clean. **PROTECT** sets threshold of overload
 protection: when op-amp's signal goes over it, the protection breaks the signal for a few milliseconds and
 the loop starts again from the noise, with the crackle no-input players know. Higher, it lets more through and
@@ -182,13 +185,18 @@ or RET 2. An insert's output goes on through its channel, and to a return too if
 | XMOD | MODE: RING (diode ring), XOR (2 signals' bits), FOLD (their sum and product, folded), COMPARE (louder of 2 signals) | WITH: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 |
 | DUCK | DEPTH | KEY: CH 1 … CH 6, MIX L, MIX R, SEND 1, SEND 2 — the louder it is, the quieter this |
 | GATE | DEPTH | KEY: as DUCK's — the louder it is, the more this opens |
-
 | CYCLES | MODE: WAVELOSS (first n of every 8 cycles silent), SPUTTER (half-cycle now and then turned over or silent), WAVESET (each cycle repeated) | AMOUNT |
 | REED | NOTE, C2 … B5, a semitone a step | BREATH |
 | OCTAVER | MODE: ONE DOWN, TWO DOWN, BOTH | TONE |
 | DIFFUSER | SIZE 1 … 8 | DENSITY |
 | SAG | TIME: window it averages over, 1.5 … 371 ms | DEPTH |
 | CUTS | UNIT, 10 … 46 ms | DENSITY |
+| AUTO-LEVEL | LEVEL it holds, −30 … 0 dB | SPEED |
+| LP GATE | DEPTH | KEY: as DUCK's — opens it, closing slowly and darker |
+| CROSSOVER | MODE: DEAD ZONE, INSIDE OUT | AMOUNT |
+| FRICTION | SPRING: where it rings, 55 … 660 Hz, a step | FRICTION |
+| GATELOPE | THRESHOLD, −60 … −6 dB | RELEASE |
+| FREEZE | LENGTH, 50 … 371 ms (twice in LO-FI), a step | FADE: 0 frozen |
 
 **RESONATOR** is 6 tuned resonators on the root, in the chord's intervals, ringing about 1.2 s (after 4ms's SMR).
 In a loop it pulls feedback onto those notes and holds it there. Its ROOT and CHORD are steps and no LFO can
@@ -206,6 +214,18 @@ diffuser). **SAG** is a power supply starving (after Airwindows' PowerSag2): lou
 back, so loops pulse and breathe; TIME is how long it remembers. **CUTS** cuts sound into phrases (3 3 2, 2 2 2 2
 and the like); a cut plays on, or repeats what came just before it, whole or in halves or quarters — structured
 stutters after BBCut and Livecut. GLITCH is unchanged.
+
+Build 20's 6, all steady in pitch too: **AUTO-LEVEL** follows a signal's loudness and turns it up or down to
+LEVEL, ±24 dB at most (after Befaco's Oneiroi): a loop held right at its edge without blowing up; SPEED is how
+quickly it follows. **LP GATE** is a low-pass gate (after Mutable Instruments' Streams): its KEY opens it, and it
+closes as a vactrol does, quickly at first, then slowly, darker as it closes, so loops decay like struck skins.
+**CROSSOVER** (after SuperCollider's): DEAD ZONE silences everything under AMOUNT, so loops burst and sputter
+out of silence; INSIDE OUT turns signal over, quiet loud and loud quiet. **FRICTION** is a mass on a spring,
+dragged by the signal (after SuperCollider's Friction): it sticks till the spring tears it off, then rings at
+SPRING's pitch until it catches again; low FRICTION rings, high drags, between them it creaks and rattles.
+**GATELOPE** (after Airwindows') is a gate that closes by sweeping its filters inward, treble down and bass up,
+till they meet: loops become decaying plucks. **FREEZE** loops its last LENGTH of sound: FADE 0 holds it frozen
+(nothing new comes in); above, new sound is laid over it and each pass fades a little.
 
 **PRESENCE** is how much of the effect is heard; **LO-FI** halves its rate and its bits.
 

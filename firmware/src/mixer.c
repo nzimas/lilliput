@@ -46,15 +46,20 @@ enum { SRC_PRE, SRC_POST, SRC_MIXL, SRC_MIXR, SRC_SND1, SRC_SND2, SRC_RET1, SRC_
        SRC_CH1, SRC_CH2, SRC_CH3, SRC_CH4, SRC_CH5, SRC_CH6, SRC_N };
 enum { NZ_WHITE, NZ_PINK, NZ_RED, NZ_CRACKLE, NZ_GEIGER, NZ_HUM, NZ_N };
 enum { TB_12AX7, TB_12AT7, TB_6C16, TB_EF86, TB_6L6, TB_300B, TB_N };
-enum { TM_LIN, TM_SAT, TM_N };
+enum { TM_LIN, TM_SAT, TM_SPIRAL, TM_DENSITY, TM_FUZZ, TM_HARD, TM_N };   /* (build 20: the SHAPERS -- the tube driven
+                                                 * as SATURATED into another curve, SHAPE's) */
 enum { OA_TL072, OA_NE5532, OA_4558, OA_741, OA_OP07, OA_3140, OA_N };
 enum { FT_SHELF, FT_CUT, FT_N };
 enum { MT_PEAK, MT_NOTCH, MT_BAND, MT_N };
 enum { FX_DELAY, FX_FLANGER, FX_CHORUS, FX_TREMOLO, FX_FORMANT, FX_BITCRUSH, FX_GLITCH,
        FX_RESON, FX_XMOD, FX_DUCK, FX_GATE,
-       FX_CYCLES, FX_REED, FX_OCTAVE, FX_DIFFUSE, FX_SAG, FX_CUTS, FX_N };
+       FX_CYCLES, FX_REED, FX_OCTAVE, FX_DIFFUSE, FX_SAG, FX_CUTS,
+       FX_AUTOLVL, FX_LPG, FX_CROSS, FX_FRICT, FX_GLOPE, FX_FREEZE, FX_N };   /* (build 20) */
 enum { CY_LOSS, CY_DISINT, CY_WAVESET, CY_N };   /* CYCLES' modes */
 enum { OC_ONE, OC_TWO, OC_BOTH, OC_N };          /* OCTAVER's */
+enum { CR_DEAD, CR_INOUT, CR_N };                 /* CROSSOVER's: a dead zone; inside out */
+#define NFRS 8                   /* FRICTION's springs */
+#define NFRZ 8                   /* FREEZE's lengths */
 #define NDIFF 8                  /* DIFFUSER's sizes */
 #define NSAGW 9                  /* SAG's windows: 64 .. 16384 samples, doubling */
 #define NCHORD 8                 /* RESONATOR's chords */
@@ -229,6 +234,19 @@ typedef struct {
     uint32_t cut_left, cpos, cseg, cstart, cunit;   /* CUTS: the cut's samples left; the place in its repeat; the repeat's
                                                      * length, its start; the unit */
     uint8_t cpat, cpi, crep, rsv5;                  /* .. the pattern, the place in it, repeating */
+    /* (build 20) */
+    struct {
+        int32_t g, tgt, gt;      /* AUTO-LEVEL: its gain (Q12), the level it holds (Q15), the gain it glides to;
+                                  * GATELOPE: the gate (Q15), its threshold */
+        uint32_t cnt, ash, rsh;  /* AUTO-LEVEL: samples to the next look; attack, release (shifts); GATELOPE's release */
+        int32_t z1, z2;          /* LP GATE, GATELOPE: the two one-poles */
+        int32_t thr, ginv;       /* CROSSOVER: the dead zone or the turn (Q15); its make-up (Q15) */
+        int32_t fp, fv, fdc, kk, fw, fk;   /* FRICTION: the mass' place, speed, its DC; the spring (Q30); the belt's
+                                            * scale (Q15); the friction (a sample's speed) */
+        uint32_t flen;           /* FREEZE: the loop's length */
+        int32_t ffb;             /* .. how much each pass keeps (Q15; Q15: frozen) */
+        uint8_t stuck, rsv[3];   /* FRICTION: the mass stuck to the belt */
+    } n;
     rnd_t r;
     slot_par_t seen;
     uint8_t fresh;
@@ -261,14 +279,18 @@ static const char *const SRC_NAME[SRC_N] = {"PRE", "POST", "MIX L", "MIX R", "SE
                                             "NONE", "CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6"};
 static const char *const NZ_NAME[NZ_N] = {"WHITE", "PINK", "RED", "CRACKLE", "GEIGER", "HUM"};
 static const char *const TB_NAME[TB_N] = {"12AX7", "12AT7", "6C16", "EF86", "6L6", "300B"};
-static const char *const TM_NAME[TM_N] = {"LINEAR", "SATURATED"};
+static const char *const TM_NAME[TM_N] = {"LINEAR", "SATURATED", "SPIRAL", "DENSITY", "FUZZ", "HARD CLIP"};
 static const char *const OA_NAME[OA_N] = {"TL072", "NE5532", "4558", "741", "OP07", "CA3140"};
 static const char *const MT_NAME[MT_N] = {"PEAK", "NOTCH", "BAND"};
 static const char *const FX_NAME[FX_N] = {"DELAY", "FLANGER", "CHORUS", "TREMOLO", "FORMANT", "BITCRUSH", "GLITCH",
                                           "RESONATOR", "XMOD", "DUCK", "GATE", "CYCLES", "REED", "OCTAVER", "DIFFUSER",
-                                          "SAG", "CUTS"};
+                                          "SAG", "CUTS", "AUTO-LEVEL", "LP GATE", "CROSSOVER", "FRICTION", "GATELOPE",
+                                          "FREEZE"};
 static const char *const CY_NAME[CY_N] = {"WAVELOSS", "SPUTTER", "WAVESET"};
 static const char *const OC_NAME[OC_N] = {"ONE DOWN", "TWO DOWN", "BOTH"};
+static const char *const CR_NAME[CR_N] = {"DEAD ZONE", "INSIDE OUT"};
+static const uint16_t FRS_HZ[NFRS] = {55, 82, 110, 165, 220, 330, 440, 660};   /* FRICTION's spring: where it rings */
+static const uint16_t FRZ_LEN[NFRZ] = {2205, 3308, 4410, 6615, 8820, 11025, 13230, 16380};   /* FREEZE's: 50 .. 371 ms */
 static const char *const CHORD_NAME[NCHORD] = {"OCTAVES", "FIFTHS", "MAJOR", "MINOR", "SUS", "CLUSTER", "PELOG",
                                               "HARMONICS"};
 static const char *const XSRC_NAME[NXSRC] = {"CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "MIX L", "MIX R", "SEND 1",
@@ -292,6 +314,10 @@ AINL int32_t fx_pcount(int32_t fx, int which)
     case FX_OCTAVE: return which ? 0 : OC_N;     /* MODE; TONE */
     case FX_DIFFUSE: return which ? 0 : NDIFF;   /* SIZE (the lines' lengths: steps, never glided); DENSITY */
     case FX_SAG: return which ? 0 : NSAGW;       /* TIME (its window: steps); DEPTH */
+    case FX_LPG: return which ? NXSRC : 0;       /* DEPTH; KEY */
+    case FX_CROSS: return which ? 0 : CR_N;      /* MODE; AMOUNT */
+    case FX_FRICT: return which ? 0 : NFRS;      /* SPRING (where it rings: steps); FRICTION */
+    case FX_FREEZE: return which ? 0 : NFRZ;     /* LENGTH (steps); FADE */
     default: return 0;
     }
 }
@@ -300,9 +326,11 @@ static const char *const FO_NAME[FO_N] = {"NONE", "RET 1", "RET 2"};
 static const char *const SP_NAME[SP_N] = {"ROOM", "HALL", "PLATE", "CAVE", "ABYSS", "VOID"};
 /* each effect's two parameters, by name */
 static const char *const FX_P1[FX_N] = {"TIME", "DEPTH", "INTENSITY", "RATE", "VOWEL", "ALGORITHM", "LENGTH", "ROOT",
-                                        "MODE", "DEPTH", "DEPTH", "MODE", "NOTE", "MODE", "SIZE", "TIME", "UNIT"};
+                                        "MODE", "DEPTH", "DEPTH", "MODE", "NOTE", "MODE", "SIZE", "TIME", "UNIT",
+                                        "LEVEL", "DEPTH", "MODE", "SPRING", "THRESHOLD", "LENGTH"};
 static const char *const FX_P2[FX_N] = {"FEEDBACK", "RATE", "RATE", "VIBRATO", "WIDTH", "OFFSET", "REPEATS", "CHORD",
-                                        "WITH", "KEY", "KEY", "AMOUNT", "BREATH", "TONE", "DENSITY", "DEPTH", "DENSITY"};
+                                        "WITH", "KEY", "KEY", "AMOUNT", "BREATH", "TONE", "DENSITY", "DEPTH", "DENSITY",
+                                        "SPEED", "KEY", "AMOUNT", "FRICTION", "RELEASE", "FADE"};
 
 /* the tubes: drive when saturated (Q12), bias (Q15: the even harmonics), the halves' gains (Q12: grid current
  * squashes the positive half), as heard: 12AX7 bright and quick to break up, 12AT7 cleaner, 6C16 (a Soviet triode)
@@ -364,6 +392,19 @@ AINL int32_t svf3(svf_t *s, const svf_c *c, int32_t x, int32_t *bp, int32_t *lp)
     *lp = v2;
     return x - mulr24(c->k, v1) - v2;
 }
+/* the SHAPERS' curves (gen_tables.py SHAPE: 0 .. 4 in 128 steps, odd), Q15 */
+AINL int32_t shape_q15(uint32_t n, int32_t x)
+{
+    const int16_t *t = SHAPE + n * 129u;
+    int32_t a = x < 0 ? -x : x, i, y;
+    if (a >= 4 * Q15)
+        y = t[128];
+    else {
+        i = a >> 10;
+        y = t[i] + (((t[i + 1] - t[i]) * (a & 1023)) >> 10);
+    }
+    return x < 0 ? -y : y;
+}
 /* an effect line's sample d (Q8) behind the write index, linearly between two */
 AINL int32_t line_rd(const int16_t *b, uint32_t w, int32_t d)
 {
@@ -409,35 +450,10 @@ static FAST void ch_coef(uint32_t c)
     default: k->srcp = &ch_post[k->src - SRC_CH1]; break;
     }
     k->ntype = (uint8_t)clampi(now->ntype, 0, NZ_N - 1);
-    k->opamp = (uint8_t)clampi(now->opamp, 0, OA_N - 1);
     k->ft = (uint8_t)clampi(now->ftype, 0, FT_N - 1);
     k->mt = (uint8_t)clampi(now->mtype, 0, MT_N - 1);
-    if (CH_MOVED(tube) || CH_MOVED(tmode)) {     /* the tube */
-        k->tube = (uint8_t)clampi(now->tube, 0, TB_N - 1);
-        k->tmode = (uint8_t)clampi(now->tmode, 0, TM_N - 1);
-        k->drive = TUBE[k->tube].drive;
-        k->bias = TUBE[k->tube].bias;
-        k->kpos = TUBE[k->tube].kpos;
-        k->kneg = TUBE[k->tube].kneg;
-        if (k->tmode == TM_LIN) {                /* near linear: half the input, a quarter of the bias, twice out */
-            k->drive = 2048;
-            k->bias >>= 2;
-            k->kpos = 4096 - ((4096 - k->kpos) >> 2);
-            k->kneg = 4096 - ((4096 - k->kneg) >> 2);
-        }
-        k->tb0 = tanh_q15(k->bias);
-    }
     if (CH_MOVED(fold))
         k->fgain = now->fold > 0 ? 4096 + clampi(now->fold, 0, PMAX) * 15 * 4096 / PMAX : 0;
-    if (CH_MOVED(opamp)) {
-        k->opg = OPAMP[k->opamp].g;
-        k->rail = OPAMP[k->opamp].rp;
-        k->railn = OPAMP[k->opamp].rn;
-        k->irail = (int32_t)((1u << 30) / (uint32_t)k->rail);   /* (1 / rail: no division a sample) */
-        k->irailn = (int32_t)((1u << 30) / (uint32_t)k->railn);
-        k->slew = OPAMP[k->opamp].slew;
-        k->oplp = OPAMP[k->opamp].lp;
-    }
     if (CH_MOVED(over))
         k->thr = ovl_q15(clampi(now->over, 0, PMAX));
     if (CH_MOVED(lim)) {
@@ -531,6 +547,8 @@ static FAST void slot_coef(uint32_t s)
         memset(k->didx, 0, sizeof k->didx);
         k->gleft = 0;
         k->d = 0;
+        memset(&k->n, 0, sizeof k->n);
+        k->n.g = 4096;
     }
     k->fresh = 0;
     k->fx = (uint8_t)clampi(now.fx, 0, FX_N - 1);
@@ -597,27 +615,8 @@ static FAST void slot_coef(uint32_t s)
         }
         k->off = (p2 - 500) * 16384 / 500;
         break;
-    case FX_RESON: {                             /* six bands at the chord's pitches on the root, ringing ~1.2 s */
-        int32_t root = clampi(p1, 0, 47), ch = clampi(p2, 0, NCHORD - 1), b;
-        k->r1 = 140000;                          /* 1 - r: 6.9 / (1.2 s x FS), Q30 */
-        k->rbands = 0;
-        for (b = 0; b < 6; b++) {
-            int32_t c100 = (36 + root - 69) * 100 + CHORD_CENTS[ch][b];   /* cents from A4 */
-            int32_t hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16(c100 * 4096 / 75)) >> 16);   /* (x 65536 / 1200) */
-            uint32_t inc = hz8_inc(hz8), sh, chh;
-            int64_t cq, sq, r = (1 << 30) - k->r1;
-            if (hz8 > 15000 * 256)               /* (too high: the band off) */
-                break;
-            sh = (uint32_t)sin_ph(inc >> 1);     /* sin and cos of half the angle: the rotation exactly unit */
-            chh = (uint32_t)sin_ph((inc >> 1) + 0x40000000u);
-            cq = (1LL << 30) - 2LL * (int64_t)(int32_t)sh * (int32_t)sh;   /* cos = 1 - 2 sin^2(w/2), Q30 */
-            sq = 2LL * (int64_t)(int32_t)sh * (int32_t)chh;                /* sin = 2 sin cos (w/2), Q30 */
-            k->rc[b] = (int32_t)((cq * r) >> 30);
-            k->rs[b] = (int32_t)((sq * r) >> 30);
-            k->rbands = (uint8_t)(b + 1);
-        }
+    case FX_RESON:                               /* (its tuning: steps, never modulated -- the main loop's, reson_tune) */
         break;
-    }
     case FX_XMOD:
         k->xmode = (uint8_t)clampi(p1, 0, XM_N - 1);
         k->xsrc = (uint8_t)clampi(p2, 0, NXSRC - 1);
@@ -676,6 +675,49 @@ static FAST void slot_coef(uint32_t s)
         k->cunit = 441u + (uint32_t)p1 * 1607u / PMAX;   /* (10 .. 46 ms) */
         k->depth = p2;                           /* (DENSITY: the cuts that repeat, of 1000) */
         break;
+    case FX_AUTOLVL: {                           /* LEVEL: -30 .. 0 dB held; SPEED: slow .. fast */
+        uint32_t sp = (uint32_t)p2 * 5u / (PMAX + 1);
+        k->n.tgt = db10_q15(-300 + p1 * 300 / PMAX) >> 1;   /* (of full scale: Q15 is 2 x 16 bits' range) */
+        k->n.ash = 10u - sp;                     /* (attack ~23 .. 1.5 ms; release 16 x as slow) */
+        k->n.rsh = k->n.ash + 4u;
+        break;
+    }
+    case FX_LPG:
+        k->depth = p1 * Q15 / PMAX;
+        k->xsrc = (uint8_t)clampi(p2, 0, NXSRC - 1);
+        break;
+    case FX_CROSS:
+        k->cmode = (uint8_t)clampi(p1, 0, CR_N - 1);
+        if (k->cmode == CR_DEAD) {               /* (the dead zone: 0 .. a half of full scale, made up after) */
+            k->n.thr = p2 * 8192 / PMAX;
+            k->n.ginv = (Q15 * 16384) / (16384 - k->n.thr);
+        } else
+            k->n.thr = 512 + p2 * 15872 / PMAX;  /* (INSIDE OUT: where it turns over) */
+        break;
+    case FX_FRICT: {                             /* a mass on a spring, dragged by the signal as a belt (SuperCollider's
+                                                  * Friction, Dan Stowell's) */
+        int32_t w = (int32_t)FRS_HZ[clampi(p1, 0, NFRS - 1)] * 205887 / FS;   /* (2 pi f / FS, Q15) */
+        k->n.fw = w;
+        k->n.kk = w * w;                         /* (w^2, Q30) */
+        k->n.fk = maxi(1, ((k->n.kk >> 7) * (4 + p2 * 150 / PMAX)) >> 10);   /* (the friction against the spring's
+                                                  * pull at full scale: 0.4 .. 15 % -- slipping, ringing .. catching) */
+        break;
+    }
+    case FX_GLOPE:                               /* THRESHOLD -60 .. -6 dB; RELEASE 6 ms .. 0.7 s */
+        k->n.thr = db10_q15(-600 + p1 * 540 / PMAX) >> 1;
+        k->n.rsh = 8u + (uint32_t)p2 * 7u / (PMAX + 1);
+        break;
+    case FX_FREEZE: {
+        uint32_t n = FRZ_LEN[clampi(p1, 0, NFRZ - 1)];
+        if (k->n.flen != n) {                    /* (another length: from silence) */
+            uint32_t i;
+            k->n.flen = n;
+            for (i = 0; i < SLOT_LEN; i++)
+                slot_mem[s][i] = 0;
+        }
+        k->n.ffb = p2 < 10 ? Q15 : 32440 - p2 * 16000 / PMAX;   /* (0: frozen; then each pass 0.99 .. 0.5 kept) */
+        break;
+    }
     default:                                     /* GLITCH: 10 .. 300 ms stuck, 1 .. 16 times */
         k->glen = (uint32_t)hz_log(p1, 441, 1258);   /* (4.9 octaves: 441 .. 13230) */
         if (k->glen > SLOT_LEN / 2u)
@@ -684,6 +726,92 @@ static FAST void slot_coef(uint32_t s)
         break;
     }
     SCOPY(k->seen, now);
+}
+
+/* (build 20) a channel's tube and op-amp, from their types and the tube's MODE -- steps out of the modulation's
+ * reach: worked out in the main loop (mx_poll), not in the audio's time, when they change. (The ISR's: RAM for its
+ * code is scarce) */
+static int16_t ch_tseen[NCH];                    /* (TUBE + 8 x MODE + 64 x OP-AMP + 1 tuned for; 0: none) */
+static void ch_tune(uint32_t c)
+{
+    ch_rt_t *k = &chr[c];
+    const ch_par_t *p = &par.ch[c];
+    int16_t key = (int16_t)(clampi(p->tube, 0, TB_N - 1) + 8 * clampi(p->tmode, 0, TM_N - 1) +
+                            64 * clampi(p->opamp, 0, OA_N - 1) + 1);
+    if (ch_tseen[c] == key && k->opg)            /* (no gain: a mixer reset -- tuned again) */
+        return;
+    ch_tseen[c] = key;
+    k->tube = (uint8_t)clampi(p->tube, 0, TB_N - 1);
+    k->tmode = (uint8_t)clampi(p->tmode, 0, TM_N - 1);
+    k->drive = TUBE[k->tube].drive;
+    k->bias = TUBE[k->tube].bias;
+    k->kpos = TUBE[k->tube].kpos;
+    k->kneg = TUBE[k->tube].kneg;
+    if (k->tmode == TM_LIN) {                /* near linear: half the input, a quarter of the bias, twice out */
+        k->drive = 2048;
+        k->bias >>= 2;
+        k->kpos = 4096 - ((4096 - k->kpos) >> 2);
+        k->kneg = 4096 - ((4096 - k->kneg) >> 2);
+    }
+    k->tb0 = k->tmode >= TM_SPIRAL ? shape_q15(k->tmode - TM_SPIRAL, k->bias) : tanh_q15(k->bias);
+    k->opamp = (uint8_t)clampi(p->opamp, 0, OA_N - 1);
+    k->opg = OPAMP[k->opamp].g;
+    k->rail = OPAMP[k->opamp].rp;
+    k->railn = OPAMP[k->opamp].rn;
+    k->irail = (int32_t)((1u << 30) / (uint32_t)k->rail);   /* (1 / rail: no division a sample) */
+    k->irailn = (int32_t)((1u << 30) / (uint32_t)k->railn);
+    k->slew = OPAMP[k->opamp].slew;
+    k->oplp = OPAMP[k->opamp].lp;
+}
+/* (build 20) the RESONATOR's tuning, from its ROOT and CHORD -- steps out of the modulation's reach: worked out in
+ * the main loop (mx_poll), not in the audio's time, when they change: six bands at the chord's pitches on the root,
+ * ringing ~1.2 s. (Its bands stay as they were till the new ones are written: a block or two, at a change.) */
+static int16_t reson_seen[NSLOT];                /* (ROOT + 64 x CHORD + 1 tuned for; 0: none) */
+static void reson_tune(uint32_t s)
+{
+    slot_rt_t *k = &slr[s];
+    const slot_par_t *sp = &par.slot[s];
+    int16_t key = (int16_t)(clampi(sp->p1, 0, 47) + 64 * clampi(sp->p2, 0, NCHORD - 1) + 1);
+    if (sp->fx != FX_RESON) {
+        reson_seen[s] = 0;
+        return;
+    }
+    if (reson_seen[s] == key && k->rbands)       /* (no bands: a mixer reset -- tuned again) */
+        return;
+    reson_seen[s] = key;
+    {
+        int32_t root = clampi(sp->p1, 0, 47), ch = clampi(sp->p2, 0, NCHORD - 1), b, rc[6], rs[6], nb = 0;
+        k->r1 = 140000;                          /* 1 - r: 6.9 / (1.2 s x FS), Q30 */
+        for (b = 0; b < 6; b++) {
+            int32_t c100 = (36 + root - 69) * 100 + CHORD_CENTS[ch][b];   /* cents from A4 */
+            int32_t hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16(c100 * 4096 / 75)) >> 16);   /* (x 65536 / 1200) */
+            uint32_t inc = hz8_inc(hz8), sh, chh;
+            int64_t cq, sq, r = (1 << 30) - k->r1;
+            if (hz8 > 15000 * 256)               /* (too high: the band off) */
+                break;
+            sh = (uint32_t)sin_ph(inc >> 1);     /* sin and cos of half the angle: the rotation exactly unit */
+            chh = (uint32_t)sin_ph((inc >> 1) + 0x40000000u);
+            cq = (1LL << 30) - 2LL * (int64_t)(int32_t)sh * (int32_t)sh;   /* cos = 1 - 2 sin^2(w/2), Q30 */
+            sq = 2LL * (int64_t)(int32_t)sh * (int32_t)chh;                /* sin = 2 sin cos (w/2), Q30 */
+            rc[b] = (int32_t)((cq * r) >> 30);
+            rs[b] = (int32_t)((sq * r) >> 30);
+            nb = b + 1;
+        }
+        k->rbands = 0;                           /* (written whole, then sounded: the audio never mid-way) */
+        for (b = 0; b < nb; b++) {
+            k->rc[b] = rc[b];
+            k->rs[b] = rs[b];
+        }
+        k->rbands = (uint8_t)nb;
+    }
+}
+static void mx_poll(void)                        /* (the main loop's: what the audio's time need not work out) */
+{
+    uint32_t s;
+    for (s = 0; s < NSLOT; s++)
+        reson_tune(s);
+    for (s = 0; s < NCH; s++)
+        ch_tune(s);
 }
 
 /* ------------------------------------------------ the effects, a sample --- */
@@ -950,6 +1078,85 @@ static FAST int32_t fx_tick(uint32_t s, int32_t x)
         k->tw++;
         break;
     }
+    case FX_AUTOLVL: {                           /* AUTO-LEVEL (Befaco Oneiroi's): an envelope follower's gain holds
+                                                  * the loudness at LEVEL -- a loop kept at its edge (+-24 dB at most) */
+        int32_t a = absi(x);
+        k->env += a > k->env ? (a - k->env) >> k->n.ash : -((k->env - a) >> k->n.rsh);
+        if (!k->n.cnt--) {                       /* (the gain looked at every 32 samples: no division a sample) */
+            k->n.cnt = 31u;
+            k->n.gt = clampi((k->n.tgt << 12) / (k->env > 64 ? k->env : 64), 256, 65536);   /* (tgt < 2^17) */
+        }
+        k->n.g += (k->n.gt - k->n.g) >> 7;
+        wet = sat16((int32_t)(((int64_t)x * k->n.g) >> 12));
+        break;
+    }
+    case FX_LPG: {                               /* LOW-PASS GATE (Mutable Streams' vactrol): the KEY opens it; it
+                                                  * closes slowly, darker as it closes -- the level and the cut-off one */
+        int32_t a = absi(xsig(k->xsrc)), e = a > 16383 ? Q15 : a * 2, g, c;
+        if (e > k->env)
+            k->env += (e - k->env) >> 5;         /* (quick to light: ~1 ms) */
+        else                                     /* (slow to fade, slower still as it dims: a vactrol's tail) */
+            k->env -= (k->env >> 12) + (mulq15(k->env, k->env) >> 10);
+        g = Q15 - k->depth + mulq15(k->depth, k->env);
+        c = mulq15(g, g);
+        c = c < 400 ? 400 : c;
+        k->n.z1 += mulq15(x - k->n.z1, c);
+        k->n.z2 += mulq15(k->n.z1 - k->n.z2, c);
+        wet = mulq15(k->n.z2, g);
+        break;
+    }
+    case FX_CROSS: {                             /* CROSSOVER (SuperCollider's): a dead zone round silence, or the
+                                                  * signal turned inside out -- quiet loud, loud quiet */
+        int32_t a = absi(xi), y;
+        if (k->cmode == CR_DEAD)
+            y = a > k->n.thr ? mulq15(a - k->n.thr, k->n.ginv) : 0;
+        else
+            y = k->n.thr - a;
+        wet = xi < 0 ? -y : y;
+        break;
+    }
+    case FX_FRICT: {                             /* FRICTION: the mass sticks to the belt (the signal, as a speed) until
+                                                  * the spring tears it off; slipping, it rings at the spring's pitch,
+                                                  * the friction dragging it -- creaks, catches, rattles */
+        int32_t bv = (xi * k->n.fw) >> 7, sp = (int32_t)(((int64_t)k->n.kk * k->n.fp) >> 30), rel = bv - k->n.fv;
+        if (k->n.stuck) {
+            k->n.fv = bv;
+            if (absi(sp) > 2 * k->n.fk)          /* (the static friction torn) */
+                k->n.stuck = 0;
+        } else if (absi(rel) <= k->n.fk && absi(sp) <= 2 * k->n.fk) {
+            k->n.stuck = 1;
+            k->n.fv = bv;
+        } else
+            k->n.fv += (rel > 0 ? k->n.fk : -k->n.fk) - sp - (k->n.fv >> 12);
+        k->n.fp = clampi(k->n.fp + k->n.fv, -(98304 << 8), 98304 << 8);   /* (the place, the speed: x 256, Q23) */
+        k->n.fdc += (k->n.fp - k->n.fdc) >> 10;  /* (its drift taken off) */
+        wet = (k->n.fp - k->n.fdc) >> 8;
+        break;
+    }
+    case FX_GLOPE: {                             /* GATELOPE (Airwindows'): the gate closes by sweeping its filters
+                                                  * inward, the treble down and the bass up, till they meet */
+        int32_t a = absi(x), gi, c1, c2;
+        k->env += a > k->env ? (a - k->env) >> 5 : -(k->env >> 10);
+        if (k->env > k->n.thr)
+            k->n.g += (Q15 - k->n.g) >> 6;
+        else if (k->env < k->n.thr >> 1)        /* (closing below half: no chatter) */
+            k->n.g -= (k->n.g >> k->n.rsh) + 1;
+        k->n.g = clampi(k->n.g, 0, Q15);
+        gi = Q15 - k->n.g;
+        c1 = 300 + mulq15(mulq15(k->n.g, k->n.g), 32467);   /* (the low-pass: ~70 Hz .. open) */
+        c2 = mulq15(gi, gi) >> 2;                          /* (the high-pass under it: open .. ~2 kHz) */
+        k->n.z1 += mulq15(x - k->n.z1, c1);
+        k->n.z2 += mulq15(k->n.z1 - k->n.z2, c2);
+        wet = mulq15(k->n.z1 - k->n.z2, k->n.g < 8192 ? k->n.g * 4 : Q15);
+        break;
+    }
+    case FX_FREEZE: {                            /* FREEZE / FADING LOOP: LENGTH on a loop; FADE 0 frozen (nothing new
+                                                  * comes in), else the input laid over it, each pass a little fainter */
+        int32_t rd = b[(k->w - k->n.flen) & SLOT_MASK];
+        b[k->w] = (int16_t)(k->n.ffb == Q15 ? rd : sat16(xi + mulq15(rd, k->n.ffb)));
+        wet = rd;
+        break;
+    }
     default:                                     /* GLITCH */
         b[k->w] = (int16_t)xi;
         if (!k->gleft) {
@@ -1035,7 +1242,7 @@ AINL int32_t ch_strip(ch_rt_t *k, int16_t *ln, int32_t x)   /* (inlined in mx_sa
     {
         int32_t t = mulq12(u, k->drive);
         t = t > 0 ? mulq12(t, k->kpos) : mulq12(t, k->kneg);
-        u = tanh_q15(t + k->bias) - k->tb0;
+        u = (k->tmode >= TM_SPIRAL ? shape_q15(k->tmode - TM_SPIRAL, t + k->bias) : tanh_q15(t + k->bias)) - k->tb0;
         if (k->tmode == TM_LIN)
             u <<= 1;
     }
@@ -1624,6 +1831,9 @@ static FAST void mix_block(int32_t *out)
     int any1 = 0;
     int32_t mt = par.out.mute ? 0 : Q15, dm;
     midi_main_drain();
+#ifdef HOST
+    mx_poll();                                   /* (the host: no main loop beside it) */
+#endif
     for (c = 0; c < NSLOT; c++)
         SCOPY(eff_slot[c], par.slot[c]);
     clk_block();

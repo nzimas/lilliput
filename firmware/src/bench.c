@@ -136,6 +136,7 @@ static void bench_costs(void)
         s->in = FI_SEN1;
         s->out = FO_RET1;
         eff_slot[0] = *s;
+        reson_tune(0);
         bn_slc(0);
         bk_wr32(bk_msg + 7u + 4u * n++, bn_run_fx(0));
     }
@@ -143,6 +144,7 @@ static void bench_costs(void)
     par.out.mute = 1;
     for (c = 0; c < NCH; c++) {                  /* each channel as the patch has it */
         eff_ch[c] = par.ch[c];
+        ch_tune(c);
         bn_chc(c);
         bk_wr32(bk_msg + 7u + 4u * n++, bn_run_ch(c));
     }
@@ -172,6 +174,7 @@ static void bench_costs(void)
         if (v == BV_LIMSLOW || v == BV_ALL)
             p->lim = 1000;
         eff_ch[0] = *p;
+        ch_tune(0);
         bn_chc(0);
         bk_wr32(bk_msg + 7u + 4u * n++, bn_run_ch(0));
     }

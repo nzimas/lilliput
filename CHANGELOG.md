@@ -1,5 +1,16 @@
 # Changelog
 
+## Build 20 (2026-11-11)
+
+- 4 **shapers** as tube MODEs on AMP page (SHIFT + KNOB 1): SPIRAL, DENSITY, FUZZ, HARD CLIP. Driven as
+  SATURATED, into another curve; SPIRAL folds inward when driven hard.
+- 6 rack effects: **AUTO-LEVEL** (holds loudness at LEVEL), **LP GATE** (vactrol low-pass gate, opened by its
+  KEY), **CROSSOVER** (DEAD ZONE, INSIDE OUT), **FRICTION** (stick-slip mass on a spring, ringing at SPRING's
+  pitch), **GATELOPE** (gate closing by sweeping its filters inward), **FREEZE** (a loop of LENGTH, frozen or
+  fading). None moves pitch; SPRING and LENGTH are steps out of modulation's reach.
+- HOME's recipes draw them: a third of saturated tubes a shaper; each recipe its own weights for the effects.
+- RESONATOR's tuning, tubes and op-amps worked out outside audio's time: same sound, more room for audio code.
+
 ## Build 19 (2026-11-11)
 
 - RHYTHM's key (2nd black key from right) works as drums' key: short, its pages (TEMPO, MIX; again: back); held

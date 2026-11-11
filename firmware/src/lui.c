@@ -759,12 +759,22 @@ static void p_text(uint32_t id, int32_t v, char *b)
                 b[6] = 0;
             } else if (s->fx == FX_SAG)          /* TIME: its window */
                 ms_text(b, 64 << n);
+            else if (s->fx == FX_CROSS)
+                str_cpy(b, CR_NAME[n], 12);
+            else if (s->fx == FX_FRICT)          /* SPRING: where it rings */
+                hz_text(b, FRS_HZ[n]);
+            else if (s->fx == FX_FREEZE)         /* LENGTH */
+                ms_text(b, FRZ_LEN[n] * (s->lofi ? 2 : 1));
             else
                 str_cpy(b, XSRC_NAME[n], 12);
             break;
         }
         if (id == P_P2) {
             fmt_int(b, (v + 5) / 10);
+            break;
+        }
+        if (s->fx == FX_AUTOLVL) {               /* LEVEL: -30 .. 0 dB */
+            db_text(b, -300 + v * 300 / PMAX);
             break;
         }
         if (s->fx == FX_CUTS) {                  /* UNIT: 10 .. 46 ms */

@@ -20,7 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fm1_install as fi  # noqa: E402
 
 FX = ["DELAY", "FLANGER", "CHORUS", "TREMOLO", "FORMANT", "BITCRUSH", "GLITCH", "RESONATOR", "XMOD", "DUCK", "GATE",
-      "CYCLES", "REED", "OCTAVER", "DIFFUSER", "SAG", "CUTS"]
+      "CYCLES", "REED", "OCTAVER", "DIFFUSER", "SAG", "CUTS", "AUTO-LEVEL", "LP GATE", "CROSSOVER", "FRICTION",
+      "GATELOPE", "FREEZE"]
 VARIANTS = ["bare", "+ noise (pink)", "+ fold", "+ tube saturated", "+ shelves", "+ peak", "+ limiter slow", "all"]
 TICKS_PER_SAMPLE = 24e6 / 44100          # CPU0's whole budget for one sample, in TIMER4 ticks
 BN_N, CTL = 256, 32
