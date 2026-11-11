@@ -229,6 +229,10 @@ till they meet: loops become decaying plucks. **FREEZE** loops its last LENGTH o
 
 **PRESENCE** is how much of the effect is heard; **LO-FI** halves its rate and its bits.
 
+HOME's patches always feature the rack (build 22): 2 or 3 effects heard in every patch — inserts on heard channels
+at 55 … 100 % PRESENCE, often inside the channel's loop, or a loop through the rack — each a different effect,
+every effect a recipe has about as likely as the next.
+
 ## The output
 
 | Page | Rows | With SHIFT |
@@ -420,14 +424,14 @@ different step lengths run in different time (polyrhythm).
 | **POLYRHYTHM** | each voice its own subdivision: 8ths, triplets, quintuplets, 16ths at once |
 | **TIMELINE** | a bell's timeline (12/8 bell, clave, gahu, bossa, shiko, soukous; sometimes turned) against a pulse of the other kind |
 | **COLOTOMIC** | cycles in cycles, after gamelan: a gong, ticks between, hats and snare interlocking |
-| **CASCADE** | a bouncing ball: hits ever closer, perc falling in pitch; snare's ever farther |
+| **CASCADE** | a bouncing ball: hits ever closer; snare's ever farther |
 | **LIMP** | a long odd bar (18 … 28 16ths), the backbeat late, an 8th missing |
 | **DUST** | a cloud: lanes of uneven lengths, every hit a chance |
-| **CANON** | 1 figure, each voice entering it at another place; kick's toms follow perc's line |
-| **HOCKET** | 1 dense line shared out, no 2 voices on a step; toms and perc pitched |
+| **CANON** | 1 figure, each voice entering it at another place |
+| **HOCKET** | 1 dense line shared out, no 2 voices on a step |
 | **RITUAL** | half time, slow: a kick, a snare far off, triplet hats |
 | **BROKEN** | kicks off the beat, backbeat pushed or pulled, ghosts |
-| **TRIBAL** | pitched toms out of the kick, Euclidean; anvil 3 against 4 |
+| **TRIBAL** | kick drawn Euclidean, dense, as toms are played; anvil 3 against 4 |
 | **DIST BREAK** | a distorted break, straight |
 | **TEMPO CANON** | 1 figure in several tempi at once: 8ths, triplets, 16ths, quintuplets, meeting now and then (after Nancarrow) |
 
@@ -436,8 +440,10 @@ before a hit, a hit pushed a step, an accent moved, a hit doubled, the lane turn
 round's rest (never the kick's). Each variant comes from the lane's own pattern, and the next round comes home, so
 the rhythm never wanders off. Each style draws its own amount, and each lane its own share of it (hats and perc
 more than kick). 0: every round as written; sessions from before build 21 load at 0.
-As in Noir, a step can be more than a hit: accented, with a pitch of its own, or
-**ALT**, its decay cut to 1/5 (closed hats among open ones, ghost snares).
+
+A step can be more than a hit: accented, or **ALT**, its decay cut to 1/5 (closed hats among open ones, ghost
+snares). Nothing changes a voice's pitch: each voice keeps its TUNE on every step, in rhythms and in breaks, so the
+drums never turn into a melody (build 22; a session saved before with pitched steps loads with them level).
 
 ### Break
 
@@ -453,14 +459,14 @@ Every way is made from rhythm playing — its hits, accents and pitches — and 
 | Way | What plays |
 | --- | --- |
 | STUTTER | bar's busiest beat repeated: whole, then half, then a single step, ratcheting faster |
-| AVALANCHE | fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, rising in pitch, kick on beats; lands on downbeat, all accented, and builds again |
+| AVALANCHE | fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, kick on beats; lands on downbeat, all accented, and builds again |
 | FLAMS | rhythm as written, each kick, snare and perc hit flammed (soft grace note before it); accented snares dragged (2 graces) |
 | DROP | kick and snare out; hats and perc on, hats' gaps filled with ghosts |
 | HALF TIME | kick, snare and perc at half speed; hats at full speed over them |
 | CELL 3, 5, 6 or 7 | each lane loops a cell of that many of its own steps against the bar; kick keeps each downbeat |
 | SWAP | voices trade lanes: kick plays snare's steps, snare kick's, hats perc's, perc hats' |
 | MIRROR | each half bar backwards; kick keeps its first step |
-| TUMBLE | perc on every step, falling 2 octaves over 2 beats, again and again; kick as written |
+| TUMBLE | perc on every step over 2 beats, from an accent down to ghosts, again and again; kick as written |
 | INTERLOCK | kick and snare keep 1st half of each beat, hats and perc the 2nd; after a bar they trade whole beats |
 | SCATTER | bar's 8 pairs of steps in another order, first in place |
 | BUZZ | rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled |

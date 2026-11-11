@@ -1,5 +1,15 @@
 # Changelog
 
+## Build 22 (2026-11-11)
+
+- Drums: no pitch moves. Every voice keeps its TUNE on every step -- no melodic lines on perc, no pitched toms, in
+  rhythms and in breaks (AVALANCHE no longer rises; TUMBLE falls in loudness, from an accent to ghosts). Sessions
+  saved with pitched steps load with them level.
+- HOME's patches feature the rack: 2 or 3 effects heard in every patch (before: 1 on average, a third of patches
+  none), inserts at 55 … 100 % PRESENCE (was 30 … 85 %), often inside the channel's loop; no effect twice in a
+  patch; each recipe's effects about equally likely, so builds 5 and 20's effects come up as often as the first
+  ones (each in about 1 patch in 10). CROSSOVER's dead zone drawn narrow, so a loop can begin.
+
 ## Build 21 (2026-11-11)
 
 - Drum rhythms anew, away from four on the floor: 16 styles, each a way of building a rhythm, drawn afresh each

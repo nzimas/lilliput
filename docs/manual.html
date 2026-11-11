@@ -162,6 +162,7 @@
 <p>Build 5's 6, all steady in pitch: <b>CYCLES</b> works on whole wave cycles between zero crossings — WAVELOSS drops some in a regular pattern (rhythmic holes a loop rebuilds itself through), SPUTTER turns half-cycles over or silences them at random (crackle), WAVESET repeats each cycle (time-stretched stutter that sinks into sub-drones). <b>REED</b> is a clarinet's bore and reed (after STK's Clarinet): signal is its breath, and it blows at its NOTE, which is a step and never moves. <b>OCTAVER</b> adds 1 or 2 octaves down, locked to signal by flip-flops on its zero crossings (after OWL's OctaveDown). <b>DIFFUSER</b> smears transients into a dense, metallic wash (Clouds' diffuser). <b>SAG</b> is a power supply starving (after Airwindows' PowerSag2): loud a while, gain sinks and comes back, so loops pulse and breathe; TIME is how long it remembers. <b>CUTS</b> cuts sound into phrases (3 3 2, 2 2 2 2 and the like); a cut plays on, or repeats what came just before it, whole or in halves or quarters — structured stutters after BBCut and Livecut. GLITCH is unchanged.</p>
 <p>Build 20's 6, all steady in pitch too: <b>AUTO-LEVEL</b> follows a signal's loudness and turns it up or down to LEVEL, ±24 dB at most (after Befaco's Oneiroi): a loop held right at its edge without blowing up; SPEED is how quickly it follows. <b>LP GATE</b> is a low-pass gate (after Mutable Instruments' Streams): its KEY opens it, and it closes as a vactrol does, quickly at first, then slowly, darker as it closes, so loops decay like struck skins. <b>CROSSOVER</b> (after SuperCollider's): DEAD ZONE silences everything under AMOUNT, so loops burst and sputter out of silence; INSIDE OUT turns signal over, quiet loud and loud quiet. <b>FRICTION</b> is a mass on a spring, dragged by the signal (after SuperCollider's Friction): it sticks till the spring tears it off, then rings at SPRING's pitch until it catches again; low FRICTION rings, high drags, between them it creaks and rattles. <b>GATELOPE</b> (after Airwindows') is a gate that closes by sweeping its filters inward, treble down and bass up, till they meet: loops become decaying plucks. <b>FREEZE</b> loops its last LENGTH of sound: FADE 0 holds it frozen (nothing new comes in); above, new sound is laid over it and each pass fades a little.</p>
 <p><b>PRESENCE</b> is how much of the effect is heard; <b>LO-FI</b> halves its rate and its bits.</p>
+<p>HOME's patches always feature the rack (build 22): 2 or 3 effects heard in every patch — inserts on heard channels at 55 … 100 % PRESENCE, often inside the channel's loop, or a loop through the rack — each a different effect, every effect a recipe has about as likely as the next.</p>
 <h2 id="the-output">The output</h2>
 <table>
 <tr><th>Page</th><th>Rows</th><th>With SHIFT</th></tr>
@@ -278,32 +279,33 @@
 <tr><td><b>POLYRHYTHM</b></td><td>each voice its own subdivision: 8ths, triplets, quintuplets, 16ths at once</td></tr>
 <tr><td><b>TIMELINE</b></td><td>a bell's timeline (12/8 bell, clave, gahu, bossa, shiko, soukous; sometimes turned) against a pulse of the other kind</td></tr>
 <tr><td><b>COLOTOMIC</b></td><td>cycles in cycles, after gamelan: a gong, ticks between, hats and snare interlocking</td></tr>
-<tr><td><b>CASCADE</b></td><td>a bouncing ball: hits ever closer, perc falling in pitch; snare's ever farther</td></tr>
+<tr><td><b>CASCADE</b></td><td>a bouncing ball: hits ever closer; snare's ever farther</td></tr>
 <tr><td><b>LIMP</b></td><td>a long odd bar (18 … 28 16ths), the backbeat late, an 8th missing</td></tr>
 <tr><td><b>DUST</b></td><td>a cloud: lanes of uneven lengths, every hit a chance</td></tr>
-<tr><td><b>CANON</b></td><td>1 figure, each voice entering it at another place; kick's toms follow perc's line</td></tr>
-<tr><td><b>HOCKET</b></td><td>1 dense line shared out, no 2 voices on a step; toms and perc pitched</td></tr>
+<tr><td><b>CANON</b></td><td>1 figure, each voice entering it at another place</td></tr>
+<tr><td><b>HOCKET</b></td><td>1 dense line shared out, no 2 voices on a step</td></tr>
 <tr><td><b>RITUAL</b></td><td>half time, slow: a kick, a snare far off, triplet hats</td></tr>
 <tr><td><b>BROKEN</b></td><td>kicks off the beat, backbeat pushed or pulled, ghosts</td></tr>
-<tr><td><b>TRIBAL</b></td><td>pitched toms out of the kick, Euclidean; anvil 3 against 4</td></tr>
+<tr><td><b>TRIBAL</b></td><td>kick drawn Euclidean, dense, as toms are played; anvil 3 against 4</td></tr>
 <tr><td><b>DIST BREAK</b></td><td>a distorted break, straight</td></tr>
 <tr><td><b>TEMPO CANON</b></td><td>1 figure in several tempi at once: 8ths, triplets, 16ths, quintuplets, meeting now and then (after Nancarrow)</td></tr>
 </table>
-<p><b>VARIATION</b> (drums' page, KNOB 2) is how often a lane's round is played otherwise: a hit dropped, a pick-up before a hit, a hit pushed a step, an accent moved, a hit doubled, the lane turned, its 2nd half backwards, a round's rest (never the kick's). Each variant comes from the lane's own pattern, and the next round comes home, so the rhythm never wanders off. Each style draws its own amount, and each lane its own share of it (hats and perc more than kick). 0: every round as written; sessions from before build 21 load at 0. As in Noir, a step can be more than a hit: accented, with a pitch of its own, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares).</p>
+<p><b>VARIATION</b> (drums' page, KNOB 2) is how often a lane's round is played otherwise: a hit dropped, a pick-up before a hit, a hit pushed a step, an accent moved, a hit doubled, the lane turned, its 2nd half backwards, a round's rest (never the kick's). Each variant comes from the lane's own pattern, and the next round comes home, so the rhythm never wanders off. Each style draws its own amount, and each lane its own share of it (hats and perc more than kick). 0: every round as written; sessions from before build 21 load at 0.</p>
+<p>A step can be more than a hit: accented, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares). Nothing changes a voice's pitch: each voice keeps its TUNE on every step, in rhythms and in breaks, so the drums never turn into a melody (build 22; a session saved before with pitched steps loads with them level).</p>
 <h3 id="break">Break</h3>
 <p>On drums' pages, <b>hold white key 16</b> (last, under SHIFT): drums play a <b>variation of their own rhythm</b> — fill, break, flams, beat repeat — for as long as it is held. Let go, rhythm carries on from where it would have been: nothing is written, each lane's steps run on underneath.</p>
 <p>Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it. A break is <b>quantized</b>: it starts on the rhythm's next beat (next half bar for HALF TIME and MIRROR), playing as written until then, and fills are measured against the bar, so they land on its next downbeat however late they start. Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:</p>
 <table>
 <tr><th>Way</th><th>What plays</th></tr>
 <tr><td>STUTTER</td><td>bar's busiest beat repeated: whole, then half, then a single step, ratcheting faster</td></tr>
-<tr><td>AVALANCHE</td><td>fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, rising in pitch, kick on beats; lands on downbeat, all accented, and builds again</td></tr>
+<tr><td>AVALANCHE</td><td>fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, kick on beats; lands on downbeat, all accented, and builds again</td></tr>
 <tr><td>FLAMS</td><td>rhythm as written, each kick, snare and perc hit flammed (soft grace note before it); accented snares dragged (2 graces)</td></tr>
 <tr><td>DROP</td><td>kick and snare out; hats and perc on, hats' gaps filled with ghosts</td></tr>
 <tr><td>HALF TIME</td><td>kick, snare and perc at half speed; hats at full speed over them</td></tr>
 <tr><td>CELL 3, 5, 6 or 7</td><td>each lane loops a cell of that many of its own steps against the bar; kick keeps each downbeat</td></tr>
 <tr><td>SWAP</td><td>voices trade lanes: kick plays snare's steps, snare kick's, hats perc's, perc hats'</td></tr>
 <tr><td>MIRROR</td><td>each half bar backwards; kick keeps its first step</td></tr>
-<tr><td>TUMBLE</td><td>perc on every step, falling 2 octaves over 2 beats, again and again; kick as written</td></tr>
+<tr><td>TUMBLE</td><td>perc on every step over 2 beats, from an accent down to ghosts, again and again; kick as written</td></tr>
 <tr><td>INTERLOCK</td><td>kick and snare keep 1st half of each beat, hats and perc the 2nd; after a bar they trade whole beats</td></tr>
 <tr><td>SCATTER</td><td>bar's 8 pairs of steps in another order, first in place</td></tr>
 <tr><td>BUZZ</td><td>rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled</td></tr>

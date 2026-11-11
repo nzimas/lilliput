@@ -626,7 +626,11 @@ static int ses_load(uint32_t num)
         pf.dsz = (uint16_t)sizeof ses_drm;
     }
     if (pf.dsz) {                                /* the DRUMS as saved (a session before them: left as they are) */
+        uint32_t c;
         memset((uint8_t *)&ses_drm + pf.dsz, 0, sizeof ses_drm - pf.dsz);
+        for (c = 0; c < NDV; c++)                /* (build 22: no pitch moves in the drums -- a session before: its
+                                                  * steps' pitches, toms and such, set level) */
+            memset(ses_drm.l[c].pitch, 0, sizeof ses_drm.l[c].pitch);
         drm = ses_drm;
         drm_coef_all();
         drm_reset = 1;

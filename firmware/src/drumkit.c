@@ -9,7 +9,8 @@
  *
  * A RHYTHM recipe draws the four lanes at once (SHIFT + the DRUMS key; PRESETS on their pages): POWER 4/4, PISTON,
  * MARCH, OFFBEAT, RUMBLE, BROKEN, 3 AGAINST 4, TRIBAL, SHUFFLE, DIST BREAK, HALF RITUAL, BURST FILL. As in Noir, steps
- * carry accents, ALT (the decay a fifth: closed hats among open ones, ghost snares) and pitches (toms from one kick). */
+ * carry accents and ALT (the decay a fifth: closed hats among open ones, ghost snares). Build 22: no pitch moves --
+ * each voice keeps its own pitch, every step (a step's pitch stays in the lane, 0, for sessions from before). */
 
 static const char *const DV_NAME[NDV] = {"KICK", "SNARE", "HATS", "PERC"};
 static const char *const DN_NAME[DN_N] = {"LOW", "BAND", "HIGH"};
@@ -114,7 +115,7 @@ static uint32_t drm_draw_voice(uint32_t c, uint32_t seed, int kit)
 /* (build 21: anew -- away from four on the floor. Each style a way of building a rhythm, drawn afresh from the
  * seed, so no two draws are alike: odd meters added up, cells phasing against themselves, Euclidean lanes of
  * unequal lengths, triplets against quintuplets against sixteenths, timelines, nested cycles, bouncing balls,
- * canons in one tempo and in several, hockets. Lanes of different lengths drift against each other (polymeter);
+ * canons in one tempo and in several, hockets -- in rhythm alone: no voice changes pitch (build 22). Lanes of different lengths drift against each other (polymeter);
  * lanes of different step lengths run in different time (polyrhythm). And VARIATION (drm.vary): now and then a
  * lane's round is played otherwise -- a hit dropped, a pick-up, a step pushed, the lane turned, a round's rest --
  * and the next comes home (drm_evolve). Sources: Toussaint's "The Geometry of Musical Rhythm" (Euclidean rhythms,
@@ -180,24 +181,6 @@ static uint32_t bsome(rnd_t *r, uint32_t m, uint32_t k)    /* k of m's hits, at 
     }
     return o;
 }
-/* each hit of lane c a pitch from the set, walking (a step up or down the set, now and then a leap) */
-static void dl_tune(uint32_t c, rnd_t *r, const int8_t *set, uint32_t ns)
-{
-    dlane_t *L = &drm.l[c];
-    uint32_t i, at = (uint32_t)rnd_below(r, (int32_t)ns);
-    for (i = 0; i < L->len; i++) {
-        if (!(L->hits >> i & 1u))
-            continue;
-        L->pitch[i] = set[at];
-        if (rnd_chance(r, 20))
-            at = (uint32_t)rnd_below(r, (int32_t)ns);
-        else
-            at = (at + ns + (rnd_chance(r, 50) ? 1u : ns - 1u)) % ns;
-    }
-}
-static const int8_t SC_PENT[6] = {-5, 0, 3, 5, 7, 10};
-static const int8_t SC_PELOG[6] = {-12, -11, -9, -5, 0, 1};
-static const int8_t SC_LOW[5] = {-12, -7, -5, 0, 3};
 /* groups added up to an odd meter: their sizes, 2 or 3 */
 static const char *const AKSAK_G[] = {"32", "23", "223", "322", "232", "2223", "3222", "333", "3332", "22322",
                                       "33322", "32323", "2232", "3223"};
@@ -241,7 +224,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
             else
                 dl_bits(DV_HAT, n, DV_16, dmask(n) & ~(rnd_chance(&r, 50) ? starts : 0u), starts, ~starts, (uint8_t)pr_in(&r, 80, 100), 45);
             dl_bits(DV_PERC, n, DV_16, threes | bsome(&r, starts, 1u), threes, 0, 100, 50);
-            dl_tune(DV_PERC, &r, SC_PENT, 6);
         }
         break;
     }
@@ -251,7 +233,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         uint32_t acc = bsome(&r, cell, 2u);
         dl_bits(DV_HAT, n, DV_16, cell, acc, ~acc, 100, 15);
         dl_bits(DV_PERC, n + 1u, DV_16, cell, acc, 0, 100, 15);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
         dl_bits(DV_KICK, n * 2u <= 32u ? n * 2u : n, DV_16, 1u | bsome(&r, cell << n, 1u), 1u, 0, 100, 15);
         dl_bits(DV_SNARE, n + 2u + (uint32_t)rnd_below(&r, 3), DV_16, 1u << (n / 2u), 1u << (n / 2u), 0, 100, 25);
         drm.vary = (int16_t)pr_in(&r, 10, 25);
@@ -271,7 +252,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_HAT, n[2], rnd_chance(&r, 20) ? DV_32 : DV_16, euclid((uint32_t)pr_in(&r, (int32_t)n[2] / 2, (int32_t)n[2] - 1), n[2], (uint32_t)rnd_below(&r, (int32_t)n[2])),
                 euclid(2, n[2], 0), euclid(3, n[2], 1), 95, 40);
         dl_bits(DV_PERC, n[3], DV_16, euclid((uint32_t)pr_in(&r, 2, (int32_t)n[3] / 2), n[3], (uint32_t)rnd_below(&r, (int32_t)n[3])), euclid(1, n[3], 0), 0, 100, 40);
-        dl_tune(DV_PERC, &r, rnd_chance(&r, 50) ? SC_PENT : SC_PELOG, 6);
         break;
     }
     case DS_POLY: {                              /* twos, threes and fives at once: each voice its own subdivision */
@@ -286,7 +266,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_HAT, nh, d[2], euclid((uint32_t)pr_in(&r, (int32_t)nh / 3, (int32_t)nh * 2 / 3), nh, (uint32_t)rnd_below(&r, 3)),
                 nh % 5u == 0 ? euclid(nh / 5u, nh, 0) : euclid(nh / 4u, nh, 0), 0, 95, 40);
         dl_bits(DV_PERC, np, d[3], euclid((uint32_t)pr_in(&r, 2, (int32_t)np / 3), np, (uint32_t)rnd_below(&r, (int32_t)np)), 0, 0, 100, 40);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
         break;
     }
     case DS_TIMELINE: {                          /* a bell's timeline -- the 12/8 bell, clave, tresillo, gahu, bossa,
@@ -305,8 +284,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         bell = rnd_chance(&r, 60) ? DV_PERC : DV_HAT;
         dl_bits(bell, n, twelve ? DV_8T : DV_16, tl, tl & 1u, 0, 100, 10);
         if (bell == DV_PERC) {                   /* (the bell on PERC: the hats the other pulse) */
-            for (i = 0; i < 16u; i++)
-                drm.l[DV_PERC].pitch[i] = (int8_t)(rnd_chance(&r, 25) ? 7 : 0);
             dl_bits(DV_HAT, twelve ? 16u : 12u, twelve ? DV_16 : DV_8T, euclid(twelve ? 8u : 6u, twelve ? 16u : 12u, 1), 0, 0xFFFFFFFFu, 85, 45);
         } else
             dl_bits(DV_PERC, twelve ? 16u : 12u, twelve ? DV_16 : DV_8T, euclid((uint32_t)pr_in(&r, 2, 4), twelve ? 16u : 12u, 2), 0, 0, 100, 40);
@@ -321,7 +298,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
             ken |= 1u << i;
         dl_bits(DV_KICK, n, DV_8, 1u | (rnd_chance(&r, 40) ? 1u << (n / 2u) : 0u), 1u, 0, 100, 5);
         dl_bits(DV_PERC, n, DV_8, ken & ~(1u << (n / 2u)), 0, 0, 100, 20);
-        dl_tune(DV_PERC, &r, SC_PELOG, 6);
         pol = euclid((uint32_t)pr_in(&r, 3, 5), 8, (uint32_t)rnd_below(&r, 8));
         dl_bits(DV_HAT, 8, DV_16, pol, pol & 0x11u, 0, 100, 40);
         dl_bits(DV_SNARE, 8, DV_16, ~pol & 0xFFu & ~1u, 0, 0xFFFFFFFFu, (uint8_t)pr_in(&r, 60, 90), 40);
@@ -330,13 +306,10 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
     }
     case DS_CASCADE: {                           /* a bouncing ball: hits ever closer, the snare's ever farther */
         uint32_t k = 0, s = 0, at = 0, gap = (uint32_t)pr_in(&r, 6, 9), sn = 0;
-        int32_t p = 12;
         dl_bits(DV_KICK, 32, DV_16, 0, 1u, 0, 100, 10);
         dl_bits(DV_PERC, 32, DV_16, 0, 0, 0, 100, 10);
         for (s = 0; at < 32u && s < 4u; ) {     /* (once the gap is a step: four more, then the ball lies still) */
             k |= 1u << at;
-            drm.l[DV_PERC].pitch[at] = (int8_t)p;
-            p = p > -12 ? p - 3 : -12;
             s += gap == 1u;
             at += gap;
             gap = gap > 1u ? (gap * 7u + 5u) / 10u : 1u;
@@ -367,7 +340,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_SNARE, n, DV_16, sn | (rnd_chance(&r, 50) ? sn >> 3 : 0u), sn, sn >> 3, 100, 30);
         dl_bits(DV_HAT, n, DV_16, h, euclid(3, n, 0) & h, 0, 95, 40);
         dl_bits(DV_PERC, n, DV_16, euclid((uint32_t)pr_in(&r, 2, 4), n, (uint32_t)rnd_below(&r, (int32_t)n)), 0, 0, 100, 45);
-        dl_tune(DV_PERC, &r, SC_LOW, 5);
         drm.swing = (uint8_t)pr_in(&r, 0, 12);
         break;
     }
@@ -377,7 +349,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_SNARE, ns, DV_16, euclid((uint32_t)pr_in(&r, 2, 5), ns, (uint32_t)rnd_below(&r, (int32_t)ns)), euclid(1, ns, 0), 0xFFFFFFFFu, (uint8_t)pr_in(&r, 35, 60), 40);
         dl_bits(DV_HAT, nh, rnd_chance(&r, 50) ? DV_32 : DV_16, euclid((uint32_t)pr_in(&r, (int32_t)nh / 2, (int32_t)nh - 2), nh, 0), euclid(3, nh, 1), 0, (uint8_t)pr_in(&r, 45, 75), 60);
         dl_bits(DV_PERC, np, DV_16T, euclid((uint32_t)pr_in(&r, 3, (int32_t)np / 2), np, (uint32_t)rnd_below(&r, (int32_t)np)), 0, 0, (uint8_t)pr_in(&r, 35, 65), 60);
-        dl_tune(DV_PERC, &r, SC_PELOG, 6);
         drm.vary = (int16_t)pr_in(&r, 35, 55);
         break;
     }
@@ -389,9 +360,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_SNARE, n, DV_16, bsome(&r, brot(cell, n, o1), 2u), 0xFFFFFFFFu, 0, 100, 30);
         dl_bits(DV_HAT, n, DV_16, brot(cell, n, o2), brot(acc, n, o2), 0, 100, 30);
         dl_bits(DV_PERC, n, DV_16, brot(cell, n, o3), brot(acc, n, o3), 0, 100, 35);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
-        for (i = 0; i < n; i++)                  /* (the kick's toms: the perc's line, an octave down) */
-            drm.l[DV_KICK].pitch[i] = (int8_t)clampi(drm.l[DV_PERC].pitch[(i + o3) % n] - 12, -12, 12);
         break;
     }
     case DS_HOCKET: {                            /* one dense line shared out: no two voices on one step */
@@ -410,8 +378,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
             }
         for (c = 0; c < NDV; c++)
             dl_bits(c, n, DV_16, m[c], euclid(3, n, 0), 0, 100, 30);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
-        dl_tune(DV_KICK, &r, SC_LOW, 5);
         break;
     }
     case DS_RITUAL: {                            /* half time, slow: a kick, a snare far off, triplet hats */
@@ -419,7 +385,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_SNARE, 32, DV_16, 1u << (rnd_chance(&r, 50) ? 16 : 24), 0xFFFFFFFFu, 0, 100, 20);
         dl_bits(DV_HAT, 12, DV_8T, euclid((uint32_t)pr_in(&r, 4, 7), 12, (uint32_t)rnd_below(&r, 12)), 0, 0xFFFFFFFFu, 85, 40);
         dl_bits(DV_PERC, (uint32_t)pr_in(&r, 20, 28), DV_16, euclid((uint32_t)pr_in(&r, 1, 3), 24, 5), 0, 0, 100, 40);
-        dl_tune(DV_PERC, &r, SC_LOW, 5);
         break;
     }
     case DS_BROKEN: {                            /* kicks off the beat, the backbeat pushed or pulled, ghosts */
@@ -434,14 +399,12 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         dl_bits(DV_SNARE, n, DV_16, sn | bsome(&r, ~sn & ~k & dmask(n), (uint32_t)pr_in(&r, 1, 3)), sn, ~sn, 100, 35);
         dl_bits(DV_HAT, n, DV_16, dmask(n) & ~bsome(&r, dmask(n), n / 4u), 0x44444444u, 0x11111111u, 85, 45);
         dl_bits(DV_PERC, n, DV_16, euclid((uint32_t)pr_in(&r, 2, 5), n, (uint32_t)rnd_below(&r, (int32_t)n)), 0, 0, 100, 45);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
         drm.swing = (uint8_t)pr_in(&r, 0, 15);
         break;
     }
-    case DS_TRIBAL: {                            /* pitched toms out of the kick, Euclidean; an anvil three against four */
+    case DS_TRIBAL: {                            /* toms out of the kick, Euclidean; an anvil three against four */
         uint32_t k = 1u | euclid((uint32_t)pr_in(&r, 5, 7), 16, (uint32_t)rnd_below(&r, 16));
         dl_bits(DV_KICK, 16, DV_16, k, bsome(&r, k, 2u) | 1u, 0, 100, 30);
-        dl_tune(DV_KICK, &r, SC_LOW, 5);
         dl_bits(DV_SNARE, 16, DV_16, bsome(&r, ~k & 0xFFF0u, (uint32_t)pr_in(&r, 1, 2)), 0xFFFFFFFFu, 0, 100, 30);
         dl_bits(DV_HAT, rnd_chance(&r, 50) ? 12u : 16u, DV_16, euclid((uint32_t)pr_in(&r, 5, 9), 16, 0), euclid(2, 16, 0), 0xFFFFFFFFu, 90, 40);
         dl_bits(DV_PERC, 12, DV_16, euclid(4, 12, 0) | (rnd_chance(&r, 40) ? euclid(1, 12, 7) : 0u), 1u, 0, 100, 35);
@@ -461,7 +424,6 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
         uint32_t sh = (uint32_t)rnd_below(&r, 4);
         for (c = 0; c < NDV; c++)
             dl_bits(c, n, TD[(c + sh) % NDV], c == DV_KICK ? cell & ~bsome(&r, cell & ~1u, 1u) : cell, 1u, 0, 100, 15);
-        dl_tune(DV_PERC, &r, SC_PENT, 6);
         drm.vary = (int16_t)pr_in(&r, 10, 20);
         break;
     }

@@ -619,6 +619,20 @@ static int cmd_drums(void)
         }
         printf("  %-10s kick %3u snare %3u hats %3u\n", DS_NAME[k], got[0], got[1], got[2]);
     }
+    {   /* (build 22) no pitch moves: no style, no seed gives a step a pitch of its own */
+        uint32_t sd, pitched = 0, i3;
+        for (k = 0; k < DS_N; k++)
+            for (sd = 0; sd < 40u; sd++) {
+                drm_draw_rhythm(sd * 7919u + k, (int)k);
+                for (c = 0; c < NDV; c++)
+                    for (i3 = 0; i3 < DSTEPS; i3++)
+                        pitched += drm.l[c].pitch[i3] != 0;
+            }
+        if (pitched) {
+            printf("FAIL drums: %u steps drawn with a pitch of their own\n", pitched);
+            bad++;
+        }
+    }
     /* VARIATION (build 21): at 100 %, rounds played otherwise now and then and home again -- home never lost, the
      * kick never resting a round; at 0, every round as written */
     {
@@ -1227,7 +1241,8 @@ static int cmd_flows(void)
         }
         EXPECT(__builtin_popcount(seen) > 3 && ui.recipe == ui.fam && str_eq(ui.patch, FAM[ui.fam].name),
                "HOME: a new patch from any recipe, each time; named after its recipe");
-        run_ms(1300);                            /* (NEW PATCH said and gone) */
+        run_ms(4000);                            /* (NEW PATCH said and gone; the trim done: it may raise a quiet
+                                                  * channel and set the main level for 3.6 s) */
         f0 = ui.fam;
         before = par;
         turn(EN_PRESET, 1);

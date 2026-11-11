@@ -339,14 +339,23 @@ static void draw_voice(rnd_t *r, const family_t *f, ch_par_t *p, int32_t mf_base
     }
     memset(&p->mod, 0, sizeof p->mod);
 }
+static uint32_t slot_used;                       /* (build 22: the effects this patch has -- none drawn twice) */
 static void draw_slot(rnd_t *r, const family_t *f, slot_par_t *s, uint32_t in, uint32_t out)
 {
-    {
+    {   /* the family's weights, flattened (build 22: what the family has, every effect of it about as likely -- the
+         * rack's later effects were heard too seldom), none the patch has already, if it can */
         uint8_t w[FX_N];
-        uint32_t i, fi = (uint32_t)(f - FAM);
-        for (i = 0; i < FX_N; i++)
-            w[i] = i < FX_RESON ? f->fx[i] : i < FX_AUTOLVL ? FAM_FX2[fi][i - FX_RESON] : FAM_FX3[fi][i - FX_AUTOLVL];
+        uint32_t i, fi = (uint32_t)(f - FAM), any = 0;
+        for (i = 0; i < FX_N; i++) {
+            uint32_t v = i < FX_RESON ? f->fx[i] : i < FX_AUTOLVL ? FAM_FX2[fi][i - FX_RESON] : FAM_FX3[fi][i - FX_AUTOLVL];
+            w[i] = (uint8_t)(v && !(slot_used >> i & 1u) ? 3u + v : 0u);
+            any |= w[i];
+        }
+        if (!any)
+            for (i = 0; i < FX_N; i++)
+                w[i] = 1;
         s->fx = (int16_t)rnd_weighted(r, w, FX_N);
+        slot_used |= 1u << s->fx;
     }
     s->p1 = (int16_t)(fx_pcount(s->fx, 0) ? rnd_below(r, fx_pcount(s->fx, 0)) : pr_in(r, 100, 900));
     s->p2 = (int16_t)(fx_pcount(s->fx, 1) ? rnd_below(r, s->fx == FX_RESON ? NCHORD : NCH) : pr_in(r, 100, 850));
@@ -368,7 +377,9 @@ static void draw_slot(rnd_t *r, const family_t *f, slot_par_t *s, uint32_t in, u
         s->p1 = (int16_t)pr_in(r, 3, NSAGW - 1);
     if (s->fx == FX_CYCLES || s->fx == FX_CUTS)
         s->p2 = (int16_t)pr_in(r, 250, 800);
-    s->pres = (int16_t)(in == FI_INS ? pr_in(r, 300, 850) : PMAX);
+    if (s->fx == FX_CROSS && s->p1 == CR_DEAD)   /* (a narrow dead zone: a loop's hiss gets through, it can begin) */
+        s->p2 = (int16_t)pr_in(r, 50, 300);
+    s->pres = (int16_t)(in == FI_INS ? pr_in(r, 550, 1000) : PMAX);   /* (build 22: an insert heard -- was 30 .. 85 %) */
     s->lofi = (uint8_t)rnd_chance(r, f->lofi);
     s->bypass = 0;
     s->in = (uint8_t)in;
@@ -492,6 +503,7 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
     int32_t margin, mf_base;
     rnd_seed(&r, seed);
     patch_plain(q);
+    slot_used = 0;
     if (fam < 0 || fam >= (int)NFAM)
         fam = rnd_below(&r, (int32_t)NFAM);
     f = &FAM[fam];
@@ -606,6 +618,24 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
             if (f->g[i].shapes >> b & 1u)
                 sh[n++] = (uint8_t)b;
         motion_sync.shape[i] = n ? sh[rnd_below(&r, (int32_t)n)] : MS_SINE;
+    }
+    {   /* (build 22) every patch features its effects: 2 or 3 heard -- inserts on heard channels, a loop through the
+         * rack whose return is up -- inserts added on heard channels till there are */
+        uint32_t want = 2u + (uint32_t)rnd_chance(&r, 50), have = 0, tries;
+        for (i = 0; i < NCH; i++)
+            have += q->slot[i].in == FI_INS && q->ch[i].level > 0;
+        for (i = 0; i < NCH; i++)
+            have += q->slot[i].in != FI_NON && q->slot[i].in != FI_INS && q->slot[i].out != FO_NON;
+        for (tries = 0; have < want && tries < 12u; tries++) {
+            uint32_t k = act[rnd_below(&r, (int32_t)NCH)];
+            ch_par_t *p = &q->ch[k];
+            if (!p->level || q->slot[k].in != FI_NON)
+                continue;
+            draw_slot(&r, f, &q->slot[k], FI_INS, FO_NON);
+            if (p->src == SRC_PRE && rnd_chance(&r, 60))   /* (often inside its loop: the effect shapes the loop) */
+                p->src = SRC_POST;
+            have++;
+        }
     }
     for (i = 0; i < NSLOT; i++) {                /* XMOD's and GATE's other signal: a channel that sings by itself */
         slot_par_t *sl = &q->slot[i];

@@ -11,7 +11,7 @@
  *
  *   STUTTER    the bar's busiest beat (its hits, every voice's), repeated: a beat, then half, then a step,
  *              ratcheting faster
- *   AVALANCHE  a fill over the bar: snare from ghosts on 8ths to accented 16ths and doubles, rising in pitch, the kick on
+ *   AVALANCHE  a fill over the bar: snare from ghosts on 8ths to accented 16ths and doubles, the kick on
  *              the beats; it lands on the downbeat, everything accented, and builds again
  *   FLAMS      the rhythm as written, every kick, snare and perc hit flammed (a soft grace note before it); accented
  *              snares dragged (two)
@@ -20,7 +20,7 @@
  *   CELL n     every lane loops a cell of 3, 5, 6 or 7 steps of itself against the bar; the kick keeps each downbeat
  *   SWAP       the voices trade lanes: the kick plays the snare's steps and the snare the kick's, the hats the perc's
  *   MIRROR     each half bar played backwards; the kick keeps its first step
- *   TUMBLE     the perc on every step, falling an octave and more over 2 beats, again and again; the kick as written
+ *   TUMBLE     the perc on every step over 2 beats, falling from an accent to ghosts, again and again; the kick as written
  *   INTERLOCK  kick and snare keep the first half of each beat, hats and perc the second; after a bar they trade
  *              whole beats (1 and 3, 2 and 4): the voices answer each other, what is left accented; the kick keeps
  *              the downbeat
@@ -80,10 +80,11 @@ static void brk_lane(uint32_t l, uint32_t s, dhit_t *e)   /* (as written, its ch
 }
 static void brk_hit(dhit_t *e, uint32_t acc, uint32_t alt, int32_t pitch)
 {
+    (void)pitch;                                 /* (build 22: no pitch moves in the drums -- each voice keeps its own) */
     e->fire = 1;
     e->acc = (uint8_t)acc;
     e->alt = (uint8_t)alt;
-    e->pitch = (int8_t)pitch;
+    e->pitch = 0;
     e->rat = e->flam = 0;
 }
 /* the hit lane c plays n steps into the break, from its anchor a (spb steps a beat); sb: STUTTER's beat */
@@ -171,7 +172,6 @@ static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t s
             if (k.fire)
                 *e = k;
         }
-        e->pitch = (int8_t)(e->pitch / 2);
         break;
     }
     case BK_MIRROR: {
@@ -182,7 +182,7 @@ static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t s
     case BK_TUMBLE: {
         uint32_t t = n % (2u * spb);
         if (c == DV_PERC)
-            brk_hit(e, t == 0u, t + 1u < 2u * spb, 12 - (int32_t)(t * 24u / (2u * spb - 1u)));
+            brk_hit(e, t == 0u ? 1u : t < spb ? 0u : 2u, t + 1u < 2u * spb, 0);   /* (its loudness falls, not its pitch) */
         else if (c == DV_KICK)
             brk_lane(c, s, e);
         else if (c == DV_SNARE && t + 1u == 2u * spb)
