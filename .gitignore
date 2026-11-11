@@ -3,3 +3,7 @@ build/
 __pycache__/
 *.pyc
 .DS_Store
+
+# local tooling, never published
+.claude/
+CLAUDE.md
