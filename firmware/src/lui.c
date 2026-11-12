@@ -105,6 +105,7 @@ enum { P_GAIN, P_NOISE, P_NTYPE, P_TUBE, P_TMODE, P_OPAMP, P_OVER, P_LIM, P_FTYP
        P_DBEND, P_DCOLOR, P_DCLICK, P_DPAN, P_DMETAL, P_DFILT,
        P_DSWING, P_DVAR,                         /* (the DRUMS' own) */
        P_CAMT, P_CTHR, P_CREL, P_CSC, P_CATT, P_CRAT,   /* (the COMPRESSOR's) */
+       P_DDEN,                                   /* (the DRUMS' DENSITY: PRESETS on their pages, build 25) */
        P_NONE };
 /* each page's four rows (KNOB 1 .. 4), and with SHIFT */
 static const uint8_t PG_ROW[PG_N][4] = {
@@ -278,6 +279,7 @@ static int32_t p_get(uint32_t id)
     case P_DFILT: return drm.v[ui.dsel].filt;
     case P_DSWING: return drm.swing;
     case P_DVAR: return drm.vary;
+    case P_DDEN: return dens;
     case P_CAMT: return cmp.amount;
     case P_CTHR: return cmp.thresh;
     case P_CREL: return cmp.release;
@@ -324,7 +326,8 @@ static void p_set(uint32_t id, int32_t v)
     v = n > 0 ? clampi(v, 0, n - 1) : n < 0 ? clampi(v, -PAN_MAX, PAN_MAX)
         : id == P_BPM ? clampi(v, 10, 500)
         : clampi(v, 0, id == P_LEVEL ? LVL_MAX : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS ? 100
-                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100 : PMAX);
+                       : id == P_GSCALE || id == P_RMIX || id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100
+                       : id == P_DDEN ? DENS_MAX : PMAX);
     switch (id) {
     case P_GAIN: c->gain = (int16_t)v; break;
     case P_NOISE: c->noise = (int16_t)v; break;
@@ -396,6 +399,7 @@ static void p_set(uint32_t id, int32_t v)
     case P_DFILT: drm.v[ui.dsel].filt = (uint8_t)v; break;
     case P_DSWING: drm.swing = (uint8_t)v; break;
     case P_DVAR: drm.vary = (int16_t)v; break;
+    case P_DDEN: dens_turn(v - (int32_t)dens); break;
     case P_CAMT: cmp.amount = (uint8_t)v; break;
     case P_CTHR: cmp.thresh = (int16_t)v; break;
     case P_CREL: cmp.release = (int16_t)v; cmp_rel_auto = 0; break;
@@ -411,7 +415,8 @@ static void p_set(uint32_t id, int32_t v)
 }
 static int32_t p_hi(uint32_t id)
 {
-    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100
+    return id == P_LEVEL ? LVL_MAX : id == P_PAN || id == P_DPAN ? PAN_MAX : id == P_BPM ? 500 : id == P_DDEN ? DENS_MAX
+           : id == P_DSWING || id == P_DVAR || id == P_CAMT ? 100
            : id == P_LRATE || id == P_LFADE || id == P_SWING || id == P_CHAOS || id == P_GSCALE || id == P_RMIX ? 100
            : p_count(id) > 0 ? p_count(id) - 1 : PMAX;
 }
@@ -523,6 +528,7 @@ static const char *p_name(uint32_t id)
     case P_DFILT: return "FILTER";
     case P_DSWING: return "SWING";
     case P_DVAR: return "VARIATION";
+    case P_DDEN: return "DENSITY";
     case P_CAMT: return "AMOUNT";
     case P_CTHR: return "THRESH";               /* ("THRESHOLD" does not fit beside its bar) */
     case P_CREL: return "RELEASE";
@@ -650,7 +656,7 @@ static void p_text(uint32_t id, int32_t v, char *b)
     case P_DMETAL: str_cpy(b, DM_NAME[clampi(v, 0, DM_N - 1)], 12); break;
     case P_DFILT: str_cpy(b, DN_NAME[clampi(v, 0, DN_N - 1)], 12); break;
     case P_DSWING: fmt_int(b, v); break;
-    case P_DVAR: fmt_int(b, v); break;
+    case P_DVAR: case P_DDEN: fmt_int(b, v); break;
     case P_CAMT:
         if (!v)
             str_cpy(b, "OFF", 12);
@@ -1325,12 +1331,11 @@ static void ui_input(void)
         if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
             mtx_from(s);
         else if (drm_page()) {                   /* the DRUMS' pages: DENSITY, a detent a step (build 25: was through
-                                                  * the rhythms -- SHIFT + the DRUMS' key draws a new one) */
-            char m[16];
+                                                  * the rhythms -- SHIFT + the DRUMS' key draws a new one), its dial
+                                                  * over the page as the main view's knobs have (build 26) */
             dens_turn(s);
-            str_cpy(m, "DENSITY ", sizeof m);
-            fmt_int(m + str_len(m), dens);
-            say(m, 900);
+            ui.dial = P_DDEN;
+            ui.dial_until = fm1_ms + 1000u;
         }
         else if (rhy_page())                     /* the RHYTHM's pages: PRESETS through the styles, a rhythm of each */
             rhy_new((int)((par.rhy.style + RS_N + (s > 0 ? 1u : RS_N - 1u)) % RS_N));
@@ -1780,11 +1785,16 @@ static void draw_dial(void)
     uint16_t col = ch_col(ui.sel);
     const font_t *tf;
     str_cpy(t, p_name(id), sizeof t - 3);
-    str_cpy(t + str_len(t), "  ", 3);
-    t[str_len(t) - 1] = (char)('1' + ui.sel);
+    if (id != P_DDEN) {                          /* (a channel's: its number; DENSITY is the drums') */
+        str_cpy(t + str_len(t), "  ", 3);
+        t[str_len(t) - 1] = (char)('1' + ui.sel);
+    }
     tf = text_w(&FONT_M, t) <= 236 ? &FONT_M : &FONT_S;
-    to = -45 + v * 90 / PMAX;                    /* from 7 o'clock round */
-    av = 0xA0000000u + (uint32_t)((uint64_t)(0xC0000000u / PMAX) * (uint32_t)v);
+    {
+        int32_t u = id == P_DDEN ? v * PMAX / DENS_MAX : v;   /* (where on the dial: DENSITY over its 0 .. 50) */
+        to = -45 + u * 90 / PMAX;                /* from 7 o'clock round */
+        av = 0xA0000000u + (uint32_t)((uint64_t)(0xC0000000u / PMAX) * (uint32_t)u);
+    }
     p_text(id, v, m);
     for (b = 0; b < 3; b++) {
         int32_t oy = BAND[b][0], x, y;
@@ -2075,7 +2085,16 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
+    if (drm_page() && (int32_t)(ui.dial_until - fm1_ms) > 0) {   /* PRESETS turning DENSITY: its dial over the page */
+        if (ui.shown_page != 0xF1 || (ui.shown_dial != p_get(ui.dial) + (int32_t)ui.dial * 4096 &&
+                                      (uint32_t)(fm1_ms - ui.dial_drawn_at) >= 40u))
+            draw_dial();
+        ui.shown_page = 0xF1;
+        return;
+    }
     if (ui.page != PG_MAIN) {
+        if (ui.shown_page == 0xF1)               /* (the dial gone: the page whole again) */
+            ui.force = 1;
         if (rhy_page() && ui.shown_page == ui.page && (int32_t)ui.shown_snap != par.rhy.on * 256 + par.rhy.style) {
             ui.shown_snap = par.rhy.on * 256 + par.rhy.style;   /* (the style or OFF changed: the title anew) */
             ui.force = 1;

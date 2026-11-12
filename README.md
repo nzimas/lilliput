@@ -400,7 +400,8 @@ RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 - **PRESETS** is **DENSITY**, 0–50, a step a detent (build 25). A rhythm drawn is 25. Left starves it: weakest hits
   go first (unaccented, off lane's grid), lane's first step and accents last, silence at 0. Right fills it: steps
   beside a hit and off beat first (pick-ups, doubles, syncopations), half of them ALT (short, like ghosts), up to
-  55 % of lane's rests at 50. Same way back; VARIATION plays on what DENSITY made. New rhythm or session: 25;
+  55 % of lane's rests at 50. Same way back; VARIATION plays on what DENSITY made. New rhythm or session: 25.
+  Turned, its dial covers page (as main view's knobs), its value shown (build 26);
 - **OCT− / OCT+** through 3 pages.
 
 | Page | Rows (KNOB 1–4) | With SHIFT |

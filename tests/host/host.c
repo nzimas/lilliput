@@ -1115,6 +1115,12 @@ static int cmd_screens(const char *dir)
     key(KEY_SHIFT, 0);
     run_ms(1300);
     SHOT("10e_drums_rhythm");
+    turn(EN_PRESET, 4);                          /* (build 26: PRESETS there, DENSITY's dial over the page) */
+    run_ms(60);
+    SHOT("10f_drums_density");
+    run_ms(1100);                                /* (the dial gone: the page again) */
+    turn(EN_PRESET, -4);
+    run_ms(1100);
     goto_page(PG_DRUM);
     tap_key(white_key(3));
     key(white_key(3), 1);

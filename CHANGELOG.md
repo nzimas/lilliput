@@ -1,5 +1,10 @@
 # Changelog
 
+## Build 26 (2026-11-12)
+
+- DENSITY shows its dial: PRESETS on drums' pages brings up a rotary dial over page, as main view's knobs do,
+  DENSITY and its value 0 … 50; page back a second after last detent.
+
 ## Build 25 (2026-11-12)
 
 - **DENSITY** on drums' pages, PRESETS (before: through drum rhythms; SHIFT + DRUMS key still draws a new one): 0 …
