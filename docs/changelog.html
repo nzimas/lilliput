@@ -45,6 +45,11 @@
   <div class="content">
     <main>
 <h1 id="changelog">Changelog</h1>
+<h2 id="build-25-2026-11-12">Build 25 (2026-11-12)</h2>
+<ul>
+<li><b>DENSITY</b> on drums' pages, PRESETS (before: through drum rhythms; SHIFT + DRUMS key still draws a new one): 0 … 50, a step a detent, rhythm drawn at 25. Left starves it, weakest hits first, to silence at 0; right fills it, pick-ups, doubles and syncopations first, half of them short (ALT), up to 55 % of lane's rests at 50 (on host, 200 rhythms: 7 hits at 10, 18 at 25, 47 at 50 of 70 steps). Same way back; VARIATION plays on it; new rhythm or session: 25.</li>
+<li>REED's NOTE worked out in main loop (audio RAM: 1128 B spare).</li>
+</ul>
 <h2 id="build-24-2026-11-12">Build 24 (2026-11-12)</h2>
 <ul>
 <li>New patch at its loudness from 1 s on: trim takes a first look at 0.25 … 0.9 s and sets main level at once (before: ~10 dB down until 3.6 s, as if ducked). Its look at 3.6 s now only mends what the loops woken since changed; while patch is new, guard is quicker (−3 dB each 120 ms at ceiling).</li>

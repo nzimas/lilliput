@@ -137,6 +137,7 @@ static void bench_costs(void)
         s->out = FO_RET1;
         eff_slot[0] = *s;
         reson_tune(0);
+        reed_tune(0);
         bn_slc(0);
         bk_wr32(bk_msg + 7u + 4u * n++, bn_run_fx(0));
     }

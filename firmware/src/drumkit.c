@@ -186,6 +186,7 @@ static const char *const AKSAK_G[] = {"32", "23", "223", "322", "232", "2223", "
                                       "33322", "32323", "2232", "3223"};
 static rnd_t dvr_r = {0x9E3779B9u};           /* (VARIATION's draws: drm_evolve) */
 #define PICK(...) ((const char *const[]){__VA_ARGS__})[rnd_below(&r, (int32_t)(sizeof((const char *const[]){__VA_ARGS__}) / sizeof(const char *)))]
+static void dens_take(uint32_t seed);
 /* new lanes for the four voices, of style st (-1: any), from seed */
 static uint32_t drm_draw_rhythm(uint32_t seed, int st)
 {
@@ -429,6 +430,7 @@ static uint32_t drm_draw_rhythm(uint32_t seed, int st)
     }
     }
     drm.style = (uint8_t)st;
+    dens_take(seed);                             /* (DENSITY: the drawn rhythm is its middle, 25) */
     return (uint32_t)st;
 }
 #undef PICK
@@ -515,6 +517,96 @@ static void drm_evolve(void)                     /* (the main loop: mx_poll) */
             drm_vary_lane(c);
         dvr[c].last = s;
     }
+}
+
+/* ------------------------------------------------------- DENSITY --- *
+ * (build 25, PRESETS on the drums' pages) the rhythm drawn is DENSITY 25 of 0 .. 50, a step a detent. Down, it is
+ * starved: each lane's hits taken away, the weakest first -- unaccented, off the lane's grid -- its first step and
+ * its accents last, to silence at 0. Up, it is filled: steps added to each lane, those beside a hit and off the beat
+ * first (pick-ups, doubles, syncopations: more complex as it fills), half of them ALT (short, like ghosts), up to
+ * 55 % of the lane's rests at 50 -- never solid. Both orders are fixed for the rhythm, so a turn back is the way it
+ * came, and 25 is the rhythm as drawn. VARIATION plays on whatever DENSITY made. A new rhythm, a session: 25 again */
+#define DENS_MID 25
+#define DENS_MAX 50
+static struct { uint32_t hits, acc, alt; } dbase[NDV];   /* the rhythm as drawn: DENSITY 25 */
+static uint32_t dens_seed;
+static uint8_t dens = DENS_MID;
+static void dens_take(uint32_t seed)
+{
+    uint32_t c;
+    for (c = 0; c < NDV; c++) {
+        dbase[c].hits = drm.l[c].hits;
+        dbase[c].acc = drm.l[c].acc;
+        dbase[c].alt = drm.l[c].alt;
+    }
+    dens_seed = seed * 2246822519u + 0x165667B1u;
+    dens = DENS_MID;
+}
+static uint32_t dens_hash(uint32_t c, uint32_t i)   /* (a fixed draw for each lane's step) */
+{
+    uint32_t h = dens_seed ^ (c * 0x9E3779B9u) ^ (i * 0x85EBCA6Bu);
+    h ^= h >> 16;
+    h *= 0x7FEB352Du;
+    h ^= h >> 15;
+    h *= 0x846CA68Bu;
+    return h ^ (h >> 16);
+}
+/* of the steps in m, the k with the highest scores (sc) */
+static uint32_t dens_top(uint32_t m, const uint16_t *sc, uint32_t k)
+{
+    uint32_t out = 0, j, i, best, bi;
+    for (j = 0; j < k && m; j++) {
+        best = 0;
+        bi = 0;
+        for (i = 0; i < DSTEPS; i++)
+            if ((m >> i & 1u) && sc[i] + 1u > best) {
+                best = sc[i] + 1u;
+                bi = i;
+            }
+        out |= 1u << bi;
+        m &= ~(1u << bi);
+    }
+    return out;
+}
+static void dens_apply(void)
+{
+    uint32_t c, i;
+    for (c = 0; c < NDV; c++) {
+        dlane_t *L = &drm.l[c];
+        uint32_t n = (uint32_t)clampi(L->len, 1, (int32_t)DSTEPS), all = dmask(n);
+        uint32_t h = dbase[c].hits & all, a = dbase[c].acc & h, l = dbase[c].alt & h, k = (uint32_t)__builtin_popcount(h);
+        uint16_t sc[DSTEPS];
+        if (dens < DENS_MID) {                   /* starved: the strongest kept */
+            for (i = 0; i < n; i++) {
+                uint32_t g = i ? (uint32_t)__builtin_ctz(i) : 6u;   /* (its place on the lane's grid) */
+                sc[i] = (uint16_t)((a >> i & 1u ? 2000u : 0u) + (i ? 0u : 1500u) + g * 150u + (dens_hash(c, i) & 255u));
+            }
+            h = dens_top(h, sc, (k * dens + DENS_MID / 2u) / DENS_MID);
+            a &= h;
+            l &= h;
+        } else if (dens > DENS_MID) {            /* filled: rests taken, the most complex first */
+            uint32_t fr = all & ~h, add, nb = ((h << 1) | (h >> 1) | (h << (n - 1u)) | (h >> (n - 1u))) & all;
+            for (i = 0; i < n; i++)
+                sc[i] = (uint16_t)((nb >> i & 1u ? 250u : 0u) + (i & 1u ? 150u : 0u) + (dens_hash(c, i) & 511u));
+            add = dens_top(fr, sc, ((uint32_t)__builtin_popcount(fr) * 55u * (dens - DENS_MID) + 50u * (DENS_MAX - DENS_MID)) /
+                                       (100u * (DENS_MAX - DENS_MID)));
+            for (i = 0; i < n; i++)
+                if ((add >> i & 1u) && (dens_hash(c, i + 64u) & 1u))
+                    l |= 1u << i;                /* (half of them short) */
+            h |= add;
+        }
+        L->hits = h;
+        L->acc = a;
+        L->alt = l;
+    }
+}
+static void dens_turn(int32_t s)                 /* PRESETS on the drums' pages: a detent a step */
+{
+    int32_t d = clampi((int32_t)dens + clampi(s, -DENS_MAX, DENS_MAX), 0, DENS_MAX);   /* (each detent counted) */
+    if (d == (int32_t)dens)
+        return;
+    dens = (uint8_t)d;
+    dens_apply();
 }
 
 /* ------------------------------------------- what the values mean, worked out --- */

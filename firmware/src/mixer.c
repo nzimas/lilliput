@@ -631,16 +631,12 @@ static FAST void slot_coef(uint32_t s)
         k->cyp = (uint32_t)p2 * 4294967u;        /* (DISINTEGRATE: p2 / 1000 of the half-cycles) */
         k->reps = 1u + (uint32_t)p2 * 7u / PMAX; /* (WAVESET: 1 .. 8 times each; WAVELOSS: 0 .. 7 of 8 lost) */
         break;
-    case FX_REED: {                              /* a clarinet's bore: half a period of delay (STK's Clarinet) */
-        int32_t note = clampi(p1, 0, 47);
-        int32_t hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16((36 + note - 69) * 65536 / 12)) >> 16);
-        k->rlen = (int32_t)(((uint32_t)FS * 128u / (uint32_t)(hz8 / 256 > 0 ? hz8 / 256 : 1))) - 384;   /* (FS / 2f
-                                                                                       * - 1.5, Q8) */
+    case FX_REED:                                /* a clarinet's bore (STK's Clarinet): its length from NOTE, a step,
+                                                  * worked out in the main loop (reed_tune, build 25) */
         if (k->rlen < 512)
             k->rlen = 512;
         k->breath = 9830 + p2 * 22938 / PMAX;    /* (0.3 .. 1.0) */
         break;
-    }
     case FX_OCTAVE:
         k->omode = (uint8_t)clampi(p1, 0, OC_N - 1);
         k->otone = clampi(hz_log(p2, 150, 1440) * 467 / 100, 300, 32767);   /* (150 Hz .. 7.7 kHz, a one-pole's) */
@@ -806,12 +802,26 @@ static void reson_tune(uint32_t s)
     }
 }
 static void drm_evolve(void);                    /* (drumkit.c: the DRUMS' VARIATION) */
+static void reed_tune(uint32_t s)                 /* REED's bore: half a period of delay, from NOTE (a step: never
+                                                  * modulated) -- out of the audio's time (build 25) */
+{
+    const slot_par_t *sp = &par.slot[s];
+    int32_t note, hz8, n;
+    if (sp->fx != FX_REED)
+        return;
+    note = clampi(sp->p1, 0, 47);
+    hz8 = (int32_t)(((uint64_t)440u * 256u * exp2_q16((36 + note - 69) * 65536 / 12)) >> 16);
+    n = (int32_t)(((uint32_t)FS * 128u / (uint32_t)(hz8 / 256 > 0 ? hz8 / 256 : 1))) - 384;   /* (FS / 2f - 1.5, Q8) */
+    slr[s].rlen = n < 512 ? 512 : n;
+}
 static void mx_poll(void)                        /* (the main loop's: what the audio's time need not work out) */
 {
     uint32_t s;
     drm_evolve();
-    for (s = 0; s < NSLOT; s++)
+    for (s = 0; s < NSLOT; s++) {
         reson_tune(s);
+        reed_tune(s);
+    }
     for (s = 0; s < NCH; s++)
         ch_tune(s);
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## Build 25 (2026-11-12)
+
+- **DENSITY** on drums' pages, PRESETS (before: through drum rhythms; SHIFT + DRUMS key still draws a new one): 0 …
+  50, a step a detent, rhythm drawn at 25. Left starves it, weakest hits first, to silence at 0; right fills it,
+  pick-ups, doubles and syncopations first, half of them short (ALT), up to 55 % of lane's rests at 50 (on host,
+  200 rhythms: 7 hits at 10, 18 at 25, 47 at 50 of 70 steps). Same way back; VARIATION plays on it; new rhythm or
+  session: 25.
+- REED's NOTE worked out in main loop (audio RAM: 1128 B spare).
+
 ## Build 24 (2026-11-12)
 
 - New patch at its loudness from 1 s on: trim takes a first look at 0.25 … 0.9 s and sets main level at once

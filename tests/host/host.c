@@ -633,6 +633,43 @@ static int cmd_drums(void)
             bad++;
         }
     }
+    /* DENSITY (build 25): over many rhythms, the hits rise with it step by step, 25 is the rhythm as drawn, 0 silent,
+     * 50 never solid, and a turn back is the way it came */
+    {
+        uint32_t sd, c, d, tot[DENS_MAX + 1] = {0}, steps = 0, back = 0, mono = 0, base_ok = 0, n = 200;
+        for (sd = 0; sd < n; sd++) {
+            uint32_t h25[NDV], hd[DENS_MAX + 1][NDV];
+            drm_draw_rhythm(31337u + sd * 101u, -1);
+            for (c = 0; c < NDV; c++)
+                h25[c] = drm.l[c].hits;
+            for (d = 0; d <= DENS_MAX; d++) {    /* (down to 0, up to 50, as the knob would) */
+                dens_turn((int32_t)d - (int32_t)dens);
+                for (c = 0; c < NDV; c++) {
+                    hd[d][c] = drm.l[c].hits;
+                    tot[d] += (uint32_t)__builtin_popcount(drm.l[c].hits);
+                    if (d == 0)
+                        steps += (uint32_t)clampi(drm.l[c].len, 1, (int32_t)DSTEPS);
+                }
+            }
+            for (d = DENS_MAX; d-- > 0;) {       /* (back down: the same patterns) */
+                dens_turn(-1);
+                for (c = 0; c < NDV; c++)
+                    back += drm.l[c].hits != hd[d][c];
+            }
+            for (d = 1; d <= DENS_MAX; d++)
+                for (c = 0; c < NDV; c++)
+                    mono += (hd[d - 1][c] & ~hd[d][c]) != 0;   /* (a hit gone as it rose: never) */
+            base_ok += !memcmp(hd[DENS_MID], h25, sizeof h25);
+        }
+        printf("  DENSITY: hits a rhythm at 0 %.1f, 10 %.1f, 25 %.1f, 40 %.1f, 50 %.1f (of %.1f steps); as drawn at 25: %u of %u\n",
+               tot[0] / (double)n, tot[10] / (double)n, tot[25] / (double)n, tot[40] / (double)n, tot[50] / (double)n,
+               steps / (double)n, base_ok, n);
+        if (tot[0] || base_ok != n || back || mono || tot[50] <= tot[25] || tot[10] >= tot[25] || tot[50] >= steps) {
+            printf("FAIL drums: DENSITY (back %u, rising %u)\n", back, mono);
+            bad++;
+        }
+        dens_turn(DENS_MID - (int32_t)dens);
+    }
     /* VARIATION (build 21): at 100 %, rounds played otherwise now and then and home again -- home never lost, the
      * kick never resting a round; at 0, every round as written */
     {
@@ -1636,8 +1673,20 @@ static int cmd_flows(void)
             EXPECT(drm.vary == (v0 > 5 ? v0 - 5 : 0), "KNOB 2 there: VARIATION");
         }
         st0 = drm.style;
-        turn(EN_PRESET, 1);
-        EXPECT(drm.style == (st0 + 1u) % DS_N && drm.on, "PRESETS there: the next drum rhythm, playing");
+        {   /* (build 25) PRESETS there: DENSITY, a detent a step, the rhythm kept */
+            uint32_t h0 = 0, h1 = 0, h2 = 0, c, d0 = dens;
+            for (c = 0; c < NDV; c++)
+                h0 += (uint32_t)__builtin_popcount(drm.l[c].hits);
+            turn(EN_PRESET, 3);
+            for (c = 0; c < NDV; c++)
+                h1 += (uint32_t)__builtin_popcount(drm.l[c].hits);
+            EXPECT(dens == d0 + 3u && h1 >= h0 && drm.style == st0, "PRESETS there: DENSITY up, the rhythm kept");
+            turn(EN_PRESET, -3);
+            for (c = 0; c < NDV; c++)
+                h2 += (uint32_t)__builtin_popcount(drm.l[c].hits);
+            EXPECT(dens == d0 && h2 == h0, "and back down, as it was");
+        }
+        drm.on = 1;                              /* (playing, as PRESETS left them before build 25) */
         run_ms(600);
         key(KEY_DRM, 1);
         run_ms(900);

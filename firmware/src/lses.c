@@ -632,6 +632,7 @@ static int ses_load(uint32_t num)
                                                   * steps' pitches, toms and such, set level) */
             memset(ses_drm.l[c].pitch, 0, sizeof ses_drm.l[c].pitch);
         drm = ses_drm;
+        dens_take(drm.l[0].hits ^ drm.l[1].hits * 31u);   /* (DENSITY: the session's rhythm is its middle) */
         drm_coef_all();
         drm_reset = 1;
     }

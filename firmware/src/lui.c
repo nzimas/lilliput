@@ -27,7 +27,7 @@
  *   3rd black key from right  the DRUMS (drums.c): short, their pages (again: back); SHIFT + short, a new drum rhythm,
  *                             playing; held 0.8 s, the drums on or off. On their pages the first four white keys
  *                             choose KICK, SNARE, HATS, PERC (held 0.7 s: muted, or back); SHIFT + one, a new sound for
- *                             it; the last white key held, BREAK (drumbrk.c); PRESETS, the drum rhythms; OCT- / OCT+
+ *                             it; the last white key held, BREAK (drumbrk.c); PRESETS, DENSITY; OCT- / OCT+
  *                             through the three pages
  *   REC / PLAY                the chosen channel's GESTURE loop: REC arms, ends; held, empties; PLAY plays or stops
  *                             it (one loop a channel, each on its own: perform.c)
@@ -1324,8 +1324,14 @@ static void ui_input(void)
     if (s) {
         if (ui.page == PG_MTX1 || ui.page == PG_MTX2)
             mtx_from(s);
-        else if (drm_page())                     /* the DRUMS' pages: through their rhythms, one of each, playing */
-            drm_new((int)((drm.style + DS_N + (s > 0 ? 1u : DS_N - 1u)) % DS_N));
+        else if (drm_page()) {                   /* the DRUMS' pages: DENSITY, a detent a step (build 25: was through
+                                                  * the rhythms -- SHIFT + the DRUMS' key draws a new one) */
+            char m[16];
+            dens_turn(s);
+            str_cpy(m, "DENSITY ", sizeof m);
+            fmt_int(m + str_len(m), dens);
+            say(m, 900);
+        }
         else if (rhy_page())                     /* the RHYTHM's pages: PRESETS through the styles, a rhythm of each */
             rhy_new((int)((par.rhy.style + RS_N + (s > 0 ? 1u : RS_N - 1u)) % RS_N));
         else if (ui.page == PG_SES)

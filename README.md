@@ -83,7 +83,7 @@ going back to Tonitor erases Lilliput's sessions.)
 | **HOME** | **new patch** from **any recipe** (see [New patches](#new-patches)). |
 | **SHIFT + HOME** | new patch from **recipe named** in main view: the one playing, or the one PRESETS turned to. |
 | **HOME** held 0.8 s | patch **nudged**: every channel's tone moved a little, its connections and levels kept. |
-| **PRESETS** knob | **recipe**, from the one playing: its name in place of patch's, in main view; nothing else changes until SHIFT + HOME. On MOD pages: where slot comes from; on RHYTHM's: styles. |
+| **PRESETS** knob | **recipe**, from the one playing: its name in place of patch's, in main view; nothing else changes until SHIFT + HOME. On MOD pages: where slot comes from; on RHYTHM's: styles; on DRUMS': DENSITY. |
 | **SAVE** | **SNAPSHOTS** page (again: back): see [Snapshots](#snapshots). |
 | **SAVE** held | save session: over the one loaded, at once; otherwise a new one (asked: PRESETS chooses NO or YES, SAVE answers). |
 | **SHIFT + SAVE** | **SESSIONS** page: PRESETS chooses, SAVE loads. Held 0.8 s: [GLOBAL SETUP](#global-setup-and-midi). |
@@ -397,7 +397,10 @@ RHYTHM's changes never disturb them, nor theirs the RHYTHM.
 - **white keys 1–4** choose KICK, SNARE, HATS, PERC (lit: the one chosen); **SHIFT +** one draws **new sound** for
   it, from its recipes; **held 0.7 s**, it is **muted** (its key blinks, dim; its page says MUTED), held again, back;
 - **white key 16** (last, under SHIFT), **held**: [BREAK](#break), variation of rhythm playing, heard while held;
-- **PRESETS** goes through drum rhythms, a new one of each, playing;
+- **PRESETS** is **DENSITY**, 0–50, a step a detent (build 25). A rhythm drawn is 25. Left starves it: weakest hits
+  go first (unaccented, off lane's grid), lane's first step and accents last, silence at 0. Right fills it: steps
+  beside a hit and off beat first (pick-ups, doubles, syncopations), half of them ALT (short, like ghosts), up to
+  55 % of lane's rests at 50. Same way back; VARIATION plays on what DENSITY made. New rhythm or session: 25;
 - **OCT− / OCT+** through 3 pages.
 
 | Page | Rows (KNOB 1–4) | With SHIFT |
