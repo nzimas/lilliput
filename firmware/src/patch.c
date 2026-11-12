@@ -755,17 +755,22 @@ static void patch_shift(lil_par_t *q, uint32_t seed)
  * For the first two seconds, a channel with its fader up that is still not sounding has its preamp turned up
  * 3 dB at a time (every 150 ms) until it sings -- a loop's pitch may fall between what its filters let through,
  * and no estimate knows that; then the output is listened to for a second, and its main level moved once, so
- * that it comes out near -16 dB. The faders are never touched. Nothing more after that */
-static struct { uint8_t on; uint32_t t0, woke_at, hot_since, guard_at; int32_t pk; } trim;
+ * that it comes out near -16 dB. The faders are never touched. Nothing more after that.
+ * Build 24: a first look too, at 0.25 .. 0.9 s, the main level set from it at once -- the patch began ~10 dB under
+ * its own loudness and came up only at 3.6 s, as if ducked. The look at 2.4 .. 3.6 s now only mends what the loops
+ * woken since changed */
+static struct { uint8_t on, early; uint32_t t0, woke_at, hot_since, guard_at; int32_t pk; } trim;
 static void trim_start(void)
 {
     trim.on = 1;
+    trim.early = 0;
     trim.t0 = fm1_ms;
     trim.woke_at = fm1_ms;
     trim.pk = 0;
 }
 /* dB x 10 of a level x / Q15 (x > 0) */
 static int32_t db10_of(uint32_t x) { return (int32_t)(((int64_t)(log2_q16(x) - (15 << 16)) * 3945661) >> 32); }
+static void trim_level(int32_t to, int32_t ceil, int32_t up);
 static void trim_poll(void)
 {
     uint32_t el = fm1_ms - trim.t0, c;
@@ -773,15 +778,37 @@ static void trim_poll(void)
     if (out_meter > 29000) {
         if (!trim.hot_since)
             trim.hot_since = fm1_ms | 1u;
-        else if ((uint32_t)(fm1_ms - trim.hot_since) >= 330u && (uint32_t)(fm1_ms - trim.guard_at) >= 330u) {
-            trim.guard_at = fm1_ms;
-            par.out.level = (int16_t)clampi(par.out.level - PMAX / 60, 0, PMAX);   /* (-1 dB) */
+        else {
+            uint32_t t = trim.on ? 120u : 330u;  /* (build 24: quicker while a patch is new -- its loops still
+                                                  * growing, the first look may have raised it) */
+            if ((uint32_t)(fm1_ms - trim.hot_since) >= t && (uint32_t)(fm1_ms - trim.guard_at) >= t) {
+                trim.guard_at = fm1_ms;
+                par.out.level = (int16_t)clampi(par.out.level - (trim.on ? PMAX / 20 : PMAX / 60), 0, PMAX);   /* (-1 dB;
+                                                  * new, -3 dB) */
+            }
         }
     } else
         trim.hot_since = 0;
     if (!trim.on)
         return;
     if (el < 2400u) {
+        if (!trim.early) {                       /* the first look (0.25 .. 0.9 s: the loops begun) */
+            if (el < 250u) {
+                out_pw = 0;
+                out_pw_n = 0;
+                trim.pk = 0;
+            } else {
+                if (out_meter > trim.pk)
+                    trim.pk = out_meter;
+                if (el >= 900u) {
+                    trim.early = 1;
+                    if (out_pw_n && trim.pk > 300)   /* (only a patch already sounding, its peaks past -40 dB: one
+                                                  * whose loops are still starting is left to the second look) */
+                        trim_level(-175, -60, 200);   /* (1.5 dB under, its peaks 6 dB under, 20 dB up at most: the
+                                                  * loops still waking, the peaks still growing, may add) */
+                }
+            }
+        }
         if (el >= 600u && (uint32_t)(fm1_ms - trim.woke_at) >= 150u) {
             trim.woke_at = fm1_ms;
             for (c = 0; c < NCH; c++) {
@@ -796,9 +823,11 @@ static void trim_poll(void)
                 }
             }
         }
-        out_pw = 0;
-        out_pw_n = 0;
-        trim.pk = 0;
+        if (trim.early) {
+            out_pw = 0;
+            out_pw_n = 0;
+            trim.pk = 0;
+        }
         return;
     }
     if (out_meter > trim.pk)
@@ -806,6 +835,12 @@ static void trim_poll(void)
     if (el < 3600u || !out_pw_n)
         return;
     trim.on = 0;
+    trim_level(-160, -40, 600);
+}
+/* the main level moved once, from what the output did since the meters were last cleared: to about to/10 dB, its
+ * peaks under ceil/10 dB, up up/10 dB at most */
+static void trim_level(int32_t to, int32_t ceil, int32_t up)
+{
     {
         /* (mean of (|x| / 64)^2 over a block / 32: x 32 back), x 64 -- build 14: whole, a quiet output chopped by the
          * RHYTHM came out under 1, read as silence, and was never brought up */
@@ -817,9 +852,11 @@ static void trim_poll(void)
         /* dB of the rms: 10 log10(mean / 64) + 20 log10(64 / 32768), and 20 log10(1 / 512) is 18 octaves of power;
          * the 64: 6 more */
         db10 = (int32_t)(((int64_t)(log2_q16(mean) - (24 << 16)) * 1972830) >> 32);
-        d = -160 - db10;                         /* to about -16 dB .. */
-        if (trim.pk > 0 && d > -40 - db10_of((uint32_t)trim.pk))
-            d = -40 - db10_of((uint32_t)trim.pk);   /* (.. its peaks under -4 dB) */
+        d = to - db10;                           /* to about -16 dB .. */
+        if (trim.pk > 0 && d > ceil - db10_of((uint32_t)trim.pk))
+            d = ceil - db10_of((uint32_t)trim.pk);   /* (.. its peaks under -4 dB) */
+        if (d > up)
+            d = up;
         par.out.level = (int16_t)clampi(par.out.level + d * PMAX / 600, 40, PMAX);
     }
 }

@@ -246,7 +246,9 @@ build 23), at 20 … 60 % PRESENCE, never a keyed effect (DUCK, GATE, LP GATE, X
 **The COMPRESSOR** works on the mixer's sound, before the drums join it, to hold its own against them. **AMOUNT**
 does it all at once: it compresses (that share of RATIO) and makes up the gain, so the mix comes **forward**, and
 with **SIDECHAIN** on KICK it ducks the mix under each kick (up to 18 dB) and lets it back over RELEASE: low AMOUNT,
-a little lift and a gentle pump; high, mix up front and a deep pump. Measured on host with a drawn patch: 35 %
+a little lift and a gentle pump; high, mix up front and a deep pump. At start: 85 %, RELEASE an eighth note at the
+starting tempo (70 BPM 429 ms, 120 BPM 250 ms, 150 BPM 200 ms), following TEMPO until RELEASE is turned or a
+session loaded. Measured on host with a drawn patch: 35 %
 brings mix 5.6 dB forward and ducks it 4.7 dB under kick; 90 %, as far forward (output's headroom) and
 12 dB under kick. OFF leaves mix untouched. A session keeps it; HOME does not touch it.
 
@@ -257,7 +259,8 @@ At top, SPACE MIX leaves reverb alone.
 As on Tonitor: **HOME** draws a new patch from any recipe, so each press can be anything; **SHIFT + HOME** draws one
 from the recipe named in main view. That is the playing patch's recipe, or another: **PRESETS** turns through
 them from it, the name changing in place. Lilliput starts with a patch drawn from any recipe and a tempo drawn
-between 91 and 299 BPM, otherwise each time; a session loaded names its patch's recipe. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting
+between 70 and 150 BPM, otherwise each time, with COMPRESSOR on at 85 % and its RELEASE an eighth note at that
+tempo; a session loaded names its patch's recipe. A recipe is an archetype, not a preset: a kind of no-input sound, each with its own way of connecting
 channels, its own register, filters, tubes, op-amps, noises, effects and space — and its own **motion**, LFOs on
 parameters that make its character, drawn anew for each channel. Every draw comes out otherwise, in the
 recipe's direction:
@@ -491,8 +494,9 @@ REC and PLAY act on chosen channel, and their lights show its loop.
 
 Only 1 channel records at a time: REC on another channel ends recording (it plays) and arms that one. Each round
 begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way
-every time; what you change that the loop does not touch stays yours. A new patch or a session stops the loops
-(PLAY plays each again, over new mixer). Up to 2048 changes among all loops, 10 minutes each. The output's,
+every time; what you change that the loop does not touch stays yours. Loops are yours, not patch's: a new patch
+leaves them playing, same moves over new patch (build 24); it is never recorded into a loop. A session stops
+them (PLAY plays each again). Up to 2048 changes among all loops, 10 minutes each. The output's,
 output slot's and RHYTHM's settings belong to no channel and are never recorded. The loops are kept with
 the session; a session saved before build 12, with 1 loop for all, loads as a loop for each channel it touched.
 

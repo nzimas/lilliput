@@ -637,6 +637,7 @@ static int ses_load(uint32_t num)
     }
     if (g.rsv[1]) {                              /* the COMPRESSOR as saved (a session before it: left as it is) */
         cmp = ses_cmp;
+        cmp_rel_auto = 0;                        /* (the session's RELEASE, as saved) */
         cmp_coef();
     }
     (void)ns;

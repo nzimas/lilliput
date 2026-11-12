@@ -45,6 +45,12 @@
   <div class="content">
     <main>
 <h1 id="changelog">Changelog</h1>
+<h2 id="build-24-2026-11-12">Build 24 (2026-11-12)</h2>
+<ul>
+<li>New patch at its loudness from 1 s on: trim takes a first look at 0.25 … 0.9 s and sets main level at once (before: ~10 dB down until 3.6 s, as if ducked). Its look at 3.6 s now only mends what the loops woken since changed; while patch is new, guard is quicker (−3 dB each 120 ms at ceiling).</li>
+<li>Gesture loops are yours, not patch's: a new patch leaves them playing, same moves over new patch. A REC armed stays armed; patch's own change is never recorded into a loop. A session still stops them.</li>
+<li>At start: tempo drawn 70 … 150 BPM (was 91 … 299); COMPRESSOR on at 85 %, its RELEASE an eighth note at the tempo (70 BPM 429 ms, 120 BPM 250 ms, 150 BPM 200 ms), following TEMPO until RELEASE is turned or a session loaded. With it, mix about 6 dB more forward.</li>
+</ul>
 <h2 id="build-23-2026-11-12">Build 23 (2026-11-12)</h2>
 <ul>
 <li>HOME's patches: output insert (OUT FX) in about half of patches (was 1 in 7), its type and settings drawn from the recipe, at 20 … 60 % PRESENCE. Never DUCK, GATE, LP GATE or XMOD there (with quiet key, whole mix silent), nor REED (its 1 note over whole mix rang into clip with drums).</li>

@@ -367,7 +367,11 @@ static void p_set(uint32_t id, int32_t v)
     case P_SPACE: o->space = (int16_t)v; break;
     case P_SPRES: o->spres = (int16_t)v; break;
     case P_OLEVEL: o->level = (int16_t)v; break;
-    case P_BPM: par.rhy.bpm = (uint16_t)v; break;
+    case P_BPM:
+        par.rhy.bpm = (uint16_t)v;
+        if (cmp_rel_auto)                        /* (the COMPRESSOR's RELEASE follows, until it is turned) */
+            cmp_rel_tempo(par.rhy.bpm);
+        break;
     case P_SWING: par.rhy.swing = (uint8_t)v; break;
     case P_CHAOS: par.rhy.chaos = (uint8_t)v; break;
     case P_GSCALE: par.rhy.gscale = (uint8_t)(v < 5 ? 5 : v); break;
@@ -394,7 +398,7 @@ static void p_set(uint32_t id, int32_t v)
     case P_DVAR: drm.vary = (int16_t)v; break;
     case P_CAMT: cmp.amount = (uint8_t)v; break;
     case P_CTHR: cmp.thresh = (int16_t)v; break;
-    case P_CREL: cmp.release = (int16_t)v; break;
+    case P_CREL: cmp.release = (int16_t)v; cmp_rel_auto = 0; break;
     case P_CSC: cmp.sc = (uint8_t)v; break;
     case P_CATT: cmp.attack = (int16_t)v; break;
     case P_CRAT: cmp.ratio = (uint8_t)v; break;
@@ -831,7 +835,7 @@ static void patch_set(const lil_par_t *q, const char *name)
 {
     par = *q;
     ch_fresh_all();
-    gest_halt();                                 /* (a loop playing stops: it was another patch's) */
+    gest_halt();                                 /* (the loops play on, over the new patch) */
     str_cpy(ui.patch, name, sizeof ui.patch);
     ui.browse = 0;
     trim_start();
@@ -2138,15 +2142,17 @@ static void ui_init(void)
     ui.seed = boot_seed ^ fm1_ticks() ^ 0x5EEDu; /* (boot_seed: the ADCs' noise, main.c) */
 #endif
     {                                            /* a patch drawn from any recipe, otherwise each start; its tempo
-                                                  * drawn too, 91 .. 299 BPM */
+                                                  * drawn too, 70 .. 150 BPM (build 24: was 91 .. 299) */
         uint32_t f = patch_draw(&q, next_seed(), (int)(next_seed() % NFAM));
-        q.rhy.bpm = (uint16_t)(91u + next_seed() % 209u);
+        q.rhy.bpm = (uint16_t)(70u + next_seed() % 81u);
         ui.fam = (uint8_t)f;
         ui.recipe = (uint8_t)f;
         patch_set(&q, FAM[f].name);
     }
     drm_init(next_seed());                       /* the DRUMS: a kit and a rhythm drawn, stopped */
-    cmp_coef();                                  /* (the COMPRESSOR: as it stands -- off) */
+    cmp.amount = 85;                             /* the COMPRESSOR on, 85 % (build 24), its RELEASE from the tempo */
+    cmp_rel_auto = 1;
+    cmp_rel_tempo(par.rhy.bpm);
     ui.shown_sel = 0xFF;
     ui.force = 1;
 }

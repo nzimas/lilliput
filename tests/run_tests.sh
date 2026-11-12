@@ -19,6 +19,7 @@ build/host drums
 build/host fits
 build/host effects
 build/host rhythm
+build/host trimcurve
 build/host flows
 build/host screens build/screens
 c2=$(build/host cores 2)                              # the two cores: the same sound

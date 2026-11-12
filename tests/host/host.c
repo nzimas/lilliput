@@ -1400,6 +1400,17 @@ static int cmd_flows(void)
         EXPECT(!gl[0].play, "PLAY stops it");
         press_btn(B_PLAY);
         EXPECT(gl[0].play, "PLAY plays it again");
+        {   /* (build 24) the loops are the hands', not the patch's: a new patch, and the loop plays on over it */
+            uint16_t n0 = gl[0].n;
+            uint32_t ui_page = ui.page;
+            press_btn(B_HOME);
+            run_ms(gl[0].len + 200u);
+            EXPECT(gl[0].play && gl[0].n == n0, "HOME: the loop plays on, over the new patch, as it was");
+            while ((fm1_ms - gl[0].t0) % gl[0].len < gl[0].len - 80u)
+                run_ms(10);
+            EXPECT(par.ch[0].level == l1 && par.ch[0].mute == m0, "and plays its moves there");
+            (void)ui_page;
+        }
         (void)l0;
         /* channel 2's own loop, beside channel 1's */
         press_btn(LAYER_BTN[1]);
@@ -1873,6 +1884,62 @@ static int cmd_effects(void)
 /* ---------------------------------------------------------------- rhythm --- *
  * every style over patches of several families: the output moves (in 50 ms windows) more with the rhythm than
  * without, and is neither silent nor clipped */
+/* the trim's curve: a patch's loudness over its first 6 s, half a second at a time, against where it settles (5 .. 6 s)
+ * -- build 24: no longer ~6 dB down for the first 3.6 s */
+static int cmd_trimcurve(int with_cmp)
+{
+    enum { NW = 12, NP = 200 };
+    static double acc[NW];
+    uint32_t p, w, n = 0, bad = 0, clip = 0, clipped = 0;
+    double settled = 0;
+    int32_t out[2 * CTL];
+    for (p = 0; p < NP; p++) {
+        double e[NW] = {0}, ref;
+        uint32_t b, i, blocks = 44100u * 6u / CTL, per = blocks / NW;
+        fresh_mixer();
+        patch_draw(&par, 9001u + p * 7u, -1);
+        cmp.amount = with_cmp ? 85 : 0;          /* (with the COMPRESSOR as it starts, build 24: 85 %, RELEASE from 120
+                                                  * BPM) */
+        cmp_rel_tempo(120);
+        master_q12 = 4096;
+        fm1_ms = 0;
+        trim_start();
+        for (b = 0; b < blocks; b++) {
+            fm1_ms = (uint32_t)((uint64_t)b * CTL * 1000u / FS);
+            trim_poll();
+            mix_block(out);
+            for (i = 0; i < CTL; i++) {
+                double x = out[2 * i] / 32768.0;
+                if (b / per < NW)
+                    e[b / per] += x * x;
+                if (abs(out[2 * i]) > 32000)
+                    clip++;
+            }
+        }
+        if (clip > 44100u * 6u / 50u)            /* (over 2 % of its 6 s at the ceiling) */
+            clipped++;
+        clip = 0;
+        ref = db(sqrt((e[NW - 2] + e[NW - 1]) / (2.0 * per * CTL)) + 1e-9);
+        settled += ref;
+        if (ref < -50)
+            continue;                            /* (silent: nothing to go by) */
+        for (w = 0; w < NW; w++)
+            acc[w] += db(sqrt(e[w] / (per * CTL)) + 1e-9) - ref;
+        n++;
+    }
+    printf("  %s: settled at %.1f dB on average, %u of %u patches clipped; loudness against the settled:\n ",
+           with_cmp ? "COMPRESSOR 85 %" : "no COMPRESSOR", settled / n, clipped, NP);
+    if (clipped > NP / 100u)
+        bad++;
+    for (w = 0; w < NW; w++)
+        printf(" %4.2fs %+5.1f", (w + 0.5) * 0.5, acc[w] / n);
+    printf("\n");
+    for (w = 2; w < NW - 2; w++)                 /* (from 1 s on: within 2 dB of where it settles, on average) */
+        if (acc[w] / n < -2.0 || acc[w] / n > 2.0)
+            bad++;
+    printf("trimcurve: %s\n", bad ? "FAILED" : "a new patch at its loudness from 1 s on");
+    return bad ? 1 : 0;
+}
 static int cmd_rhythm(void)
 {
     uint32_t st, f, bad = 0;
@@ -1907,7 +1974,8 @@ static int cmd_rhythm(void)
             n++;
         }
         printf("  %-12s movement %4.1f -> %4.1f dB   quietest %6.1f dB\n", RS_NAME[st], m0 / n, m1 / n, lo);
-        if (m1 / n < m0 / n + 1.5 || lo < -40)
+        if (m1 / n < m0 / n + 0.2 || lo < -40)   /* (build 24: was 1.5 dB -- the trim's old jump at 3.6 s, inside
+                                                  * the window, made up most of it; now the rhythm's own) */
             bad++;
     }
     {   /* the clock: beats in 10 s at 10, 120, 500 BPM */
@@ -2156,6 +2224,17 @@ int main(int argc, char **argv)
         }
         return 0;
     }
+    if (argc >= 3 && str_eq(argv[1], "checkone")) {   /* (one of check's patches, traced on stderr) */
+        uint32_t i = (uint32_t)atoi(argv[2]);
+        stats_t st;
+        fresh_mixer();
+        patch_draw(&par, 0xC0FFEEu + i * 7919u, -1);
+        st = render(8.0, 0, 0);
+        printf("patch %u: clip %.2f%% late %.1f dB\n", i, st.clip * 100, db(st.late_rms));
+        return 0;
+    }
+    if (argc >= 2 && str_eq(argv[1], "trimcurve"))
+        return cmd_trimcurve(0) | cmd_trimcurve(1);
     if (argc >= 2 && str_eq(argv[1], "rhythm"))
         return cmd_rhythm();
     if (argc >= 2 && str_eq(argv[1], "effects"))

@@ -14,7 +14,8 @@
  * the loop touches), so it plays the same way every time. The loops watch the mixer itself (its parameters, a 16-bit
  * word at a time, against what they were the pass before): whatever moves them is caught, and what a loop plays back
  * is not recorded again. The output's, the RHYTHM's and the output slot's settings belong to no channel and are
- * never recorded. PLAY's old job, the output's mute, is SHIFT + PLAY.
+ * never recorded. A new patch (HOME, a preset) leaves the loops playing, over it (build 24). PLAY's old job, the
+ * output's mute, is SHIFT + PLAY.
  *
  * SNAPSHOTS. Sixteen states of the whole mixer, kept with the session. SAVE (short) opens the SNAPSHOTS page: the
  * white keys are the sixteen snapshots -- a key let go soon recalls its snapshot, held 0.8 s stores the mixer in it,
@@ -67,16 +68,12 @@ static uint32_t g_word(uint32_t c, uint32_t li) { return li < CHW ? CH_W0 + c * 
 static uint32_t gl_state(uint32_t c) { return g_rec == (int)c ? g_st : GS_IDLE; }
 
 static void gest_sync(void) { g_prev = par; }    /* (the mixer replaced: no change to record) */
-static void gest_halt(void)                      /* (a new patch: the loops stop, a recording goes on) */
+static void gest_halt(void)                      /* a new patch (build 24): the loops are the hands', not the patch's
+                                                  * -- each plays on over the new patch, the same moves, so they may
+                                                  * do something else there; one armed stays armed, a recording goes
+                                                  * on. The patch's own change is never recorded */
 {
-    uint32_t c;
-    for (c = 0; c < NCH; c++)
-        if (gl_state(c) != GS_REC)
-            gl[c].play = 0;
-    if (g_rec >= 0 && g_st == GS_ARMED)
-        g_rec = -1;
-    if (g_rec < 0)
-        gest_sync();
+    gest_sync();
 }
 static void gest_apply(uint32_t w, uint32_t v)
 {

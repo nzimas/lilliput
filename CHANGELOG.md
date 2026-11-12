@@ -1,5 +1,16 @@
 # Changelog
 
+## Build 24 (2026-11-12)
+
+- New patch at its loudness from 1 s on: trim takes a first look at 0.25 … 0.9 s and sets main level at once
+  (before: ~10 dB down until 3.6 s, as if ducked). Its look at 3.6 s now only mends what the loops woken since
+  changed; while patch is new, guard is quicker (−3 dB each 120 ms at ceiling).
+- Gesture loops are yours, not patch's: a new patch leaves them playing, same moves over new patch. A REC armed
+  stays armed; patch's own change is never recorded into a loop. A session still stops them.
+- At start: tempo drawn 70 … 150 BPM (was 91 … 299); COMPRESSOR on at 85 %, its RELEASE an eighth note at the
+  tempo (70 BPM 429 ms, 120 BPM 250 ms, 150 BPM 200 ms), following TEMPO until RELEASE is turned or a session
+  loaded. With it, mix about 6 dB more forward.
+
 ## Build 23 (2026-11-12)
 
 - HOME's patches: output insert (OUT FX) in about half of patches (was 1 in 7), its type and settings drawn from

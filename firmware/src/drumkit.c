@@ -587,6 +587,16 @@ static const int32_t CMP_SLOPE[6] = {16384, 21845, 24576, 27307, 29491, 31130}; 
 static int32_t cmp_thr_db10(int32_t v) { return -480 + clampi(v, 0, PMAX) * 480 / PMAX; }
 static int32_t cmp_att_x10(int32_t v) { return (int32_t)((2u * exp2_q16(clampi(v, 0, PMAX) * 524)) >> 16); }    /* (0.2 .. 51 ms) */
 static int32_t cmp_rel_x10(int32_t v) { return (int32_t)((200u * exp2_q16(clampi(v, 0, PMAX) * 370)) >> 16); }  /* (20 ms .. 1 s) */
+static void cmp_coef(void);
+/* RELEASE from the tempo (build 24): an eighth note, so the mix breathes back between beats -- 70 BPM 429 ms, 120
+ * BPM 250 ms, 150 BPM 200 ms. As it starts, and while the RELEASE knob is not turned (nor a session's loaded) */
+static uint8_t cmp_rel_auto;
+static void cmp_rel_tempo(uint32_t bpm)
+{
+    int32_t x10 = 300000 / clampi((int32_t)bpm, 10, 500);   /* (an eighth note, tenths of a ms) */
+    cmp.release = (int16_t)clampi((log2_q16((uint32_t)x10) - log2_q16(200u)) / 370, 0, PMAX);
+    cmp_coef();
+}
 static void cmp_coef(void)
 {
     cmp_coef_t k;
