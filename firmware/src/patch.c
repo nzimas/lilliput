@@ -662,8 +662,17 @@ static uint32_t patch_draw(lil_par_t *q, uint32_t seed, int fam)
     q->out.spres = (int16_t)pr_in(&r, f->sp_lo, f->sp_hi);
     q->out.mgain = (int16_t)pr_in(&r, 420, 580);
     q->out.mfreq = (int16_t)pr_in(&r, 250, 800);
-    if (rnd_chance(&r, 15)) {                    /* now and then the output's own insert */
+    if (rnd_chance(&r, 50)) {                    /* about half the time the output's own insert (build 23: was 15 %) --
+                                                  * never one that needs a key to sound (DUCK, GATE, LP GATE, XMOD:
+                                                  * on the output a quiet key would silence the whole mix), nor REED
+                                                  * (its one note over everything; with the drums it rang into clip) */
+        uint32_t keyed = 1u << FX_DUCK | 1u << FX_GATE | 1u << FX_LPG | 1u << FX_XMOD | 1u << FX_REED,
+                 had = slot_used & keyed;
+        slot_used |= keyed;
         draw_slot(&r, f, &q->slot[SLOT_OUT], FI_INS, FO_NON);
+        if (keyed >> q->slot[SLOT_OUT].fx & 1u)  /* (only if the family has nothing else left: the fallback) */
+            q->slot[SLOT_OUT].fx = FX_DELAY;
+        slot_used = (slot_used & ~keyed) | had;
         q->slot[SLOT_OUT].pres = (int16_t)pr_in(&r, 200, 600);
     }
     patch_balance(q);

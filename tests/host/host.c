@@ -1899,8 +1899,11 @@ static int cmd_rhythm(void)
                                                   * second. Build 20: of the patches heard without it -- a patch
                                                   * quiet by itself, rare (1 in ~600), is not the rhythm's doing) */
                 lo = db(b.rms);
-            if (b.clip > 0.02)
+            if (b.clip > 0.02) {
+                printf("  %s x %s: %.1f %% clipped (output: %s)\n", RS_NAME[st], FAM[f].name, b.clip * 100,
+                       par.slot[SLOT_OUT].in == FI_INS ? FX_NAME[par.slot[SLOT_OUT].fx] : "none");
                 bad++;
+            }
             n++;
         }
         printf("  %-12s movement %4.1f -> %4.1f dB   quietest %6.1f dB\n", RS_NAME[st], m0 / n, m1 / n, lo);

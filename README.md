@@ -231,7 +231,8 @@ till they meet: loops become decaying plucks. **FREEZE** loops its last LENGTH o
 
 HOME's patches always feature the rack (build 22): 2 or 3 effects heard in every patch — inserts on heard channels
 at 55 … 100 % PRESENCE, often inside the channel's loop, or a loop through the rack — each a different effect,
-every effect a recipe has about as likely as the next.
+every effect a recipe has about as likely as the next. About half of patches also have an output insert (OUT FX,
+build 23), at 20 … 60 % PRESENCE, never a keyed effect (DUCK, GATE, LP GATE, XMOD) or REED.
 
 ## The output
 

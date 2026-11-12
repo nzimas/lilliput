@@ -1,5 +1,11 @@
 # Changelog
 
+## Build 23 (2026-11-12)
+
+- HOME's patches: output insert (OUT FX) in about half of patches (was 1 in 7), its type and settings drawn from
+  the recipe, at 20 … 60 % PRESENCE. Never DUCK, GATE, LP GATE or XMOD there (with quiet key, whole mix silent),
+  nor REED (its 1 note over whole mix rang into clip with drums).
+
 ## Build 22 (2026-11-11)
 
 - Drums: no pitch moves. Every voice keeps its TUNE on every step -- no melodic lines on perc, no pitched toms, in
