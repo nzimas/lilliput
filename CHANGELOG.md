@@ -1,5 +1,14 @@
 # Changelog
 
+## Build 27 (2026-11-12)
+
+- Snapshots are whole machine states: storing one keeps DRUMS (voices, rhythm as drawn and its DENSITY, SWING,
+  VARIATION, mutes, on or off) and COMPRESSOR too, besides mixer, RHYTHM and tempo; recall restores all of it at
+  once. Kept with sessions; a session from before keeps its snapshots' mixer only.
+- MORPH gone: a recall is at once; SNAPSHOTS page's KNOB 1 does nothing.
+- Gesture loops: 1664 changes among all loops (was 2048), room for snapshots' drums. A session holding more no
+  longer loads.
+
 ## Build 26 (2026-11-12)
 
 - DENSITY shows its dial: PRESETS on drums' pages brings up a rotary dial over page, as main view's knobs do,

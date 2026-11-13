@@ -1512,14 +1512,33 @@ static int cmd_flows(void)
         par.ch[1].src = SRC_MIXR;
         tap_key(white_key(2));
         EXPECT(par.ch[1].level == a.ch[1].level && par.ch[1].src == a.ch[1].src, "let go soon: recalled");
-        turn(EN_K1, 4);
-        EXPECT(morph_hs == 4, "KNOB 1: the morph time");
-        par.ch[1].level = 100;
-        tap_key(white_key(2));
-        run_ms(900);
-        EXPECT(par.ch[1].level > 100 && par.ch[1].level < a.ch[1].level, "a morph on its way");
-        run_ms(1400);
-        EXPECT(par.ch[1].level == a.ch[1].level, "and there");
+        {   /* (build 27) the whole machine: the DRUMS (voices, rhythm, DENSITY, SWING) and the COMPRESSOR too */
+            drm_par_t d0;
+            cmp_par_t c0;
+            uint8_t n0;
+            uint32_t c, same = 1;
+            dens_turn(3);
+            key(white_key(2), 1);
+            run_ms(900);
+            key(white_key(2), 0);
+            d0 = drm;
+            c0 = cmp;
+            n0 = dens;
+            drm.v[0].tune = (int16_t)(drm.v[0].tune ^ 77);
+            drm.swing = (uint8_t)(drm.swing ^ 9);
+            dens_turn(-7);
+            cmp.amount = 10;
+            cmp.release = (int16_t)(cmp.release ^ 55);
+            tap_key(white_key(2));
+            for (c = 0; c < NDV; c++)
+                same &= drm.l[c].hits == d0.l[c].hits && drm.l[c].acc == d0.l[c].acc && drm.l[c].len == d0.l[c].len;
+            EXPECT(drm.v[0].tune == d0.v[0].tune && drm.swing == d0.swing && dens == n0 && same,
+                   "recalled: the DRUMS too -- their voices, their rhythm at its DENSITY");
+            EXPECT(cmp.amount == c0.amount && cmp.release == c0.release, "and the COMPRESSOR");
+            dens_turn(-3);
+            EXPECT(dens == n0 - 3u, "DENSITY goes on from there");
+            dens_turn(3);
+        }
         key(KEY_SHIFT, 1);
         tap_key(white_key(5));
         key(white_key(5), 0);
@@ -1616,6 +1635,8 @@ static int cmd_flows(void)
         }
         EXPECT(memcmp(&a, &b, sizeof a) == 0, "session 1 loaded back as it was");
         EXPECT(snap_has(2) && gl[0].n >= 3 && !gl[1].n, "with its snapshots and its gesture loops");
+        EXPECT((snap_dused >> 2 & 1u) && snap_d[2].dens <= DENS_MAX && snap_d[2].cmp.ratio < 6u,
+               "and the snapshots' DRUMS and COMPRESSOR (build 27)");
     }
     /* again, from the flash as a boot finds it */
     ses_scan(1);

@@ -1318,13 +1318,6 @@ static void ui_input(void)
                 }
     }
     ui.cpu_page = (uint8_t)(sh && ((keys >> KEY_CPU) & 1u));
-    if (ui.page == PG_SNAP) {                    /* KNOB 1 on the SNAPSHOTS page: the morph time */
-        s = enc_take(EN_K1);
-        if (s) {
-            morph_hs = (uint8_t)clampi(morph_hs + s, 0, 60);
-            ui.force = 1;
-        }
-    }
     /* PRESETS: the RECIPE, or the SESSIONS page's slot, or the question's answer */
     s = enc_take(EN_PRESET);
     if (s) {
@@ -1395,7 +1388,6 @@ knobs_lp:
         str_cpy(m + 4, v, sizeof m - 4);
         say(m, 900);
     }
-    morph_poll();                                /* (a snapshot's morph, a step on) */
     gest_poll();                                 /* (the gesture loops: played, and what changed this pass recorded) */
 }
 
@@ -1987,10 +1979,10 @@ static void draw_cpu_page(void)
 }
 
 /* the SNAPSHOTS page: the sixteen as the white keys lie, four by four -- stored ones filled, the last recalled
- * framed white; the morph time under them */
+ * framed white */
 static void draw_snap_page(void)
 {
-    int32_t key = snap_used | (snap_cur + 1) << 16 | morph_hs << 21 | (ui.snap_key >= 0) << 28, r, c;
+    int32_t key = snap_used | (snap_cur + 1) << 16 | (ui.snap_key >= 0) << 28, r, c;
     char t[16];
     if (!ui.force && ui.shown_page == PG_SNAP && key == ui.shown_snap)
         return;
@@ -2016,15 +2008,8 @@ static void draw_snap_page(void)
         cv_blit(0, (uint32_t)(TITLE_H + r * 40));
     }
     cv_begin(240, 240 - TITLE_H - 160, C_BLACK);
-    if (morph_hs) {
-        str_cpy(t, "MORPH ", sizeof t);
-        fmt_int(t + 6, morph_hs / 2);
-        if (morph_hs & 1)
-            str_cpy(t + str_len(t), ".5", 3);
-        str_cpy(t + str_len(t), " S", 3);
-    } else
-        str_cpy(t, "MORPH OFF", sizeof t);
-    text_fit_c(0, 240 - TITLE_H - 160, t, &FONT_S, C_WHITE);
+    str_cpy(t, "HOLD KEY: STORE", sizeof t);   /* (build 27: MORPH gone; what the keys do, under them) */
+    text_fit_c(0, 240 - TITLE_H - 160, t, &FONT_S, C_GREY);
     cv_blit(0, TITLE_H + 160);
 }
 

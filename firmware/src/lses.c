@@ -7,8 +7,9 @@
  * In flash 0x97000 .. 0xE0000, 73 sectors of 4 KiB. A session is one record in one sector:
  *   head (32 B): magic, its number, its length, a sequence number (the newest copy wins), the format, the size of
  *                the mixer's parameters, a CRC of the head and one of the rest
- *   body: the channel chosen, the patch's name, the parameters (lil_par_t); which snapshots are kept, the morph
- *         time, the gesture loop's length and count; each snapshot kept; the loop's start and its changes
+ *   body: the channel chosen, the patch's name, the parameters (lil_par_t); which snapshots are kept, the gesture
+ *         loop's length and count; each snapshot kept; the loop's start and its changes; the DRUMS, the COMPRESSOR;
+ *         (build 27) each snapshot's DRUMS and COMPRESSOR
  * Saving over a session writes the new copy into a free sector first and only then kills the old one, by
  * programming its magic to zero (no erase): a power cut in between leaves the old or both, never neither.
  * Erasing a sector silences the audio for a moment, so a save takes a sector already blank if it can, and the
@@ -357,6 +358,7 @@ typedef struct {
     char patch[16];
     uint32_t rsv2;
 } ses_glob_t;
+#define SES_SNAPD 0xFEu            /* (pf.morph_hs, build 27: the snapshots' DRUMS follow; before, MORPH's 0 .. 60) */
 typedef struct {
     uint16_t snap_used;
     uint8_t morph_hs, gfmt;      /* gfmt 1: a gesture loop a channel (build 12); 0: one loop for all (before) */
@@ -380,7 +382,8 @@ static void ses_emit(void)
         uint32_t i;
         memset(&pf, 0, sizeof pf);
         pf.snap_used = snap_used;
-        pf.morph_hs = morph_hs;
+        pf.morph_hs = SES_SNAPD;                 /* (build 27: no MORPH; this says the snapshots' DRUMS follow, at
+                                                  * the very end) */
         pf.gfmt = 1;
         pf.dsz = (uint16_t)sizeof drm;
         for (i = 0; i < NCH; i++)
@@ -405,6 +408,15 @@ static void ses_emit(void)
             }
         ses_out(&drm, sizeof drm);               /* the DRUMS (pf.dsz) */
         ses_out(&cmp, sizeof cmp);               /* the COMPRESSOR (g.rsv[1]) */
+        {                                        /* the snapshots' DRUMS and COMPRESSOR (build 27: pf.morph_hs) */
+            uint16_t hd[2];
+            hd[0] = (uint16_t)(snap_dused & snap_used);
+            hd[1] = (uint16_t)sizeof(snap_drm_t);
+            ses_out(hd, sizeof hd);
+            for (i = 0; i < NSNAP; i++)
+                if (hd[0] >> i & 1u)
+                    ses_out(&snap_d[i], sizeof snap_d[i]);
+        }
     }
 }
 static int ses_save(uint32_t num)
@@ -539,7 +551,7 @@ static int ses_load(uint32_t num)
     ses_head_t h;
     ses_glob_t g;
     ses_perf_t pf;
-    uint32_t i, ns = 0, pass, base, psz = sizeof(lil_par_t);
+    uint32_t i, ns = 0, pass, base, psz = sizeof(lil_par_t), dused = 0;
     int at = ses_find(num);
     if (!ses.ok)
         return SES_NOFLASH;
@@ -597,6 +609,22 @@ static int ses_load(uint32_t num)
                 return SES_FAIL;
             ses_in(pass ? &ses_cmp : 0, g.rsv[1]);
         }
+        dused = 0;
+        if (pf.morph_hs == SES_SNAPD) {          /* the snapshots' DRUMS and COMPRESSOR (build 27 on) */
+            uint16_t hd[2];
+            ses_in(hd, sizeof hd);
+            if (hd[1] > sizeof(snap_drm_t) || (hd[0] & ~pf.snap_used))
+                return SES_FAIL;
+            dused = hd[0];
+            for (i = 0; i < NSNAP; i++)
+                if (hd[0] >> i & 1u) {
+                    if (pass) {
+                        memset(&snap_d[i], 0, sizeof snap_d[i]);
+                        ses_in(&snap_d[i], hd[1]);
+                    } else
+                        ses_in(0, hd[1]);
+                }
+        }
         if (ss.pos != h.len || ss.crc != h.body_crc)
             return SES_FAIL;
     }
@@ -613,8 +641,8 @@ static int ses_load(uint32_t num)
                 mod_check(&snap[i].ch[c].mod);
         }
     snap_used = pf.snap_used;
+    snap_dused = (uint16_t)dused;                /* (a session from before build 27: its snapshots the mixer only) */
     snap_cur = -1;
-    morph_hs = (uint8_t)(pf.morph_hs <= 60u ? pf.morph_hs : 0u);
     g_rec = -1;                                  /* the session's gesture loops, stopped (PLAY plays each) */
     if (pf.gfmt == 0)
         ses_gl_split(pf.gn, pf.glen);

@@ -480,7 +480,7 @@ Every way is made from rhythm playing — its hits, accents and pitches — and 
 | BUZZ | rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled |
 | GHOSTS | every gap filled with ghost notes, hats accented 3 3 2, kick pushing ahead of beat 4 |
 
-The drums are not part of a patch: HOME, snapshots and gesture loops leave them alone. A session keeps them.
+The drums are not part of a patch: HOME and gesture loops leave them alone. Snapshots (build 27) and sessions keep them.
 
 ## Gestures
 
@@ -500,22 +500,23 @@ Only 1 channel records at a time: REC on another channel ends recording (it play
 begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way
 every time; what you change that the loop does not touch stays yours. Loops are yours, not patch's: a new patch
 leaves them playing, same moves over new patch (build 24); it is never recorded into a loop. A session stops
-them (PLAY plays each again). Up to 2048 changes among all loops, 10 minutes each. The output's,
+them (PLAY plays each again). Up to 1664 changes among all loops (build 27; was 2048), 10 minutes each. The output's,
 output slot's and RHYTHM's settings belong to no channel and are never recorded. The loops are kept with
 the session; a session saved before build 12, with 1 loop for all, loads as a loop for each channel it touched.
 
 ## Snapshots
 
-16 complete states of the mixer — every channel, every slot, output, modulation — kept with the
-session. **SAVE** (short) opens SNAPSHOTS page: the 16 as white keys lie, stored ones filled,
-last recalled framed.
+16 complete states of the machine — every channel, every slot, output, modulation, RHYTHM and tempo, and (build
+27) **DRUMS** (voices, rhythm, DENSITY, SWING, VARIATION, mutes, on or off) and **COMPRESSOR** — kept with the
+session; only session's own settings are not in them. **SAVE** (short) opens SNAPSHOTS page: the 16 as white keys
+lie, stored ones filled, last recalled framed.
 
-- **white key** let go soon: its snapshot recalled;
-- held 0.8 s: mixer stored in it;
-- **SHIFT +** it: emptied;
-- **KNOB 1**: **MORPH** time, off … 30 s. A recall then glides every value that can glide — levels, pans, gains,
-  noise, filters, sends, limiters, protection, effects' parameters, returns, main level — from where it
-  is to the snapshot's; the rest (inputs, types, routings, LFOs) changes at once.
+- **white key** let go soon: its snapshot recalled, all at once;
+- held 0.8 s: machine stored in it;
+- **SHIFT +** it: emptied.
+
+MORPH is gone (build 27). A session saved before build 27 keeps its snapshots' mixer; recalling one leaves drums
+and compressor as they are.
 
 **SAVE** again, or a channel's button, goes back.
 

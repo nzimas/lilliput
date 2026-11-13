@@ -17,13 +17,13 @@
  * never recorded. A new patch (HOME, a preset) leaves the loops playing, over it (build 24). PLAY's old job, the
  * output's mute, is SHIFT + PLAY.
  *
- * SNAPSHOTS. Sixteen states of the whole mixer, kept with the session. SAVE (short) opens the SNAPSHOTS page: the
- * white keys are the sixteen snapshots -- a key let go soon recalls its snapshot, held 0.8 s stores the mixer in it,
- * SHIFT + it empties it. KNOB 1 there: the MORPH time, 0 .. 30 s: a recall glides every value that can glide (the
- * levels, gains, filters, sends, limits ...) from where it is to the snapshot's; the rest (inputs, types, routings)
- * changes at once. SAVE again, or a channel's button, back. (Tonitor's, after BIGORNA.) */
+ * SNAPSHOTS. Sixteen states of the whole machine -- the mixer, the DRUMS, the COMPRESSOR (build 27) -- kept with the
+ * session. SAVE (short) opens the SNAPSHOTS page: the white keys are the sixteen snapshots -- a key let go soon
+ * recalls its snapshot, held 0.8 s stores the machine in it, SHIFT + it empties it. SAVE again, or a channel's
+ * button, back. (Tonitor's, after BIGORNA. Build 27: no MORPH -- a recall is at once.) */
 
-#define GEV_MAX 2048u            /* the loops' changes, all channels' together (8 bytes each: 16 KiB) */
+#define GEV_MAX 1664u            /* the loops' changes, all channels' together (8 bytes each: 13 KiB; build 27: was
+                                  * 2048 -- the room for the snapshots' DRUMS) */
 #define NWORD ((uint32_t)sizeof(lil_par_t) / 2u)
 typedef char lil_par_is_words[sizeof(lil_par_t) % 2u == 0u ? 1 : -1];
 typedef char ch_par_is_words[sizeof(ch_par_t) % 2u == 0u && sizeof(slot_par_t) % 2u == 0u ? 1 : -1];
@@ -244,85 +244,107 @@ static void gest_poll(void)
 /* -------------------------------------------------------------- snapshots --- */
 #define NSNAP 16u
 static lil_par_t snap[NSNAP];
+/* (build 27) the rest of the machine with each: the DRUMS -- their voices, their rhythm as drawn and its DENSITY,
+ * SWING, VARIATION, mutes, on or off -- and the COMPRESSOR. A session is not in a snapshot. (No per-step pitch: the
+ * drums have none since build 22.) */
+typedef struct {
+    uint32_t hits, acc, alt;     /* the rhythm as drawn (DENSITY 25) */
+    uint8_t len, div, prob, var;
+} snap_lane_t;
+typedef struct {
+    dvoice_t v[NDV];
+    snap_lane_t l[NDV];
+    uint8_t on, style, swing, mute;
+    uint8_t kit[NDV];
+    int16_t level, vary;
+    uint32_t dseed;              /* DENSITY's orders */
+    uint8_t dens, rel_auto, rsv[2];
+    cmp_par_t cmp;
+} snap_drm_t;
+static snap_drm_t snap_d[NSNAP];
 static uint16_t snap_used;       /* a bit a snapshot */
+static uint16_t snap_dused;      /* .. and its DRUMS and COMPRESSOR (not in a session from before build 27) */
 static int8_t snap_cur = -1;     /* the last recalled or stored */
-static uint8_t morph_hs;         /* the morph time, half seconds 0 .. 60 */
-static struct { uint8_t on; int8_t to; uint32_t t0, dur; lil_par_t from; } mo;
-/* the values that glide: a channel's, a slot's, the output's */
-static const uint8_t MORPH_CH[] = {
-    __builtin_offsetof(ch_par_t, gain), __builtin_offsetof(ch_par_t, noise), __builtin_offsetof(ch_par_t, over),
-    __builtin_offsetof(ch_par_t, lim), __builtin_offsetof(ch_par_t, high), __builtin_offsetof(ch_par_t, low),
-    __builtin_offsetof(ch_par_t, mgain), __builtin_offsetof(ch_par_t, mfreq), __builtin_offsetof(ch_par_t, level),
-    __builtin_offsetof(ch_par_t, pan), __builtin_offsetof(ch_par_t, send1), __builtin_offsetof(ch_par_t, send2)};
-static const uint8_t MORPH_SL[] = {__builtin_offsetof(slot_par_t, p1), __builtin_offsetof(slot_par_t, p2),
-                                   __builtin_offsetof(slot_par_t, pres)};
-static const uint8_t MORPH_OUT[] = {__builtin_offsetof(out_par_t, ret1), __builtin_offsetof(out_par_t, ret2),
-                                    __builtin_offsetof(out_par_t, high), __builtin_offsetof(out_par_t, low),
-                                    __builtin_offsetof(out_par_t, mgain), __builtin_offsetof(out_par_t, mfreq),
-                                    __builtin_offsetof(out_par_t, spres), __builtin_offsetof(out_par_t, level)};
 static int snap_has(uint32_t i) { return i < NSNAP && (snap_used >> i & 1u); }
-static void morph_step(uint32_t num, uint32_t den)   /* the gliding values, num / den of the way */
+static void snap_drm_store(snap_drm_t *d)
 {
-    uint32_t c, k;
-#define MG(base_to, base_from, off) do { \
-        int16_t *d_ = (int16_t *)((uint8_t *)(base_to) + (off)); \
-        int32_t a_ = *(const int16_t *)((const uint8_t *)(base_from) + (off)), b_ = *(const int16_t *)((const uint8_t *)&snap[mo.to] + ((const uint8_t *)(d_) - (const uint8_t *)&par)); \
-        *d_ = (int16_t)(a_ + (b_ - a_) * (int32_t)num / (int32_t)den); } while (0)
-    for (c = 0; c < NCH; c++)
-        for (k = 0; k < sizeof MORPH_CH; k++)
-            MG(&par.ch[c], &mo.from.ch[c], MORPH_CH[k]);
-    for (c = 0; c < NSLOT; c++)
-        for (k = 0; k < sizeof MORPH_SL; k++)
-            MG(&par.slot[c], &mo.from.slot[c], MORPH_SL[k]);
-    for (k = 0; k < sizeof MORPH_OUT; k++)
-        MG(&par.out, &mo.from.out, MORPH_OUT[k]);
-#undef MG
+    uint32_t c;
+    memset(d, 0, sizeof *d);
+    for (c = 0; c < NDV; c++) {
+        d->v[c] = drm.v[c];
+        d->l[c].hits = dbase[c].hits;
+        d->l[c].acc = dbase[c].acc;
+        d->l[c].alt = dbase[c].alt;
+        d->l[c].len = drm.l[c].len;
+        d->l[c].div = drm.l[c].div;
+        d->l[c].prob = drm.l[c].prob;
+        d->l[c].var = drm.l[c].var;
+        d->kit[c] = drm.kit[c];
+    }
+    d->on = drm.on;
+    d->style = drm.style;
+    d->swing = drm.swing;
+    d->mute = drm.mute;
+    d->level = drm.level;
+    d->vary = drm.vary;
+    d->dseed = dens_seed;
+    d->dens = dens;
+    d->rel_auto = cmp_rel_auto;
+    d->cmp = cmp;
+}
+static void snap_drm_recall(const snap_drm_t *d)
+{
+    uint32_t c;
+    for (c = 0; c < NDV; c++) {
+        dlane_t *L = &drm.l[c];
+        drm.v[c] = d->v[c];
+        memset(L, 0, sizeof *L);
+        L->hits = dbase[c].hits = d->l[c].hits;
+        L->acc = dbase[c].acc = d->l[c].acc;
+        L->alt = dbase[c].alt = d->l[c].alt;
+        L->len = d->l[c].len;
+        L->div = d->l[c].div;
+        L->prob = d->l[c].prob;
+        L->var = d->l[c].var;
+        drm.kit[c] = d->kit[c];
+    }
+    drm.style = d->style;
+    drm.swing = d->swing;
+    drm.mute = d->mute;
+    drm.level = d->level;
+    drm.vary = d->vary;
+    dens_seed = d->dseed;
+    dens = d->dens <= DENS_MAX ? d->dens : DENS_MID;
+    dens_apply();                                /* (the rhythm at its DENSITY: VARIATION takes it as home) */
+    drm_coef_all();
+    if (d->on && !drm.on)
+        drm_reset = 1;                           /* (started: from the top, on the beat) */
+    drm.on = d->on;
+    cmp = d->cmp;
+    cmp_rel_auto = d->rel_auto;
+    cmp_coef();
 }
 static void snap_recall(uint32_t i)
 {
-    char n[4];
     if (!snap_has(i)) {
         say("EMPTY", 800);
         return;
     }
     snap_cur = (int8_t)i;
-    fmt_int(n, (int32_t)i + 1);
-    if (!morph_hs) {
-        mo.on = 0;
-        par = snap[i];
-        ch_fresh_all();
-        say("RECALLED", 800);
-    } else {                                     /* the rest at once, the gliding values from where they are */
-        mo.from = par;
-        mo.to = (int8_t)i;
-        mo.t0 = fm1_ms;
-        mo.dur = morph_hs * 500u;
-        mo.on = 1;
-        par = snap[i];
-        ch_fresh_all();
-        morph_step(0, 1);
-        say("MORPHING", 900);
-    }
+    par = snap[i];
+    ch_fresh_all();
+    if (snap_dused >> i & 1u)
+        snap_drm_recall(&snap_d[i]);
+    say("RECALLED", 800);
     ui.force = 1;
-}
-static void morph_poll(void)
-{
-    uint32_t el;
-    if (!mo.on)
-        return;
-    el = fm1_ms - mo.t0;
-    if (el >= mo.dur) {
-        morph_step(1, 1);
-        mo.on = 0;
-        return;
-    }
-    morph_step(el, mo.dur);
 }
 static void snap_store(uint32_t i)
 {
     char n[4];
     snap[i] = par;
+    snap_drm_store(&snap_d[i]);
     snap_used |= (uint16_t)(1u << i);
+    snap_dused |= (uint16_t)(1u << i);
     snap_cur = (int8_t)i;
     fmt_int(n, (int32_t)i + 1);
     flash("STORED", n, RGB(120, 220, 255));
@@ -330,6 +352,7 @@ static void snap_store(uint32_t i)
 static void snap_clear(uint32_t i)
 {
     snap_used &= (uint16_t)~(1u << i);
+    snap_dused &= (uint16_t)~(1u << i);
     if (snap_cur == (int8_t)i)
         snap_cur = -1;
     say("EMPTIED", 800);

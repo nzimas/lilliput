@@ -311,7 +311,7 @@
 <tr><td>BUZZ</td><td>rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled</td></tr>
 <tr><td>GHOSTS</td><td>every gap filled with ghost notes, hats accented 3 3 2, kick pushing ahead of beat 4</td></tr>
 </table>
-<p>The drums are not part of a patch: HOME, snapshots and gesture loops leave them alone. A session keeps them.</p>
+<p>The drums are not part of a patch: HOME and gesture loops leave them alone. Snapshots (build 27) and sessions keep them.</p>
 <h2 id="gestures">Gestures</h2>
 <p>Each channel has its own gesture loop. It records what your hands do to that channel — its knobs, its input key, its mute, its effect slot, channel thrown at random, a MIDI CC to it — and plays it back, round and round, while you go on playing over it. Loops are independent: each its own length, each started and stopped on its own. REC and PLAY act on chosen channel, and their lights show its loop.</p>
 <ul>
@@ -320,15 +320,15 @@
 <li><b>PLAY</b> stops it, or plays it again from its start. Stopped, the channel stays where the loop left it.</li>
 <li><b>REC</b> held 1 s empties it.</li>
 </ul>
-<p>Only 1 channel records at a time: REC on another channel ends recording (it plays) and arms that one. Each round begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way every time; what you change that the loop does not touch stays yours. Loops are yours, not patch's: a new patch leaves them playing, same moves over new patch (build 24); it is never recorded into a loop. A session stops them (PLAY plays each again). Up to 2048 changes among all loops, 10 minutes each. The output's, output slot's and RHYTHM's settings belong to no channel and are never recorded. The loops are kept with the session; a session saved before build 12, with 1 loop for all, loads as a loop for each channel it touched.</p>
+<p>Only 1 channel records at a time: REC on another channel ends recording (it plays) and arms that one. Each round begins from the channel as it was when its recording began — only what the loop touches — so it plays the same way every time; what you change that the loop does not touch stays yours. Loops are yours, not patch's: a new patch leaves them playing, same moves over new patch (build 24); it is never recorded into a loop. A session stops them (PLAY plays each again). Up to 1664 changes among all loops (build 27; was 2048), 10 minutes each. The output's, output slot's and RHYTHM's settings belong to no channel and are never recorded. The loops are kept with the session; a session saved before build 12, with 1 loop for all, loads as a loop for each channel it touched.</p>
 <h2 id="snapshots">Snapshots</h2>
-<p>16 complete states of the mixer — every channel, every slot, output, modulation — kept with the session. <b>SAVE</b> (short) opens SNAPSHOTS page: the 16 as white keys lie, stored ones filled, last recalled framed.</p>
+<p>16 complete states of the machine — every channel, every slot, output, modulation, RHYTHM and tempo, and (build 27) <b>DRUMS</b> (voices, rhythm, DENSITY, SWING, VARIATION, mutes, on or off) and <b>COMPRESSOR</b> — kept with the session; only session's own settings are not in them. <b>SAVE</b> (short) opens SNAPSHOTS page: the 16 as white keys lie, stored ones filled, last recalled framed.</p>
 <ul>
-<li><b>white key</b> let go soon: its snapshot recalled;</li>
-<li>held 0.8 s: mixer stored in it;</li>
-<li><b>SHIFT +</b> it: emptied;</li>
-<li><b>KNOB 1</b>: <b>MORPH</b> time, off … 30 s. A recall then glides every value that can glide — levels, pans, gains, noise, filters, sends, limiters, protection, effects' parameters, returns, main level — from where it is to the snapshot's; the rest (inputs, types, routings, LFOs) changes at once.</li>
+<li><b>white key</b> let go soon: its snapshot recalled, all at once;</li>
+<li>held 0.8 s: machine stored in it;</li>
+<li><b>SHIFT +</b> it: emptied.</li>
 </ul>
+<p>MORPH is gone (build 27). A session saved before build 27 keeps its snapshots' mixer; recalling one leaves drums and compressor as they are.</p>
 <p><b>SAVE</b> again, or a channel's button, goes back.</p>
 <h2 id="sessions">Sessions</h2>
 <p><b>SAVE</b> held saves the whole mixer as a session (64 of them); <b>SHIFT + SAVE</b> opens the sessions. A session keeps every parameter, channel chosen, patch's name and family, its 16 snapshots and its gesture loop.</p>
