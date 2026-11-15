@@ -1051,6 +1051,17 @@ static int cmd_screens(const char *dir)
     run_ms(60);
     SHOT("02_dial_limit");
     run_ms(1200);
+    turn(EN_SELECT, 40);                         /* (build 28: SELECT, the LEVEL's dial over the screen) */
+    run_ms(60);
+    SHOT("02b_dial_level");
+    press_btn(B_OCTUP);                          /* (and over a page too) */
+    turn(EN_SELECT, -1);
+    run_ms(60);
+    SHOT("02c_dial_level_page");
+    turn(EN_SELECT, -39);
+    run_ms(1200);
+    press_btn(B_OCTDN);
+    run_ms(60);
     press_btn(B_OCTUP);
     turn(EN_K1, 1);
     run_ms(60);

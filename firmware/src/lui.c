@@ -1374,11 +1374,10 @@ knobs_lp:
     /* SELECT, ALGORITHM: the chosen channel's level and pan, everywhere */
     s = enc_take(EN_SELECT);
     if (s) {
-        char m[16] = "LEVEL ", v[12];
-        p_turn(P_LEVEL, s);
-        p_text(P_LEVEL, par.ch[ui.sel].level, v);
-        str_cpy(m + 6, v, sizeof m - 6);
-        say(m, 900);
+        p_turn(P_LEVEL, s);                      /* (build 28: its dial over the screen, as the top knobs have -- was
+                                                  * a message) */
+        ui.dial = P_LEVEL;
+        ui.dial_until = fm1_ms + 1000u;
     }
     s = enc_take(EN_ALGO);
     if (s) {
@@ -1783,7 +1782,8 @@ static void draw_dial(void)
     }
     tf = text_w(&FONT_M, t) <= 236 ? &FONT_M : &FONT_S;
     {
-        int32_t u = id == P_DDEN ? v * PMAX / DENS_MAX : v;   /* (where on the dial: DENSITY over its 0 .. 50) */
+        int32_t u = p_bar(id, v, PMAX);          /* (where on the dial: the value over its range -- DENSITY's 0 .. 50,
+                                                  * LEVEL's OFF .. +12 dB) */
         to = -45 + u * 90 / PMAX;                /* from 7 o'clock round */
         av = 0xA0000000u + (uint32_t)((uint64_t)(0xC0000000u / PMAX) * (uint32_t)u);
     }
@@ -2045,6 +2045,16 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
+    if ((drm_page() || ui.dial == P_LEVEL) && (int32_t)(ui.dial_until - fm1_ms) > 0) {
+                                                 /* PRESETS turning DENSITY, SELECT the LEVEL (any page): the dial */
+        if (ui.shown_page != 0xF1 || (ui.shown_dial != p_get(ui.dial) + (int32_t)ui.dial * 4096 &&
+                                      (uint32_t)(fm1_ms - ui.dial_drawn_at) >= 40u))
+            draw_dial();
+        ui.shown_page = 0xF1;
+        return;
+    }
+    if (ui.shown_page == 0xF1 && ui.page != PG_MAIN)   /* (the dial gone: the page whole again) */
+        ui.force = 1;
     if (ui.page == PG_VIEW) {
         draw_view();
         ui.shown_page = PG_VIEW;
@@ -2070,16 +2080,7 @@ static void ui_draw(void)
         ui.force = 0;
         return;
     }
-    if (drm_page() && (int32_t)(ui.dial_until - fm1_ms) > 0) {   /* PRESETS turning DENSITY: its dial over the page */
-        if (ui.shown_page != 0xF1 || (ui.shown_dial != p_get(ui.dial) + (int32_t)ui.dial * 4096 &&
-                                      (uint32_t)(fm1_ms - ui.dial_drawn_at) >= 40u))
-            draw_dial();
-        ui.shown_page = 0xF1;
-        return;
-    }
     if (ui.page != PG_MAIN) {
-        if (ui.shown_page == 0xF1)               /* (the dial gone: the page whole again) */
-            ui.force = 1;
         if (rhy_page() && ui.shown_page == ui.page && (int32_t)ui.shown_snap != par.rhy.on * 256 + par.rhy.style) {
             ui.shown_snap = par.rhy.on * 256 + par.rhy.style;   /* (the style or OFF changed: the title anew) */
             ui.force = 1;

@@ -72,7 +72,7 @@ going back to Tonitor erases Lilliput's sessions.)
 | Control | What it does |
 | --- | --- |
 | **6 top buttons** | choose channel **1–6** (lit: chosen; glowing: sounding). On a channel's page, another channel shows same page; chosen channel again: its main view. From any other page, back to channel. |
-| **SELECT** knob | chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. |
+| **SELECT** knob | chosen channel's **LEVEL**: its fader. In most loops it is what makes them sing. **1 dB a detent** up to −5 dB, then **0.1 dB a detent** (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. Its dial covers screen while you turn, on any page (build 28). |
 | **ALGORITHM** knob | its **PAN**, **1 step a detent**, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through mix bus it is part of the loop. |
 | **KNOB 1–4** | on main view: **GAIN**, **FREQ** (middle filter's), **LIMIT** (loop's pitch), **SEND 1**; with **SHIFT**: **NOISE**, **MID** (middle filter's gain or width), **PROTECT** (overload protection), **SEND 2**. Dial covers screen while you turn. On a page: its 4 rows. |
 | **OCT− / OCT+** | channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way. |

@@ -1,5 +1,11 @@
 # Changelog
 
+## Build 28 (2026-11-15)
+
+- LEVEL shows its dial: SELECT brings up chosen channel's rotary dial over screen, on any page, as top knobs do,
+  arc filled in channel's colour from OFF to +12 dB, value under it; screen back a second after last detent
+  (before: a line of text on main view only).
+
 ## Build 27 (2026-11-12)
 
 - Snapshots are whole machine states: storing one keeps DRUMS (voices, rhythm as drawn and its DENSITY, SWING,
