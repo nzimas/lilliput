@@ -44,7 +44,7 @@ static FAST void drums_block(void)
                 dlr[c].ph = 0;
             s = dlr[c].step = (uint8_t)(dlr[c].step == 0xFF ? 0u : (dlr[c].step + 1u) % len);
             bks[c].rn = 0;                       /* (the step before's ratchet: done) */
-            brk_step(c, s, len, d2 >= 2u ? d2 / 2u : 1u, &e);
+            brk_step(c, s, len, &e);
             if (e.fire) {
                 if (drm.swing && (s & 1u)) {     /* (an off step: late) */
                     dlr[c].pend = 1;

@@ -1060,6 +1060,24 @@ static int cmd_screens(const char *dir)
     SHOT("02c_dial_level_page");
     turn(EN_SELECT, -39);
     run_ms(1200);
+    tap_key(KEY_MAC);                            /* MACRO (build 29): a page, the main view, a dial -- then off */
+    run_ms(1000);
+    SHOT("02d_macro_page");
+    press_btn(B_OCTDN);
+    run_ms(60);
+    SHOT("02e_macro_main");
+    turn(EN_K1, 1);
+    run_ms(60);
+    SHOT("02f_macro_dial");
+    turn(EN_K1, -1);
+    tap_key(KEY_MAC);                            /* (off; held: STORM; then off) */
+    key(KEY_MAC, 1);
+    run_ms(900);
+    key(KEY_MAC, 0);
+    run_ms(1100);
+    SHOT("02g_storm_main");
+    tap_key(KEY_MAC);
+    run_ms(1200);
     press_btn(B_OCTDN);
     run_ms(60);
     press_btn(B_OCTUP);
@@ -1245,6 +1263,81 @@ static int cmd_flows(void)
     EXPECT(par.ch[4].mute, "black key 5 mutes channel 5");
     tap_key(KEY_MUTE[4]);
     EXPECT(!par.ch[4].mute, "and back");
+    {   /* MACRO (build 29, 30): ALL, STORM, OFF -- every channel not muted (and the chosen one), each from its own */
+        int16_t g[NCH], f[NCH], h[NCH];
+        uint32_t c;
+        char t0[16], t1[16];
+        for (c = 0; c < NCH; c++) {
+            par.ch[c].gain = (int16_t)(200 + 100 * c);
+            par.ch[c].mute = c == 2u || c == 1u;   /* (2 muted, but the chosen one) */
+            par.ch[c].pan = 0;
+        }
+        for (c = 0; c < NCH; c++)
+            g[c] = par.ch[c].gain;
+        tap_key(KEY_MAC);
+        EXPECT(ui.macro == MAC_ALL && host_led[14u + KEY_MAC], "MACRO's key: ALL, lit");
+        turn(EN_K1, 1);
+        for (c = 0; c < NCH; c++)
+            EXPECT(c == 2u ? par.ch[c].gain == g[c] : par.ch[c].gain > g[c],
+                   "ALL: GAIN up on each channel but the muted one, the chosen one too");
+        for (c = 0; c < NCH; c++) {                /* (a detent: the next tenth of a dB, no more) */
+            p_text(P_GAIN, g[c], t0);
+            p_text(P_GAIN, par.ch[c].gain - 1, t1);
+            EXPECT(c == 2u || str_eq(t0, t1), "a detent: one step the screen shows, none skipped");
+        }
+        turn(EN_ALGO, 3);
+        EXPECT(par.ch[0].pan == 3 && par.ch[1].pan == 3 && par.ch[2].pan == 0, "ALL: PAN on each channel it reaches");
+        for (c = 0; c < NCH; c++)
+            g[c] = par.ch[c].level = LVL_0DB - 100;
+        turn(EN_SELECT, -1);
+        EXPECT(par.ch[0].level < g[0] && par.ch[5].level < g[5] && par.ch[2].level == g[2], "ALL: LEVEL too");
+        press_btn(B_OCTUP);
+        EXPECT(ui.page == PG_AMP, "MACRO: OCT+ still pages");
+        for (c = 0; c < NCH; c++)
+            g[c] = par.ch[c].fold;
+        turn(EN_K3, 1);
+        EXPECT(par.ch[0].fold > g[0] && par.ch[5].fold > g[5] && par.ch[2].fold == g[2], "ALL on a page: FOLD alike");
+        key(KEY_MAC, 1);
+        run_ms(900);
+        EXPECT(ui.macro == MAC_STORM, "MACRO's key held: STORM");
+        key(KEY_MAC, 0);
+        EXPECT(ui.macro == MAC_STORM, "and let go: STORM still");
+        for (c = 0; c < NCH; c++) {                /* (KNOB 1: GAIN, NOISE, HIGH, the LFOs' FADE .. -- TUBE, INPUT,
+                                                    * EFFECT, SHAPE choices, left) */
+            g[c] = par.ch[c].gain;
+            f[c] = par.ch[c].noise;
+            h[c] = par.ch[c].src;
+            par.ch[c].gain = g[c] = (int16_t)(g[c] > 900 ? 500 : g[c]);
+            par.ch[c].noise = f[c] = 300;
+        }
+        turn(EN_K1, 1);
+        EXPECT(par.ch[0].gain > g[0] && par.ch[0].noise > f[0] && par.ch[0].src == h[0] && par.ch[1].noise > f[1]
+                   && par.ch[2].gain == g[2] && par.ch[2].noise == f[2],
+               "STORM: KNOB 1 moves GAIN and NOISE on every channel reached, not the INPUT");
+        press_btn(LAYER_BTN[1]);
+        press_btn(B_SEQ);
+        EXPECT(ui.page == PG_COMP, "SEQ: the COMPRESSOR");
+        g[0] = cmp.amount;
+        turn(EN_K1, 1);
+        EXPECT(cmp.amount == g[0] + 1, "MACRO off the channels' pages: the knob its own, once");
+        press_btn(LAYER_BTN[1]);
+        tap_key(KEY_MAC);
+        EXPECT(ui.macro == MAC_OFF, "MACRO's key short, from STORM: off");
+        key(KEY_MAC, 1);
+        run_ms(900);
+        key(KEY_MAC, 0);
+        key(KEY_MAC, 1);
+        run_ms(900);
+        key(KEY_MAC, 0);
+        EXPECT(ui.macro == MAC_OFF, "MACRO's key held twice: STORM, then off");
+        g[0] = par.ch[0].gain;
+        turn(EN_K1, 1);
+        EXPECT(par.ch[0].gain == g[0], "MACRO off: the chosen channel only");
+        for (c = 0; c < NCH; c++) {
+            par.ch[c].mute = 0;
+            par.ch[c].pan = 0;
+        }
+    }
     /* level and pan */
     {   /* LEVEL: 1 dB a detent up to -5 dB, then 0.1 dB; PAN: 1 a detent */
         int16_t pn;
@@ -1776,6 +1869,65 @@ static int cmd_flows(void)
             }
             EXPECT(!same, "each press another way");
             drm.mute = mm;
+        }
+        /* BREAK by each lane's meter (build 36): on a polymeter -- kick 7 (2 + 2 + 3), snare 5, hats 16, perc 12 --
+         * every lane goes in on a beat of its own, and AVALANCHE's downbeat falls on the kick's own cycle, held long
+         * (past the table's 64 steps) too */
+        {
+            static const char *const PR[NDV] = {"X.x.x..", "x..X.", "x.x.x.x.x.x.x.x.", "X..x..x..x.."};
+            static drm_par_t kd;
+            uint32_t w, v, b, bad_in = 0, bad_dn = 0, dn = 0, on0[NDV];
+            uint8_t last[NDV];
+            kd = drm;
+            for (v = 0; v < NDV; v++)
+                dl_set(v, PR[v], 100);
+            drm.vary = 0;
+            drm.swing = 0;
+            drm.mute = 0;
+            drm.on = 1;
+            run_ms(600);
+            for (w = 0; w < BK_N; w++) {
+                brk_plan.way = (uint8_t)w;
+                brk_plan.cell = 5;
+                brk_plan.q = (uint8_t)(w == BK_HALF || w == BK_MIRROR ? 8u : 4u);
+                for (v = 0; v < 8u; v++)
+                    brk_plan.ord[v] = (uint8_t)((v * 5u) % 8u);
+                brk_fill();
+                brk_hold = 1;
+                for (v = 0; v < NDV; v++) {
+                    on0[v] = 0;
+                    last[v] = dlr[v].step;
+                }
+                for (b = 0; b < 7u * 14u * 172u; b++) {   /* (14 of the kick's cycles: past 64 steps) */
+                    mix_block(mix_out);
+                    for (v = 0; v < NDV; v++) {
+                        uint32_t st = dlr[v].step;
+                        if (st == last[v])
+                            continue;
+                        last[v] = (uint8_t)st;
+                        if (bks[v].on && !on0[v]) {      /* (its way in) */
+                            const brk_meter_t *M = &brk_m[v];
+                            on0[v] = 1;
+                            bad_in += brk_plan.q == 8u ? !(st == 0u || st == M->half) && st != (brk_a[v] + 1u) % M->L
+                                                       : M->bo[st] != 0u && st != (brk_a[v] + 1u) % M->L;
+                        }
+                        if (w == BK_AVALANCHE && v == DV_KICK && bks[v].on && dtrig[v].fire && dtrig[v].acc == 1u) {
+                            dn++;
+                            bad_dn += st % 7u != 0u;
+                        }
+                    }
+                }
+                for (v = 0; v < NDV; v++)
+                    EXPECT(on0[v], "on a polymeter: every lane into the break");
+                brk_hold = 0;
+                run_ms(200);
+            }
+            EXPECT(!bad_in, "on a polymeter: every lane into the break on a beat of its own meter");
+            EXPECT(dn >= 12u && !bad_dn, "AVALANCHE's downbeat on the kick's own 7-step cycle, held long too");
+            EXPECT(brk_m[DV_KICK].nb == 3u && brk_m[DV_KICK].bl[0] == 2u && brk_m[DV_KICK].bl[2] == 3u,
+                   "the kick's 7 heard as 2 + 2 + 3");
+            EXPECT(brk_m[DV_HAT].nb == 4u && brk_m[DV_PERC].nb == 4u, "16 steps in four beats, 12 in four of three");
+            drm = kd;
         }
         drm.mute = 2;                            /* (the SNARE muted, to be saved) */
         tap_key(KEY_DRM);

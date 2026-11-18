@@ -1,5 +1,69 @@
 # Changelog
 
+## Build 36 (2026-11-18)
+
+- BREAK by each lane's own meter. A lane's bar is now its cycle (its own length: 5, 7, 12, 13 … steps), cut in beats
+  found in it: a cycle of whole beats in even beats (of a beat, or of the size its onsets plainly keep: a 12-step lane
+  pulsing in threes); any other in groups near a beat long where its accents and onsets fall (an aksak 7 as 2 + 2 + 3).
+  Each lane goes into the break on its own next beat (HALF TIME, MIRROR: its next half cycle); fills land on its own
+  downbeat; HALF TIME, MIRROR, TUMBLE, INTERLOCK, SCATTER, GHOSTS, STUTTER work in its beats and halves; held long, the
+  break goes round in the lane's cycle (it went round in 32 steps). Before, every lane was cut in 4/4 bars of four
+  beats: on a polymeter a break came in off the lane's beat and ran on as if in 4/4.
+- THROW removed (builds 32–35): this chip has not the room for it.
+
+## Build 35 (2026-11-18)
+
+- THROW: every recipe now measured to change the drums (tests/host: throws -- what comes out against the drums put in,
+  each of 8 draws; one that hands the drums back, or too quiet, fails the tests). Out, the duds: STUTTER (GLITCH only
+  caught a moment now and then), HOWL, CROSS and PUMP (heard only as the patch's loops happened to be). In: ROLL (a
+  delay on 1/32 or 1/64, fed back hard: each hit ratcheted) and COMB (a few ms fed back nearly whole: each hit rings,
+  metal). CRUSH folds the bits; RINGS folds the drums before its resonators (a kit with nothing at the chord's notes
+  left it silent) and takes them whole; SUB brought up; JET fully wet; INSIDE OUT, SPLINTER, COMB deeper. 15 recipes.
+
+## Build 34 (2026-11-17)
+
+- THROW heard: its effects come out with the drums, at their level, after the main level and the compressor. In
+  build 33 they came back through a return, under the patch's main level (the trim often sets it near -20 dB): a
+  distant echo, or nothing.
+- DIFFUSER's SIZE, SAG's TIME and FREEZE's LENGTH worked out in the main loop, not the audio's (RAM for the above).
+
+## Build 33 (2026-11-17)
+
+- THROW in recipes: DUB, CRUSH, RINGS, JET, TALK, STUTTER, SUB, REED, SPRINGS, SMEAR, SHRED, SPLINTER, INSIDE OUT,
+  WARBLE, HOWL, CROSS, PUMP. Each press the next of a shuffled turn (every one heard before any comes again), its
+  settings drawn within what makes it itself; title names it, rows say what it does. The drums reach only the
+  recipe's slots (their own input). Only HOWL, CROSS and PUMP touch the loops; some keep the drums dry beneath.
+  (Build 32's random chains fed SEND 1 and a channel's loop every time: nearly every throw sounded alike.)
+
+## Build 32 (2026-11-17)
+
+- THROW: on drums' pages, white key 15 (2nd from right) held throws the drums into the mixer. Their dry sound goes
+  out; they go into SEND 1, through a chain of 2–4 of the rack's effects drawn anew each press (first on SEND 1, each
+  next on the one before, the last into a return), the returns up, and 1 or 2 channels in the patch are fed from SEND 1
+  or a return, so the drums go round the loops. Title says THROW, rows list the chain. Let go: drums dry again, mixer as
+  it was (main level too, if the guard turned it down meanwhile). Drums off: nothing thrown.
+
+## Build 31 (2026-11-17)
+
+- MACRO's key: short, ALL on or off; held 0.8 s, STORM on or off (was: one short press after another through both).
+- STORM shows as STR on screen (main view, page titles, dials, PAN's message); channel's number centred again.
+
+## Build 30 (2026-11-17)
+
+- MACRO has 2 modes: its key (black key 8) steps OFF, ALL (lit), STORM (blinking). ALL: as build 29, and now
+  SELECT and ALGORITHM (LEVEL, PAN) too, on any page. STORM: each top knob moves every value under it on every
+  channel page (SHIFT rows too; choices left alone), on every channel not muted and the chosen one. Screen
+  names the mode on main view, page titles, dials and PAN's message.
+- Each knob detent is 1 step of what screen shows: a tenth where it shows tenths, a whole one where whole ones,
+  next name for a choice. No detent that shows nothing; no faster steps when turned fast (TEMPO too). LEVEL
+  keeps 1 dB a detent below −5 dB.
+
+## Build 29 (2026-11-17)
+
+- MACRO: black key 8 (4th from right), short, on or off (lit: on). While on, KNOB 1–4 on a channel's pages (main
+  view to LFO 2, with SHIFT too) turn same parameter on every channel not muted, and on chosen one, each from
+  where it is, as Elektron's CONTROL ALL. Screen shows ALL beside channel's number, on page title and on dial.
+
 ## Build 28 (2026-11-15)
 
 - LEVEL shows its dial: SELECT brings up chosen channel's rotary dial over screen, on any page, as top knobs do,

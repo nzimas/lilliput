@@ -57,6 +57,7 @@
 <a href="#rhythm">Rhythm</a>
 <a href="#drums">Drums</a>
 <a href="#break" class="sub">Break</a>
+<a href="#macro">Macro</a>
 <a href="#gestures">Gestures</a>
 <a href="#snapshots">Snapshots</a>
 <a href="#sessions">Sessions</a>
@@ -68,7 +69,7 @@
 <tr><td><b>6 top buttons</b></td><td>choose channel <b>1–6</b> (lit: chosen; glowing: sounding). On a channel's page, another channel shows same page; chosen channel again: its main view. From any other page, back to channel.</td></tr>
 <tr><td><b>SELECT</b> knob</td><td>chosen channel's <b>LEVEL</b>: its fader. In most loops it is what makes them sing. <b>1 dB a detent</b> up to −5 dB, then <b>0.1 dB a detent</b> (−4.9, −4.8 …) up to +12 dB, where a loop's edge is. Below −60 dB: off. Its dial covers screen while you turn, on any page (build 28).</td></tr>
 <tr><td><b>ALGORITHM</b> knob</td><td>its <b>PAN</b>, <b>1 step a detent</b>, L 50 … R 50. In a no-input mixer the pan shapes the sound, not only its place: in a loop through mix bus it is part of the loop.</td></tr>
-<tr><td><b>KNOB 1–4</b></td><td>on main view: <b>GAIN</b>, <b>FREQ</b> (middle filter's), <b>LIMIT</b> (loop's pitch), <b>SEND 1</b>; with <b>SHIFT</b>: <b>NOISE</b>, <b>MID</b> (middle filter's gain or width), <b>PROTECT</b> (overload protection), <b>SEND 2</b>. Dial covers screen while you turn. On a page: its 4 rows.</td></tr>
+<tr><td><b>KNOB 1–4</b></td><td>on main view: <b>GAIN</b>, <b>FREQ</b> (middle filter's), <b>LIMIT</b> (loop's pitch), <b>SEND 1</b>; with <b>SHIFT</b>: <b>NOISE</b>, <b>MID</b> (middle filter's gain or width), <b>PROTECT</b> (overload protection), <b>SEND 2</b>. Dial covers screen while you turn. On a page: its 4 rows. <b>Each detent is 1 step</b> of what the screen shows (build 30): a tenth where it shows tenths (+9.6 DB → +9.7 DB), a whole one where it shows whole ones, the next name for a choice — never a detent that changes nothing, never one that skips, however fast you turn.</td></tr>
 <tr><td><b>OCT− / OCT+</b></td><td>channel's pages: MAIN, AMP, NOISE, EQ, SEND, FX (on SEQ's pages: through those). Their lights: a page that way.</td></tr>
 <tr><td><b>SHIFT</b> held on a page</td><td>its rows show page's switches (FX: IN, OUT, LO-FI, BYPASS; EQ: FILTER, MIDDLE; OUT: SPACE): SHIFT + KNOB 1–4 set them.</td></tr>
 <tr><td><b>SEQ</b></td><td><b>COMPRESSOR</b>, OUT, OUT EQ, OUT FX, then chosen channel's motion: LFO 1, LFO 2, MOD 1 TO 4, MOD 5 TO 8; then back to channel's page. On LFO and MOD pages a channel's button shows same page for that channel.</td></tr>
@@ -95,6 +96,7 @@
 <tr><td><b>SHIFT + black key 9</b></td><td><b>new drum rhythm</b>, of another style, playing.</td></tr>
 <tr><td><b>Black key 9</b> held 0.8 s</td><td><b>drums</b> on or off. Its light: on while they play.</td></tr>
 <tr><td><b>SHIFT + black key 7</b>, held</td><td>CPU page.</td></tr>
+<tr><td><b>Black key 8</b> (4th from right)</td><td><b>MACRO</b>: short, <b>ALL</b> on or off (lit); held 0.8 s, <b>STORM</b> on or off (blinking). Knobs act on every channel not muted at once. See <a href="#macro">Macro</a>.</td></tr>
 <tr><td><b>Black key 11</b> (last)</td><td><b>SHIFT</b>.</td></tr>
 <tr><td><b>MASTER</b> knob</td><td>level after everything.</td></tr>
 <tr><td><b>OCT− and OCT+</b>, held 5 s</td><td>UBOOT, chip's own updater.</td></tr>
@@ -244,7 +246,7 @@
 <p><b>TEMPO page</b> (key, short): its title is the style playing (or RHYTHM OFF).</p>
 <table>
 <tr><th>KNOB</th><th></th></tr>
-<tr><td>1</td><td><b>TEMPO</b>, 10 … 500 BPM: a BPM a detent, 5 when turned fast</td></tr>
+<tr><td>1</td><td><b>TEMPO</b>, 10 … 500 BPM: a BPM a detent</td></tr>
 <tr><td>2</td><td><b>SWING</b>: off steps late, up to 1/3 of a step</td></tr>
 <tr><td>3</td><td><b>CHAOS</b>: hits skipped, ghost hits added</td></tr>
 <tr><td>4</td><td><b>LENGTH</b>: every gate shorter or longer (100 %: as drawn)</td></tr>
@@ -294,24 +296,34 @@
 <p>A step can be more than a hit: accented, or <b>ALT</b>, its decay cut to 1/5 (closed hats among open ones, ghost snares). Nothing changes a voice's pitch: each voice keeps its TUNE on every step, in rhythms and in breaks, so the drums never turn into a melody (build 22; a session saved before with pitched steps loads with them level).</p>
 <h3 id="break">Break</h3>
 <p>On drums' pages, <b>hold white key 16</b> (last, under SHIFT): drums play a <b>variation of their own rhythm</b> — fill, break, flams, beat repeat — for as long as it is held. Let go, rhythm carries on from where it would have been: nothing is written, each lane's steps run on underneath.</p>
-<p>Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it. A break is <b>quantized</b>: it starts on the rhythm's next beat (next half bar for HALF TIME and MIRROR), playing as written until then, and fills are measured against the bar, so they land on its next downbeat however late they start. Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:</p>
+<p>Each press draws one way, never the same as the one before, and keeps it while held; drum page's title names it.</p>
+<p>A break follows <b>each lane's own meter</b> (build 36). A lane's bar is its cycle — its own length, 5, 7, 12, 13 steps as it is, not a 4/4 bar — cut in beats found in it: a cycle of whole beats in even beats (a 12-step lane that pulses in threes, in threes); any other in groups near a beat long, where its accents and hits fall (an aksak 7 as 2 + 2 + 3). A break is <b>quantized</b> to that: each lane goes in on its own next beat (next half cycle for HALF TIME and MIRROR), playing as written until then; fills are measured against its cycle, so they land on its own downbeat however late they start; held long, the break goes round in the lane's cycle. On a polymeter each lane breaks in its own time, the lanes still drifting against each other. Every way is made from rhythm playing — its hits, accents and pitches — and from what each voice is:</p>
 <table>
 <tr><th>Way</th><th>What plays</th></tr>
-<tr><td>STUTTER</td><td>bar's busiest beat repeated: whole, then half, then a single step, ratcheting faster</td></tr>
-<tr><td>AVALANCHE</td><td>fill over the bar: snare from ghosts in 8ths to accented 16ths and doubles, kick on beats; lands on downbeat, all accented, and builds again</td></tr>
+<tr><td>STUTTER</td><td>the lane's busiest beat repeated: whole, then half, then a single step, ratcheting faster</td></tr>
+<tr><td>AVALANCHE</td><td>fill over the lane's cycle, in four parts: snare from ghosts to accented hits and doubles, kick on its beats; lands on its downbeat, all accented, and builds again</td></tr>
 <tr><td>FLAMS</td><td>rhythm as written, each kick, snare and perc hit flammed (soft grace note before it); accented snares dragged (2 graces)</td></tr>
 <tr><td>DROP</td><td>kick and snare out; hats and perc on, hats' gaps filled with ghosts</td></tr>
-<tr><td>HALF TIME</td><td>kick, snare and perc at half speed; hats at full speed over them</td></tr>
-<tr><td>CELL 3, 5, 6 or 7</td><td>each lane loops a cell of that many of its own steps against the bar; kick keeps each downbeat</td></tr>
+<tr><td>HALF TIME</td><td>kick, snare and perc at half speed, from a half cycle; hats at full speed over them</td></tr>
+<tr><td>CELL 3, 5, 6 or 7</td><td>each lane loops a cell of that many of its own steps against its cycle; kick keeps each downbeat</td></tr>
 <tr><td>SWAP</td><td>voices trade lanes: kick plays snare's steps, snare kick's, hats perc's, perc hats'</td></tr>
-<tr><td>MIRROR</td><td>each half bar backwards; kick keeps its first step</td></tr>
-<tr><td>TUMBLE</td><td>perc on every step over 2 beats, from an accent down to ghosts, again and again; kick as written</td></tr>
-<tr><td>INTERLOCK</td><td>kick and snare keep 1st half of each beat, hats and perc the 2nd; after a bar they trade whole beats</td></tr>
-<tr><td>SCATTER</td><td>bar's 8 pairs of steps in another order, first in place</td></tr>
+<tr><td>MIRROR</td><td>each half of the lane's cycle backwards; kick keeps its first step</td></tr>
+<tr><td>TUMBLE</td><td>perc on every step over about 2 of its beats, from an accent down to ghosts, again and again; kick as written</td></tr>
+<tr><td>INTERLOCK</td><td>kick and snare keep 1st half of each beat, hats and perc the 2nd; after a cycle they trade whole beats</td></tr>
+<tr><td>SCATTER</td><td>the cycle's beats (fewer than three: its pairs of steps) in another order, first in place</td></tr>
 <tr><td>BUZZ</td><td>rhythm as written, hats in 3s then 4s, snare and perc doubled then tripled</td></tr>
-<tr><td>GHOSTS</td><td>every gap filled with ghost notes, hats accented 3 3 2, kick pushing ahead of beat 4</td></tr>
+<tr><td>GHOSTS</td><td>every gap filled with ghost notes, hats accented 3 3 2 over the cycle, kick pushing ahead of its last beat</td></tr>
 </table>
 <p>The drums are not part of a patch: HOME and gesture loops leave them alone. Snapshots (build 27) and sessions keep them.</p>
+<h2 id="macro">Macro</h2>
+<p><b>Black key 8</b> (4th from right): a short press turns <b>ALL</b> on, or MACRO off; held 0.8 s, it turns <b>STORM</b> on, or off (build 31). Its light: lit for ALL, blinking for STORM, glowing when off; the screen names the mode at each press.</p>
+<p>Both modes reach <b>every channel not muted</b>, and chosen channel even if muted: a muted channel is left alone, unmute it and it joins. Each channel moves from where it is, by 1 step a detent, so their differences are kept.</p>
+<ul>
+<li><b>ALL</b> (build 29; build 30 adds LEVEL and PAN) — as CONTROL ALL on Elektron machines. <b>SELECT</b> (LEVEL) and <b>ALGORITHM</b> (PAN) move every channel's, on any page: in this instrument they shape the sound. <b>KNOB 1–4</b> on a channel's pages — main view, AMP, NOISE, EQ, SEND, FX, LFO 1, LFO 2, with SHIFT too — move same parameter on every channel (a choice, such as TUBE or EFFECT, steps 1 along on each).</li>
+<li><b>STORM</b> (build 30) — LEVEL and PAN as in ALL. Each of <b>KNOB 1–4</b>, on any channel's page, moves <b>every value under that knob on every channel page</b>, its SHIFT row included, on every channel at once. KNOB 1, for instance: GAIN, NOISE, HIGH, SEND 1, FX's PRESENCE, both LFOs' … — whatever its column holds that is a value. Choices (INPUT, EFFECT, TUBE, TYPE, SHAPE, switches) are left alone, so a turn never rewires the patch. A value under a knob on 2 pages (LIMIT, GAIN, SEND 1) moves once a detent.</li>
+</ul>
+<p>Screen says so: <b>ALL</b> or <b>STR</b> (STORM) beside channel's number on main view, in place of channel's number on a page's title (AMP  STR) and on a knob's dial (GAIN  ALL); PAN's message too (PAN ALL R 5). Values shown are chosen channel's.</p>
+<p>On output's, COMPRESSOR's, RHYTHM's and DRUMS' pages and on MOD pages, KNOB 1–4 work as always; keys and pages stay chosen channel's. A gesture loop recording keeps only its own channel's moves. MACRO is not saved: it is off when FM-1 starts.</p>
 <h2 id="gestures">Gestures</h2>
 <p>Each channel has its own gesture loop. It records what your hands do to that channel — its knobs, its input key, its mute, its effect slot, channel thrown at random, a MIDI CC to it — and plays it back, round and round, while you go on playing over it. Loops are independent: each its own length, each started and stopped on its own. REC and PLAY act on chosen channel, and their lights show its loop.</p>
 <ul>

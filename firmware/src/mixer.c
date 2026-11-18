@@ -641,32 +641,12 @@ static FAST void slot_coef(uint32_t s)
         k->omode = (uint8_t)clampi(p1, 0, OC_N - 1);
         k->otone = clampi(hz_log(p2, 150, 1440) * 467 / 100, 300, 32767);   /* (150 Hz .. 7.7 kHz, a one-pole's) */
         break;
-    case FX_DIFFUSE: {                           /* four allpasses, Clouds' lengths at 44.1 kHz, scaled by SIZE */
-        static const uint16_t DL[4] = {174, 248, 371, 612};
-        static const uint8_t DS[NDIFF] = {32, 48, 64, 80, 96, 112, 128, 160};   /* (x / 128) */
-        int32_t sz = clampi(p1, 0, NDIFF - 1), i;
-        for (i = 0; i < 4; i++) {
-            uint16_t n = (uint16_t)(DL[i] * DS[sz] / 128u);
-            if (k->dlen[i] != n) {
-                k->dlen[i] = n;
-                k->didx[i] = 0;
-            }
-        }
+    case FX_DIFFUSE:                             /* (SIZE: the main loop's, step_tune) */
         k->dg = 9830 + p2 * 16384 / PMAX;        /* (0.3 .. 0.8) */
         break;
-    }
-    case FX_SAG: {                               /* the average of |x| over a window (Airwindows' PowerSag2) */
-        uint32_t sh = 6u + (uint32_t)clampi(p1, 0, NSAGW - 1), i;
-        if (k->sshift != sh) {                   /* (a new window: from silence) */
-            k->sshift = sh;
-            k->swin = 1u << sh;
-            k->ssum = 0;
-            for (i = 0; i < SLOT_LEN; i++)
-                slot_mem[s][i] = 0;
-        }
+    case FX_SAG:                                 /* (TIME: the main loop's, step_tune) */
         k->depth = p2 * Q15 / PMAX;
         break;
-    }
     case FX_CUTS:
         k->cunit = 441u + (uint32_t)p1 * 1607u / PMAX;   /* (10 .. 46 ms) */
         k->depth = p2;                           /* (DENSITY: the cuts that repeat, of 1000) */
@@ -703,14 +683,7 @@ static FAST void slot_coef(uint32_t s)
         k->n.thr = db10_q15(-600 + p1 * 540 / PMAX) >> 1;
         k->n.rsh = 8u + (uint32_t)p2 * 7u / (PMAX + 1);
         break;
-    case FX_FREEZE: {
-        uint32_t n = FRZ_LEN[clampi(p1, 0, NFRZ - 1)];
-        if (k->n.flen != n) {                    /* (another length: from silence) */
-            uint32_t i;
-            k->n.flen = n;
-            for (i = 0; i < SLOT_LEN; i++)
-                slot_mem[s][i] = 0;
-        }
+    case FX_FREEZE: {                            /* (LENGTH: the main loop's, step_tune) */
         k->n.ffb = p2 < 10 ? Q15 : 32440 - p2 * 16000 / PMAX;   /* (0: frozen; then each pass 0.99 .. 0.5 kept) */
         break;
     }
@@ -814,6 +787,50 @@ static void reed_tune(uint32_t s)                 /* REED's bore: half a period 
     n = (int32_t)(((uint32_t)FS * 128u / (uint32_t)(hz8 / 256 > 0 ? hz8 / 256 : 1))) - 384;   /* (FS / 2f - 1.5, Q8) */
     slr[s].rlen = n < 512 ? 512 : n;
 }
+/* DIFFUSER's SIZE, SAG's TIME, FREEZE's LENGTH: steps, never modulated -- out of the audio's time (build 34: RAM
+ * the audio's code is short of). A new one from silence. (Meanwhile the audio reads only within its own line: no harm) */
+static void step_tune(uint32_t s)
+{
+    const slot_par_t *sp = &par.slot[s];
+    slot_rt_t *k = &slr[s];
+    uint32_t i, n;
+    switch (sp->fx) {
+    case FX_DIFFUSE: {                           /* four allpasses, Clouds' lengths at 44.1 kHz, scaled by SIZE */
+        static const uint16_t DL[4] = {174, 248, 371, 612};
+        static const uint8_t DS[NDIFF] = {32, 48, 64, 80, 96, 112, 128, 160};   /* (x / 128) */
+        uint32_t sz = (uint32_t)clampi(sp->p1, 0, NDIFF - 1);
+        for (i = 0; i < 4u; i++) {
+            n = DL[i] * DS[sz] / 128u;
+            if (k->dlen[i] != n) {
+                k->didx[i] = 0;
+                k->dlen[i] = (uint16_t)n;
+            }
+        }
+        break;
+    }
+    case FX_SAG:                                 /* the average of |x| over a window (Airwindows' PowerSag2) */
+        n = 6u + (uint32_t)clampi(sp->p1, 0, NSAGW - 1);
+        if (k->sshift != n || k->swin != 1u << n) {   /* (a new window, or the effect new: from silence) */
+            k->swin = 0;
+            for (i = 0; i < SLOT_LEN; i++)
+                slot_mem[s][i] = 0;
+            k->ssum = 0;
+            k->sshift = n;
+            k->swin = 1u << n;
+        }
+        break;
+    case FX_FREEZE:
+        n = FRZ_LEN[clampi(sp->p1, 0, NFRZ - 1)];
+        if (k->n.flen != n) {                    /* (another length, or the effect new: from silence) */
+            for (i = 0; i < SLOT_LEN; i++)
+                slot_mem[s][i] = 0;
+            k->n.flen = n;
+        }
+        break;
+    default:
+        break;
+    }
+}
 static void mx_poll(void)                        /* (the main loop's: what the audio's time need not work out) */
 {
     uint32_t s;
@@ -821,6 +838,7 @@ static void mx_poll(void)                        /* (the main loop's: what the a
     for (s = 0; s < NSLOT; s++) {
         reson_tune(s);
         reed_tune(s);
+        step_tune(s);
     }
     for (s = 0; s < NCH; s++)
         ch_tune(s);

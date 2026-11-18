@@ -37,6 +37,12 @@
  *   white key 16              its MAIN MIX on or off
  *   black keys 1 .. 6         mute channels 1 .. 6 (lit: muted)
  *   SHIFT + black key 7 held  the CPU page
+ *   4th black key from right  MACRO: short, ALL on or off (lit); held 0.8 s, STORM on or off (blinking; STR on the
+ *                             screen, build 31). Both reach every
+ *                             channel not muted, and the chosen one, each from where it is; SELECT and ALGORITHM
+ *                             (LEVEL, PAN) on any page. ALL (build 29, as Elektron's CONTROL ALL): KNOB 1 .. 4 on a
+ *                             channel's pages (MAIN to LFO 2) the same parameter. STORM (build 30): KNOB 1 .. 4 there
+ *                             every value under that knob on every channel page and its SHIFT row (choices left alone)
  *   MASTER (knob)             the level after everything */
 
 enum { B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO, B_HOME, B_SAVE, B_ARP, B_SEQ, B_PLAY, B_REC, B_OCTDN, B_OCTUP, NB };
@@ -49,6 +55,8 @@ static const uint8_t LAYER_BTN[NCH] = {B_FX, B_SEL, B_ENV, B_LFO, B_EDIT, B_GLO}
 #define KEY_CPU 15u              /* the 7th black key: SHIFT + it held, the CPU page */
 #define KEY_RHY 22u              /* the 2nd from the right: the RHYTHM -- its pages; SHIFT +: a new one; held: on / off */
 #define KEY_DRM 20u              /* the 3rd from the right: the DRUMS -- their pages; SHIFT +: a new rhythm; held: on / off */
+#define KEY_MAC 17u              /* the 4th from the right: MACRO -- short, ALL; held, STORM */
+enum { MAC_OFF, MAC_ALL, MAC_STORM, MAC_N };
 static const uint8_t KEY_MUTE[NCH] = {1, 3, 5, 8, 10, 13};   /* black keys 1 .. 6 */
 #define WHITE_MAINMIX 15         /* the last white key */
 #define KEY_BRK 26u              /* .. on the DRUMS' pages: BREAK, held (drumbrk.c) */
@@ -153,6 +161,9 @@ static struct {
     int8_t dkey;                 /* a voice's white key down on the DRUMS' pages (-1 none): held 0.7 s, muted or back */
     uint8_t dkey_done;
     uint32_t dkey_t0;
+    uint8_t macro;               /* MACRO: MAC_OFF, MAC_ALL (build 29), MAC_STORM (build 30) */
+    uint8_t mac_down, mac_done;  /* its key down since mac_t0 (short: ALL on / off); held: STORM on / off, done */
+    uint32_t mac_t0;
     uint8_t rec_down, rec_done;  /* REC down since rec_t0 (held 1 s: the channel's gesture loop emptied) */
     uint32_t rec_t0;
     int8_t snap_key;             /* the SNAPSHOTS page: the white key down (-1 none) since snap_t0; held: stored */
@@ -207,6 +218,8 @@ static uint32_t next_seed(void)
 
 /* ------------------------------------------------- the parameters' side --- */
 static uint32_t pslot(void) { return ui.page == PG_OFX ? SLOT_OUT : ui.sel; }   /* (the slot the FX rows are on) */
+static int mac_page(void) { return ui.macro && ui.page <= PG_LFO2; }   /* (MACRO reaching the knobs: a channel's page) */
+static const char *mac_name(void) { return ui.macro == MAC_STORM ? "STR" : "ALL"; }   /* (STORM: STR on the screen) */
 static int32_t p_get(uint32_t id)
 {
     const ch_par_t *c = &par.ch[ui.sel];
@@ -436,26 +449,76 @@ static int32_t level_step(int32_t v, int up)
         db = (db % 10 + 10) % 10 ? db - ((db % 10 + 10) % 10) : db - 10;
     return db < -600 ? 0 : db + LVL_0DB;
 }
-/* a knob's turn of s detents: a choice a step a detent; LEVEL by dB then tenths; PAN a step a detent; any other value
- * faster the faster it turns */
+/* a knob's turn of s detents, each one step (build 30): a choice, the next; LEVEL by dB then tenths; any other value
+ * the next the screen shows -- a tenth where it shows tenths, a whole one where whole ones: never a detent that shows
+ * nothing, never one that skips */
+static void p_text(uint32_t id, int32_t v, char *b);
 static void p_turn(uint32_t id, int32_t s)
 {
-    int32_t n = p_count(id), a = s < 0 ? -s : s;
+    int32_t n = p_count(id), a = s < 0 ? -s : s, d = s < 0 ? -1 : 1, v, lo, hi;
+    char was[16], now[16];
     if (!s || id == P_NONE)
         return;
-    if (id == P_LEVEL) {
-        int32_t v = p_get(id);
+    v = p_get(id);
+    if (id == P_LEVEL)
         for (; a > 0; a--)
             v = level_step(v, s > 0);
-        p_set(id, v);
-    } else if (id == P_PAN || p_hi(id) <= 100)   /* (PAN, an LFO's RATE and FADE: a step a detent) */
-        p_set(id, p_get(id) + s);
-    else if (id == P_BPM)                        /* (the tempo: a BPM a detent, faster turned: five) */
-        p_set(id, p_get(id) + s * (a >= 2 ? 5 : 1));
     else if (n > 0)
-        p_set(id, p_get(id) + (s > 0 ? 1 : -1));
-    else
-        p_set(id, p_get(id) + s * (a >= 3 ? 14 : a == 2 ? 6 : 2));
+        v += s;
+    else {
+        lo = p_lo(id);
+        hi = p_hi(id);
+        for (; a > 0 && v + d >= lo && v + d <= hi; a--) {
+            p_text(id, v, was);
+            do {
+                v += d;
+                if (v <= lo || v >= hi)
+                    break;
+                p_text(id, v, now);
+            } while (str_eq(now, was));
+        }
+    }
+    p_set(id, v);
+}
+/* MACRO: a turn on every channel it reaches -- those not muted, and the chosen one */
+static void mac_turn(uint32_t id, int32_t s)
+{
+    uint32_t me = ui.sel, c;
+    for (c = 0; c < NCH; c++)
+        if (c == me || !par.ch[c].mute) {
+            ui.sel = (uint8_t)c;
+            p_turn(id, s);
+        }
+    ui.sel = (uint8_t)me;
+}
+/* STORM: KNOB k+1 on every value under it, on each channel page and its SHIFT row (choices left alone), on every
+ * channel MACRO reaches */
+static void storm_turn(uint32_t k, int32_t s)
+{
+    uint32_t me = ui.sel, pg0 = ui.page, c, pg, r, i;
+    uint8_t seen[(P_NONE + 8) / 8];
+    for (c = 0; c < NCH; c++) {
+        if (c != me && par.ch[c].mute)
+            continue;
+        ui.sel = (uint8_t)c;
+        for (i = 0; i < sizeof seen; i++)
+            seen[i] = 0;
+        for (pg = PG_MAIN; pg <= PG_LFO2; pg++)
+            for (r = 0; r < 2u; r++) {
+                uint32_t id = r ? PG_SHROW[pg][k] : PG_ROW[pg][k];
+                ui.page = (uint8_t)pg;           /* (the LFO pages: LFO 1, then LFO 2) */
+                if (id == P_NONE || p_count(id) > 0)
+                    continue;
+                if (id < P_LSHAPE || id > P_LFADE) {   /* (a value on two pages: once) */
+                    if (seen[id >> 3] >> (id & 7u) & 1u)
+                        continue;
+                    seen[id >> 3] |= (uint8_t)(1u << (id & 7u));
+                }
+                p_turn(id, s);
+            }
+    }
+    ui.sel = (uint8_t)me;
+    ui.page = (uint8_t)pg0;
 }
 
 /* a parameter's name as the rows show it */
@@ -1211,6 +1274,26 @@ static void ui_input(void)
             ui.force = 1;
         }
     }
+    if ((down >> KEY_MAC) & 1u) {                /* MACRO's key: short, ALL on or off; held 0.8 s, STORM on or off */
+        ui.mac_down = 1;
+        ui.mac_done = 0;
+        ui.mac_t0 = fm1_ms;
+    }
+    if (ui.mac_down) {
+        if ((up >> KEY_MAC) & 1u) {
+            ui.mac_down = 0;
+            if (!ui.mac_done) {                  /* short: ALL, or off (from STORM too) */
+                ui.macro = ui.macro == MAC_OFF ? MAC_ALL : MAC_OFF;
+                say(ui.macro ? "MACRO ALL" : "MACRO OFF", 900);
+                ui.force = 1;
+            }
+        } else if (!ui.mac_done && (uint32_t)(fm1_ms - ui.mac_t0) >= 800u) {
+            ui.mac_done = 1;                     /* held: STORM, or off */
+            ui.macro = ui.macro == MAC_STORM ? MAC_OFF : MAC_STORM;
+            say(ui.macro ? "MACRO STORM" : "MACRO OFF", 900);
+            ui.force = 1;
+        }
+    }
     if (ui.dkey >= 0) {                          /* a DRUMS voice's key held 0.7 s: muted, or back */
         if (!((keys >> (uint32_t)ui.dkey) & 1u))
             ui.dkey = -1;
@@ -1277,7 +1360,7 @@ static void ui_input(void)
             ui.force = 1;
             continue;
         }
-        if (k == KEY_RHY || k == KEY_DRM)
+        if (k == KEY_RHY || k == KEY_DRM || k == KEY_MAC)
             continue;                            /* (their own, above) */
         if (drm_page() && w >= 0) {              /* the DRUMS' pages: white keys 1 .. 3 the voices; SHIFT + one, a new
                                                   * sound for it; the rest nothing here */
@@ -1355,9 +1438,16 @@ static void ui_input(void)
         for (k = 0; k < 4u; k++) {
             uint32_t id = sh ? PG_SHROW[ui.page][k] : PG_ROW[ui.page][k];
             s = enc_take(EN_K1 + k);
-            if (!s || id == P_NONE)
+            if (!s)
                 continue;
-            p_turn(id, s);
+            if (mac_page() && ui.macro == MAC_STORM)   /* STORM: every value under the knob */
+                storm_turn(k, s);
+            else if (mac_page())                 /* ALL: the same turn on each channel sounding, from where it is */
+                mac_turn(id, s);
+            else
+                p_turn(id, s);
+            if (id == P_NONE)                    /* (STORM on a row empty here: nothing more to show) */
+                continue;
             if (ui.page == PG_MAIN) {            /* the main view: its dial over the screen */
                 ui.dial = (uint8_t)id;
                 ui.dial_until = fm1_ms + 1000u;
@@ -1374,17 +1464,25 @@ knobs_lp:
     /* SELECT, ALGORITHM: the chosen channel's level and pan, everywhere */
     s = enc_take(EN_SELECT);
     if (s) {
-        p_turn(P_LEVEL, s);                      /* (build 28: its dial over the screen, as the top knobs have -- was
+        if (ui.macro)                            /* (MACRO: every channel it reaches, build 30) */
+            mac_turn(P_LEVEL, s);
+        else
+            p_turn(P_LEVEL, s);                  /* (build 28: its dial over the screen, as the top knobs have -- was
                                                   * a message) */
         ui.dial = P_LEVEL;
         ui.dial_until = fm1_ms + 1000u;
     }
     s = enc_take(EN_ALGO);
     if (s) {
-        char m[16] = "PAN ", v[12];
-        p_turn(P_PAN, s);
+        char m[20] = "PAN ", v[12];
+        if (ui.macro) {                          /* (MACRO: every channel it reaches, build 30) */
+            mac_turn(P_PAN, s);
+            str_cpy(m + 4, mac_name(), 6);
+            str_cpy(m + str_len(m), " ", 2);
+        } else
+            p_turn(P_PAN, s);
         p_text(P_PAN, par.ch[ui.sel].pan, v);
-        str_cpy(m + 4, v, sizeof m - 4);
+        str_cpy(m + str_len(m), v, sizeof m - str_len(m));
         say(m, 900);
     }
     gest_poll();                                 /* (the gesture loops: played, and what changed this pass recorded) */
@@ -1456,6 +1554,9 @@ static void ui_leds(void)
         led_dim_key(14u + KEY_MUTE[c], 1);
     }
     fm1_led_key(14u + KEY_SHIFT, (ui.keys >> KEY_SHIFT) & 1u);
+    fm1_led_key(14u + KEY_MAC, ui.macro == MAC_ALL || (ui.macro == MAC_STORM && blink));   /* (MACRO's: lit ALL,
+                                                  * blinking STORM, glowing off) */
+    led_dim_key(14u + KEY_MAC, 1);
     if (ui.beat_seen != rhy_beat) {              /* the RHYTHM's key: lit while it plays, dark a moment on each beat */
         ui.beat_seen = rhy_beat;
         ui.beat_at = fm1_ms;
@@ -1527,6 +1628,8 @@ static void draw_number(void)
     CV_AREA(0, BAND_A, 240, BAND_B - BAND_A, C_BLACK) {
         draw_batt(237, 2 + ((int32_t)FONT_S.h - 10) / 2);
         cv_text_c(3, &FONT_XL, d, ch_col(ui.sel));
+        if (ui.macro)                            /* (MACRO on: ALL or STR at the left, as its pages and dials say) */
+            cv_text(4, 2 + (int32_t)FONT_S.h + 4, &FONT_S, mac_name(), C_WHITE);
         if (!par.ch[ui.sel].mainmix)
             cv_text(4, 2, &FONT_S, "NO MIX", RGB(175, 175, 175));
     }
@@ -1616,6 +1719,10 @@ static void draw_title(void)
         str_cpy(t + n, "  CH ", 6);
         t[n + 5] = (char)('1' + ui.sel);
         t[n + 6] = 0;
+        if (mac_page()) {                        /* (MACRO: every channel's) */
+            str_cpy(t + n, "  ", 3);
+            str_cpy(t + n + 2, mac_name(), 6);
+        }
     }
     if (rhy_page()) {                            /* the RHYTHM: its style, or OFF */
         str_cpy(t, par.rhy.on ? RS_NAME[par.rhy.style % RS_N] : "RHYTHM OFF", sizeof t);
@@ -1772,11 +1879,15 @@ static void draw_dial(void)
     uint32_t id = ui.dial;
     int32_t v = p_get(id), b, k, to;
     uint32_t av;
-    char t[16], m[16];
+    char t[24], m[16];
     uint16_t col = ch_col(ui.sel);
     const font_t *tf;
-    str_cpy(t, p_name(id), sizeof t - 3);
-    if (id != P_DDEN) {                          /* (a channel's: its number; DENSITY is the drums') */
+    str_cpy(t, p_name(id), sizeof t - 8);
+    if (id != P_DDEN && ui.macro && (id == P_LEVEL || mac_page())) {   /* (MACRO: every channel's) */
+        str_cpy(t + str_len(t), "  ", 3);
+        str_cpy(t + str_len(t), mac_name(), 6);
+    }
+    else if (id != P_DDEN) {                     /* (a channel's: its number; DENSITY is the drums') */
         str_cpy(t + str_len(t), "  ", 3);
         t[str_len(t) - 1] = (char)('1' + ui.sel);
     }

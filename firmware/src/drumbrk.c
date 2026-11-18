@@ -4,9 +4,14 @@
  * kept while the key is held. Nothing is written: each lane's own step goes on underneath, so let go, the rhythm plays on
  * from where it would have been.
  *
- * It is quantized: a lane goes into the break on its next beat (its next half bar for HALF TIME and MIRROR), playing as
- * written until then; the fills are measured against the bar, so they land on its next downbeat however late they
- * start. Every way is made from the rhythm playing -- its hits, accents, pitches -- and from what each voice is: the
+ * Build 36: every lane by its own meter. A lane's bar is its cycle -- its own length, 5, 7, 12, 13 steps as it is, not
+ * a 4/4 bar of four beats -- and its beats are found in it (brk_meter): groups near a beat long, laid where its own
+ * accents and hits fall (an aksak lane's 2 + 2 + 3, a 12-step lane's three fours, a 16-step lane's four fours). It is
+ * quantized to them: a lane goes into the break on its next beat (its next half cycle for HALF TIME and MIRROR),
+ * playing as written until then; the fills are measured against its cycle, so they land on its own downbeat however
+ * late they start, and a break held long goes round in the lane's cycle. Lanes of different lengths keep drifting
+ * against each other, each breaking in its own time. (Before, every lane was cut in 4/4 bars of four beats: on a
+ * polymeter the break came in off the lane's beat and ran on as if in 4/4.) Every way is made from the rhythm playing -- its hits, accents, pitches -- and from what each voice is: the
  * kick holds the floor, the snare rolls and flams, the hats ghost, the perc tumbles.
  *
  *   STUTTER    the bar's busiest beat (its hits, every voice's), repeated: a beat, then half, then a step,
@@ -48,6 +53,15 @@ static struct {
 #define BRK_TN 64u
 static uint16_t brk_tab[NDV][BRK_TN] POOL;
 static uint8_t brk_a[NDV];                       /* (each table's anchor: the lane's step it starts on) */
+static uint8_t brk_lp[NDV];                      /* (the part held longer goes round in this many steps: the most
+                                                  * whole cycles of the lane in 32) */
+/* a lane's meter (the main loop's): its cycle's beats -- each step's beat and place in it, each beat's start and
+ * length; where its second half begins */
+typedef struct {
+    uint8_t L, nb, half, rsv;
+    uint8_t bq[DSTEPS], bo[DSTEPS], bs[DSTEPS], bl[DSTEPS];
+} brk_meter_t;
+static brk_meter_t brk_m[NDV] POOL;
 #define BRK_FLAM_BLK ((uint32_t)FS * 11u / (1000u * CTL))   /* (a grace note 11 ms before its hit) */
 
 /* lane l's step s, as written (its chance taken): as the ISR plays it, not under a break */
@@ -87,50 +101,51 @@ static void brk_hit(dhit_t *e, uint32_t acc, uint32_t alt, int32_t pitch)
     e->pitch = 0;
     e->rat = e->flam = 0;
 }
-/* the hit lane c plays n steps into the break, from its anchor a (spb steps a beat); sb: STUTTER's beat */
-static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t sb, dhit_t *e)
+/* the hit lane c plays n steps into the break, from its anchor a, by its meter M; sb: STUTTER's beat (the lane's
+ * busiest) */
+static void brk_way(uint32_t c, uint32_t a, uint32_t n, const brk_meter_t *M, uint32_t sb, dhit_t *e)
 {
-    uint32_t bar = 4u * spb, s = a + n, pos = s % bar, w;
+    uint32_t L = M->L, s = a + n, pos = s % L, qb = M->bq[pos], in = M->bo[pos], bl = M->bl[qb], w;
     const brk_plan_t *P = &brk_plan;
-    if (P->way == BK_STUTTER)                    /* (its window: the bar's busiest beat) */
-        a = a - a % bar + sb * spb;
     switch (P->way) {
-    case BK_STUTTER:                             /* a beat, half, a step; ratchets */
-        w = n < 2u * spb ? spb : n < 3u * spb ? (spb > 1u ? spb / 2u : 1u) : 1u;
-        brk_lane(c, a + n % w, e);
+    case BK_STUTTER: {                           /* the busiest beat: whole, half, a step; ratchets */
+        uint32_t b = M->bl[sb];
+        w = n < 2u * b ? b : n < 3u * b ? (b > 1u ? b / 2u : 1u) : 1u;
+        brk_lane(c, M->bs[sb] + n % w, e);
         if (n % w == 0u && e->fire)
             e->acc = 1;
         if (w == 1u && c != DV_KICK && e->fire)
-            e->rat = (uint8_t)(n < 2u * bar ? 2u : n < 3u * bar ? 3u : 4u);
+            e->rat = (uint8_t)(n < 2u * L ? 2u : n < 3u * L ? 3u : 4u);
         break;
-    case BK_AVALANCHE: {                         /* a fill over the bar, landing on its downbeat */
-        uint32_t qb = pos / spb, in = pos % spb;
+    }
+    case BK_AVALANCHE: {                         /* a fill over the cycle, in four parts, landing on its downbeat */
+        uint32_t ph = pos * 4u / L;
         e->fire = 0;
         if (c == DV_KICK) {
             if (in == 0u)
-                brk_hit(e, pos == 0u, 0, pos == 0u ? 0 : -2);
+                brk_hit(e, pos == 0u, 0, 0);
         } else if (c == DV_SNARE) {
-            if (qb == 0u && !(in & 1u) && pos)
+            if (ph == 0u && !(in & 1u) && pos)
                 brk_hit(e, 2, 1, 0);
-            else if (qb == 1u && !(in & 1u))
-                brk_hit(e, 0, 1, 1);
-            else if (qb == 2u)
-                brk_hit(e, 0, 0, 3);
-            else if (qb == 3u) {
-                brk_hit(e, 1, 0, (int32_t)(4u + in * 4u / spb));
-                if (pos + 2u >= bar)
+            else if (ph == 1u && !(in & 1u))
+                brk_hit(e, 0, 1, 0);
+            else if (ph == 2u)
+                brk_hit(e, 0, 0, 0);
+            else if (ph == 3u) {
+                brk_hit(e, 1, 0, 0);
+                if (pos + 2u >= L)
                     e->rat = 2;
             }
         } else if (c == DV_HAT) {
             if (pos == 0u)
                 brk_hit(e, 1, 0, 0);             /* (the downbeat, open) */
-            else if (qb < 2u && in == spb / 2u)
+            else if (ph < 2u && in == bl / 2u)
                 brk_hit(e, 2, 1, 0);
         } else {
             if (pos == 0u)
                 brk_hit(e, 1, 0, 0);
-            else if (qb == 3u && !(in & 1u))
-                brk_hit(e, 1, 1, (int32_t)(7u - in));
+            else if (ph == 3u && !(in & 1u))
+                brk_hit(e, 1, 1, 0);
         }
         break;
     }
@@ -148,7 +163,7 @@ static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t s
                 brk_hit(e, 2, 1, 0);
         }
         break;
-    case BK_HALF:
+    case BK_HALF:                                /* (from a half cycle: half speed, so a cycle takes two) */
         if (c == DV_HAT)
             brk_lane(c, s, e);
         else if (n & 1u)
@@ -161,7 +176,7 @@ static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t s
     case BK_CELL:
         brk_lane(c, a + n % (P->cell ? P->cell : 3u), e);
         if (c == DV_KICK && pos == 0u)
-            brk_hit(e, 1, 0, e->fire ? e->pitch : 0);
+            brk_hit(e, 1, 0, 0);
         break;
     case BK_SWAP: {
         uint32_t o = c ^ 1u;                     /* (kick and snare, hats and perc) */
@@ -174,54 +189,81 @@ static void brk_way(uint32_t c, uint32_t a, uint32_t n, uint32_t spb, uint32_t s
         }
         break;
     }
-    case BK_MIRROR: {
-        uint32_t h = 2u * spb, p = s % h;
-        brk_lane(c, c == DV_KICK && p == 0u ? s : s - p + (h - 1u - p), e);
+    case BK_MIRROR: {                            /* each half of the cycle backwards */
+        uint32_t h = M->half, m = pos < h ? h - 1u - pos : h + (L - 1u - pos);
+        brk_lane(c, c == DV_KICK && pos == 0u ? s : s - pos + m, e);
         break;
     }
-    case BK_TUMBLE: {
-        uint32_t t = n % (2u * spb);
+    case BK_TUMBLE: {                            /* (over about two of its beats) */
+        uint32_t T = M->nb > 2u ? (2u * L + M->nb / 2u) / M->nb : L, t;
+        T = T < 2u ? 2u : T;
+        t = n % T;
         if (c == DV_PERC)
-            brk_hit(e, t == 0u ? 1u : t < spb ? 0u : 2u, t + 1u < 2u * spb, 0);   /* (its loudness falls, not its pitch) */
+            brk_hit(e, t == 0u ? 1u : t < T / 2u ? 0u : 2u, t + 1u < T, 0);   /* (its loudness falls, not its pitch) */
         else if (c == DV_KICK)
             brk_lane(c, s, e);
-        else if (c == DV_SNARE && t + 1u == 2u * spb)
+        else if (c == DV_SNARE && t + 1u == T)
             brk_hit(e, 1, 0, 0);
         else
             e->fire = 0;
         break;
     }
     case BK_INTERLOCK: {
-        uint32_t lo = c == DV_KICK || c == DV_SNARE, half = spb > 1u ? spb / 2u : 1u;
+        uint32_t lo = c == DV_KICK || c == DV_SNARE;
         brk_lane(c, s, e);
         if (c == DV_KICK && pos == 0u)
             break;
-        if ((n < bar ? (pos % spb) / half : (pos / spb) & 1u) == lo)   /* (the low voices the first half of a beat,
-                                                  * the others the second; then whole beats: 1 and 3, 2 and 4) */
+        if ((n < L ? 2u * in >= bl : qb & 1u) == lo)   /* (the low voices the first half of each beat, the others
+                                                  * the second; a cycle on, whole beats: the even ones, the odd) */
             e->fire = 0;
         else if (e->fire)
             e->acc = 1;
         break;
     }
-    case BK_SCATTER:
-        brk_lane(c, bar == 16u ? s - pos + P->ord[pos / 2u & 7u] * 2u + (pos & 1u) : s, e);
+    case BK_SCATTER: {                           /* the cycle's beats (or, with fewer than three, its pairs of steps)
+                                                  * in another order, the first in place */
+        uint32_t byb = M->nb >= 3u, nu = byb ? M->nb : (L + 1u) / 2u, u = byb ? qb : pos / 2u, o = byb ? in : pos & 1u,
+                 k, j = 0, src = u, ss, sl;
+        if (u < 8u && nu > 1u) {                 /* (the drawn order of eight, those within the cycle's units) */
+            uint32_t rank = 0;
+            for (k = 0; k < 8u; k++)
+                if (P->ord[k] < nu && P->ord[k] < 8u) {
+                    if (rank++ == u) {
+                        j = P->ord[k];
+                        break;
+                    }
+                }
+            src = j;
+        }
+        ss = byb ? M->bs[src] : src * 2u;
+        sl = byb ? M->bl[src] : (src * 2u + 1u < L ? 2u : 1u);
+        brk_lane(c, s - pos + ss + (o < sl ? o : sl - 1u), e);
         break;
+    }
     case BK_BUZZ:
         brk_lane(c, s, e);
         if (e->fire && c != DV_KICK)
-            e->rat = (uint8_t)(c == DV_HAT ? (n < bar ? 3u : 4u) : (n < bar ? 2u : 3u));
+            e->rat = (uint8_t)(c == DV_HAT ? (n < L ? 3u : 4u) : (n < L ? 2u : 3u));
         break;
     case BK_GHOSTS:
         brk_lane(c, s, e);
-        if (c == DV_HAT) {
-            static const uint16_t A332 = 0x4949u;   /* (steps 0 3 6 8 11 14) */
+        if (c == DV_HAT) {                       /* (accented 3 3 2 over its cycle, whatever its length) */
+            uint32_t g = 0, k = 0, acc = 0;
+            static const uint8_t G332[3] = {3, 3, 2};
+            while (g < L) {
+                if (g == pos && L - g > 1u)
+                    acc = 1;
+                g += G332[k++ % 3u];
+            }
             if (!e->fire)
                 brk_hit(e, 2, 1, 0);
             else
-                e->acc = (uint8_t)(bar == 16u && (A332 >> pos & 1u));
+                e->acc = (uint8_t)acc;
         } else if (c == DV_SNARE && !e->fire && (pos & 1u) && (brk_rnd() >> 31))
             brk_hit(e, 2, 1, 0);
-        else if (c == DV_KICK && !e->fire && bar == 16u && (pos == 10u || pos == 14u))
+        else if (c == DV_KICK && !e->fire && M->nb > 1u &&
+                 (pos + 2u == M->bs[M->nb - 1u] || pos + 2u == L))   /* (pushing ahead of the last beat, of the
+                                                  * downbeat) */
             brk_hit(e, 0, 1, 0);
         break;
     default:
@@ -234,30 +276,130 @@ static uint32_t brk_spb(uint32_t c)              /* (a lane's steps a beat) */
     uint32_t d2 = DIV2[drm.l[c].div < NDIV ? drm.l[c].div : 4];
     return d2 >= 2u ? d2 / 2u : 1u;
 }
-/* a press: each lane's table, from the step its quantum falls on next; then the ISR is told (brk_id) */
-static void brk_fill(void)
+/* lane c's meter: its cycle cut in beats -- a cycle of whole beats in even beats; any other in groups of half a beat
+ * to a beat and a step long, where its accents and its hits after rests fall most, the fewer steps from a beat's length the better (a 16-step lane in fours, 12 in fours or
+ * threes as its hits say, 7 in 2 + 2 + 3 or 4 + 3, 5 in 2 + 3) */
+static void brk_meter(uint32_t c, brk_meter_t *M)
 {
-    uint32_t c, i, sb = 0, best = 0, bt, l;
-    {                                            /* STUTTER's beat: the busiest of the kick's bar, every voice's hits */
-        uint32_t spb = brk_spb(DV_KICK), st = dlr[DV_KICK].step == 0xFF || drm_reset ? 0u : dlr[DV_KICK].step, b0 = st - st % (4u * spb);
-        for (bt = 0; bt < 4u; bt++) {
-            uint32_t cnt = 0;
-            for (l = 0; l < NDV; l++)
-                for (i = 0; i < spb; i++)
-                    cnt += drm.l[l].hits >> ((b0 + bt * spb + i) % (uint32_t)clampi(drm.l[l].len, 1, (int32_t)DSTEPS)) & 1u;
-            if (cnt >= best) {                   /* (a tie: the later beat, nearer the bar's turn) */
-                best = cnt;
-                sb = bt;
+    const dlane_t *Ln = &drm.l[c];
+    uint32_t L = (uint32_t)clampi(Ln->len, 1, (int32_t)DSTEPS), spb = brk_spb(c), lo = (spb + 1u) / 2u, hi = spb + 1u;
+    int32_t best[DSTEPS + 1];
+    uint8_t from[DSTEPS + 1];
+    uint32_t p, g, k, b;
+    if (lo < 1u)
+        lo = 1u;
+    if (hi < 2u)
+        hi = 2u;
+    best[0] = 0;
+    for (p = 1; p <= L; p++) {                   /* (the best cut of the first p steps, a group ending at p) */
+        best[p] = -1000000;
+        from[p] = 0;
+        for (g = lo; g <= hi && g <= p; g++) {
+            uint32_t q = p - g;
+            int32_t v, d = (int32_t)g - (int32_t)spb;
+            if (best[q] <= -1000000)
+                continue;
+            v = best[q] - 4 * (d < 0 ? -d : d) / (int32_t)spb;   /* (a group off a beat's length: a cost) */
+            if (q)                               /* (a group starting on an accent, on a hit after a rest: a gain --
+                                                  * a lane hit on every step says nothing by its hits) */
+                v += (int32_t)(6u * ((Ln->hits >> q & 1u) && !(Ln->hits >> (q - 1u) & 1u)) + 8u * (Ln->acc >> q & 1u));
+            if (v > best[p]) {
+                best[p] = v;
+                from[p] = (uint8_t)q;
+            }
+        }
+        if (best[p] <= -1000000 && p == L && L < lo) {   /* (a cycle shorter than a group: one group) */
+            best[p] = 0;
+            from[p] = 0;
+        }
+    }
+    if (L % spb == 0u) {                         /* a cycle of whole beats: even beats -- of a beat, or of another
+                                                  * size its onsets plainly keep (3 of 4 group starts on one, 3 of 4 of
+                                                  * them on a group start: a 12-step lane in threes -- unless its beats already begin with them). Off-beat accents
+                                                  * are a lane's syncopation, not its meter */
+        uint32_t g, eg = spb, no = 0, ob = 0;
+        for (p = 0; p < L; p++) {
+            uint32_t o = ((Ln->hits >> p & 1u) && !(Ln->hits >> (p ? p - 1u : L - 1u) & 1u)) || (Ln->acc >> p & 1u);
+            no += o;
+            ob += o && p % spb == 0u;
+        }
+        for (g = lo; g <= hi && 4u * ob < 3u * (L / spb); g++) {   /* (its beats kept if 3 of 4 begin with an onset:
+                                                  * steps between them only fill them in -- even eighths are 4/4) */
+            uint32_t on = 0;
+            if (g == spb || L % g || L / g < 2u)
+                continue;
+            for (p = 0; p < L; p += g)
+                on += ((Ln->hits >> p & 1u) && !(Ln->hits >> (p ? p - 1u : L - 1u) & 1u)) || (Ln->acc >> p & 1u);
+            if (4u * on >= 3u * (L / g) && 4u * on >= 3u * no)
+                eg = g;
+        }
+        for (p = eg; p <= L; p += eg)
+            from[p] = (uint8_t)(p - eg);
+    }
+    {   /* the groups, back from the end */
+        uint8_t st[DSTEPS];
+        uint32_t n = 0;
+        p = L;
+        while (p > 0u && n < DSTEPS) {
+            st[n++] = from[p];
+            p = from[p];
+        }
+        M->L = (uint8_t)L;
+        M->nb = (uint8_t)n;
+        for (b = 0; b < n; b++) {
+            uint32_t s0 = st[n - 1u - b], s1 = b + 1u < n ? st[n - 2u - b] : L;
+            M->bs[b] = (uint8_t)s0;
+            M->bl[b] = (uint8_t)(s1 - s0);
+            for (k = s0; k < s1; k++) {
+                M->bq[k] = (uint8_t)b;
+                M->bo[k] = (uint8_t)(k - s0);
             }
         }
     }
+    {   /* the second half: the beat nearest the middle (one beat: the middle step) */
+        uint32_t h = L / 2u, bd = 99;
+        for (b = 1; b < M->nb; b++) {
+            uint32_t d = M->bs[b] > L / 2u ? M->bs[b] - L / 2u : L / 2u - M->bs[b];
+            if (d < bd) {
+                bd = d;
+                h = M->bs[b];
+            }
+        }
+        M->half = (uint8_t)(h ? h : 1u);
+    }
+}
+/* a press: each lane's meter and table, from the step its quantum falls on next; then the ISR is told (brk_id) */
+static void brk_fill(void)
+{
+    uint32_t c, i;
     for (c = 0; c < NDV; c++) {
-        uint32_t spb = brk_spb(c), q = brk_plan.q == 8u ? 2u * spb : spb, len = (uint32_t)clampi(drm.l[c].len, 1, (int32_t)DSTEPS);
-        uint32_t st = dlr[c].step, a = st == 0xFF || drm_reset ? 0u : (st / q + 1u) * q % len;   /* (from the top: 0) */
+        brk_meter_t *M = &brk_m[c];
+        uint32_t len, st, a, sb = 0, best = 0, b, k;
+        brk_meter(c, M);
+        len = M->L;
+        st = dlr[c].step == 0xFF || drm_reset ? 0xFFu : dlr[c].step % len;
+        if (st == 0xFFu)
+            a = 0;                               /* (from the top: 0) */
+        else {                                   /* its next beat (HALF TIME, MIRROR: its next half cycle) */
+            a = (st + 1u) % len;
+            for (k = 0; k < len; k++, a = (a + 1u) % len)
+                if (brk_plan.q == 8u ? a == 0u || a == M->half : M->bo[a] == 0u)
+                    break;
+        }
+        for (b = 0; b < M->nb; b++) {            /* STUTTER's beat: the lane's busiest (a tie: the later) */
+            uint32_t cnt = 0;
+            for (k = M->bs[b]; k < (uint32_t)M->bs[b] + M->bl[b]; k++)
+                cnt += (drm.l[c].hits >> k & 1u) + (drm.l[c].acc >> k & 1u);
+            if (cnt >= best) {
+                best = cnt;
+                sb = b;
+            }
+        }
         brk_a[c] = (uint8_t)a;
+        brk_lp[c] = (uint8_t)(32u / len * len);
         for (i = 0; i < BRK_TN; i++) {
             dhit_t e;
-            brk_way(c, a, i, spb, sb, &e);
+            brk_way(c, a, i, M, sb, &e);
             brk_tab[c][i] = (uint16_t)(e.fire | (e.acc & 3u) << 1 | (e.alt & 1u) << 3 | (e.rat & 7u) << 4 | (e.flam & 3u) << 7 |
                                        (uint32_t)(clampi(e.pitch, -12, 12) + 12) << 9);
         }
@@ -265,8 +407,8 @@ static void brk_fill(void)
     __asm__ volatile("" ::: "memory");
     brk_id++;
 }
-/* ---- the ISR's: the hit lane c plays on its step s (of len; spb steps a beat) */
-static FAST void brk_step(uint32_t c, uint32_t s, uint32_t len, uint32_t spb, dhit_t *e)
+/* ---- the ISR's: the hit lane c plays on its step s (of len) */
+static FAST void brk_step(uint32_t c, uint32_t s, uint32_t len, dhit_t *e)
 {
     uint32_t i, t;
     if (!brk_hold || !drm.on) {
@@ -278,18 +420,18 @@ static FAST void brk_step(uint32_t c, uint32_t s, uint32_t len, uint32_t spb, dh
         bks[c].id = brk_id;
         bks[c].on = 0;
     }
-    if (!bks[c].on) {
-        if (s % (brk_plan.q == 8u ? 2u * spb : spb)) {
+    if (!bks[c].on) {                            /* (into it on its anchor -- its next beat, by its meter: brk_fill) */
+        i = (s + len - brk_a[c]) % len;          /* (0; 1 if the press fell on the step before it) */
+        if (i > 1u) {
             brk_written(c, s, e);
             return;
         }
         bks[c].on = 1;
-        bks[c].n = (uint16_t)((s + len - brk_a[c]) % len);   /* (0, unless the press fell on the step before it) */
-        if (bks[c].n >= 2u * spb)                /* (not where the table was made for: from its start) */
-            bks[c].n = 0;
+        bks[c].n = (uint16_t)i;
     } else if (bks[c].n < 60000u)
         bks[c].n++;
-    i = bks[c].n < BRK_TN ? bks[c].n : BRK_TN / 2u + (bks[c].n - BRK_TN / 2u) % (BRK_TN / 2u);
+    i = bks[c].n < BRK_TN ? bks[c].n : BRK_TN - brk_lp[c] + (bks[c].n - BRK_TN) % brk_lp[c];   /* (the last whole
+                                                  * cycles again and again: in step with the lane) */
     t = brk_tab[c][i];
     e->fire = (uint8_t)(t & 1u);
     e->acc = (uint8_t)(t >> 1 & 3u);
